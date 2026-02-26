@@ -1,3 +1,22 @@
+# Virtual environment
 venv/
+
+# YOLO output runs
 runs/
+
+# Images generated during attacks
 *.jpg
+*.png
+
+# Python cache
+__pycache__/
+*.pyc
+
+# macOS junk
+.DS_Store
+
+# Logs
+*.log
+
+# VS Code settings (optional)
+.vscode/
