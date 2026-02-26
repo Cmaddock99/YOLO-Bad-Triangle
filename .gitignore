@@ -26,7 +26,7 @@ blur_*.jpg
 # Model weights (optional)
 # Uncomment if you DON'T want to track weights
  *.pt
-# *.pth
+ *.pth
 
 # -------------------------
 # macOS
