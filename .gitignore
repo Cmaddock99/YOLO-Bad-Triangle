@@ -5,6 +5,9 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.pt
+*.zip
+*.cache
 
 # Virtual environments
 venv/
@@ -14,6 +17,11 @@ venv/
 
 # =========================
 # Dataset
+coco/
+runs/
+results/
+attack_results/
+baseline_results/
 # =========================
 # Ignore generated YOLO labels only
 coco/val2017_subset500/labels/
