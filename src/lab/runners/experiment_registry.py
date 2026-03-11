@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import yaml
+from lab.models.model_utils import model_label_from_path, normalize_model_path
 
 
 def _parse_scalar(value: str) -> Any:
@@ -92,7 +92,7 @@ class ExperimentRegistry:
     def resolve(self, overrides: dict[str, Any]) -> ResolvedExperiment:
         cfg = deepcopy(self.config)
         defaults = cfg.get("defaults", {})
-        model_alias = str(overrides.get("model", defaults.get("model", "yolo11")))
+        model_alias = str(overrides.get("model", defaults.get("model", "yolo8")))
         dataset_alias = str(overrides.get("dataset", defaults.get("dataset", "coco_subset")))
         attack_alias = str(overrides.get("attack", defaults.get("attack", "none")))
         defense_alias = str(overrides.get("defense", defaults.get("defense", "none")))
@@ -101,8 +101,6 @@ class ExperimentRegistry:
         datasets = cfg.get("datasets", {})
         attacks = cfg.get("attacks", {})
         defenses = cfg.get("defenses", {})
-        if model_alias not in models:
-            raise ValueError(f"Unknown model '{model_alias}'. Available: {sorted(models)}")
         if dataset_alias not in datasets:
             raise ValueError(f"Unknown dataset '{dataset_alias}'. Available: {sorted(datasets)}")
         if attack_alias not in attacks:
@@ -110,8 +108,23 @@ class ExperimentRegistry:
         if defense_alias not in defenses:
             raise ValueError(f"Unknown defense '{defense_alias}'. Available: {sorted(defenses)}")
 
-        model_entry = models[model_alias]
-        model_path = model_entry["path"] if isinstance(model_entry, dict) else model_entry
+        if model_alias in models:
+            model_entry = models[model_alias]
+            if isinstance(model_entry, dict):
+                model_path = normalize_model_path(
+                    str(model_entry.get("path") or model_entry.get("name") or "")
+                )
+                model_name = str(model_entry.get("name", model_alias))
+                model_label = str(model_entry.get("label") or model_label_from_path(model_path))
+            else:
+                model_path = normalize_model_path(str(model_entry))
+                model_name = model_alias
+                model_label = model_label_from_path(model_path)
+        else:
+            model_path = normalize_model_path(model_alias)
+            model_name = Path(model_path).stem
+            model_label = model_label_from_path(model_path)
+
         dataset_entry = datasets[dataset_alias]
         if not isinstance(dataset_entry, dict):
             raise ValueError(f"Dataset '{dataset_alias}' must define data_yaml and image_dir.")
@@ -151,19 +164,27 @@ class ExperimentRegistry:
             confs = _coerce_float_list(runner_cfg.get("confs", [0.5]))
 
         run_validation = bool(overrides.get("validate", runner_cfg.get("run_validation", False)))
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        run_id = str(overrides.get("run_id", timestamp))
-        run_name = str(
-            overrides.get(
-                "run_name",
-                f"{run_id}_{dataset_alias}_{model_alias}_{attack_alias}_{defense_alias}",
+        default_run_name = (
+            "baseline"
+            if attack_alias == "none" and defense_alias == "none"
+            else (
+                f"{attack_alias}_attack"
+                if defense_alias == "none"
+                else f"{attack_alias}_attack_with_{defense_alias}_defense"
             )
         )
-        if "{conf_token}" not in run_name:
+        run_id = overrides.get("run_id")
+        if "run_name" in overrides:
+            run_name = str(overrides["run_name"])
+        elif run_id is not None:
+            run_name = f"{run_id}_{default_run_name}"
+        else:
+            run_name = default_run_name
+        if "{conf_token}" not in run_name and len(confs) > 1:
             run_name = f"{run_name}_conf{{conf_token}}"
 
-        output_root = Path(str(runner_cfg.get("output_root", "outputs/experiments")))
-        organized_output_root = output_root / dataset_alias / model_alias
+        output_root = Path(str(runner_cfg.get("output_root", "outputs")))
+        organized_output_root = output_root
 
         exp_cfg = {
             "name": run_name,
@@ -177,7 +198,7 @@ class ExperimentRegistry:
             "run_validation": run_validation,
         }
         resolved_runner = {
-            "model": {"path": str(model_path)},
+            "model": {"path": str(model_path), "name": model_name, "label": model_label},
             "data": {
                 "data_yaml": str(dataset_entry["data_yaml"]),
                 "image_dir": str(dataset_entry["image_dir"]),
@@ -196,7 +217,8 @@ class ExperimentRegistry:
         return ResolvedExperiment(
             runner_config=resolved_runner,
             summary={
-                "model": model_alias,
+                "model": model_name,
+                "model_label": model_label,
                 "dataset": dataset_alias,
                 "attack": attack_alias,
                 "defense": defense_alias,

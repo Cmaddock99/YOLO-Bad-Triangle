@@ -15,17 +15,18 @@ USAGE = """\
 One-command experiment lab
 
 Usage:
-  python run_experiment.py attack=blur model=yolo11 dataset=coco_subset
+  python run_experiment.py attack=blur model=yolo11n dataset=coco_subset
   python run_experiment.py attack=deepfool defense=denoise
 
 Optional overrides:
   config=configs/experiment_lab.yaml
+  model=yolov8n|yolo11n|yolo11s|yolo11s.pt
   conf=0.5               # single threshold
   conf=0.25,0.5,0.75     # multiple thresholds
   iou=0.7 imgsz=640 seed=42
   run_name=my_run run_id=20260311
   attack.kernel_size=11 defense.h=12
-  output_root=outputs/experiments
+  output_root=outputs
   validate=true dry_run=true
 """
 

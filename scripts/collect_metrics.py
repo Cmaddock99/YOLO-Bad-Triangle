@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--imgsz", required=True)
     parser.add_argument("--seed", required=True)
     parser.add_argument("--defense", default="none")
+    parser.add_argument("--model", default="yolo8")
     parser.add_argument("--output_root", default="results")
     args = parser.parse_args()
 
@@ -28,6 +29,7 @@ def main() -> None:
         run_dir=Path(args.output_root) / args.run_name,
         csv_path=csv_path,
         run_name=args.run_name,
+        model=args.model,
         attack=args.attack,
         defense=args.defense,
         conf=float(args.conf),
