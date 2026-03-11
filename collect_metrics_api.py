@@ -19,6 +19,7 @@ def main() -> None:
     parser.add_argument("--iou", required=True)
     parser.add_argument("--imgsz", required=True)
     parser.add_argument("--seed", required=True)
+    parser.add_argument("--model", default="yolo8")
     parser.add_argument("--output_root", default="results")
     parser.add_argument("--date", default=None)
     parser.add_argument("--commit", default=None)
@@ -30,6 +31,7 @@ def main() -> None:
         run_dir=Path(args.output_root) / args.run_name,
         csv_path=Path(args.output_root) / "metrics_summary.csv",
         run_name=args.run_name,
+        model=args.model,
         attack=args.attack,
         defense="none",
         conf=float(args.conf),

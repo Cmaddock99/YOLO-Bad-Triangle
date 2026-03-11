@@ -1,14 +1,28 @@
 defaults:
-  model: yolo11
+  model: yolo8
   dataset: coco_subset
   attack: none
   defense: none
 
 models:
-  yolo11:
+  yolo8:
     path: yolov8n.pt
+    label: yolo8
   yolo8n:
     path: yolov8n.pt
+    label: yolo8
+  yolov8n:
+    path: yolov8n.pt
+    label: yolo8
+  yolo11:
+    path: yolo11n.pt
+    label: yolo11
+  yolo11n:
+    path: yolo11n.pt
+    label: yolo11
+  yolo11s:
+    path: yolo11s.pt
+    label: yolo11
 
 datasets:
   coco_subset:
@@ -20,7 +34,7 @@ runner:
   iou: 0.7
   imgsz: 640
   seed: 42
-  output_root: outputs/experiments
+  output_root: outputs
   metrics_csv: metrics_summary.csv
   run_validation: false
 
