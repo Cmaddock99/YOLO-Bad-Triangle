@@ -34,6 +34,8 @@ results/
 logs/
 attack_results/
 baseline_results/
+outputs/*
+!outputs/.gitkeep
 *.log
 
 # =========================

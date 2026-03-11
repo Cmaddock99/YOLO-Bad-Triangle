@@ -1,19 +1,36 @@
-import cv2
-from ultralytics import YOLO
+from __future__ import annotations
 
-model = YOLO("yolov8n.pt")
+import shutil
+import sys
+from pathlib import Path
 
-img = cv2.imread("bus.jpg")
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 
-for kernel in [3, 7, 11, 15, 21, 31]:
-    blurred = cv2.GaussianBlur(img, (kernel, kernel), 0)
-    temp_path = f"blur_{kernel}.jpg"
-    cv2.imwrite(temp_path, blurred)
+from lab.attacks.blur import GaussianBlurAttack
+from lab.models import YOLOModel
 
-    print(f"\n=== Kernel Size: {kernel} ===")
 
-    results = model(temp_path)
+def main() -> None:
+    source_dir = ROOT / "coco" / "val2017_subset500" / "images"
+    temp_root = ROOT / "outputs" / "_kernel_sweep"
+    if temp_root.exists():
+        shutil.rmtree(temp_root)
 
-    for r in results:
-        for box in r.boxes:
-            print(f"Class: {int(box.cls)} | Confidence: {float(box.conf):.4f}")
+    model = YOLOModel(str(ROOT / "yolov8n.pt"))
+    for kernel in [3, 7, 11, 15, 21, 31]:
+        attack = GaussianBlurAttack(kernel_size=kernel)
+        attacked = attack.apply(source_dir, temp_root / f"blur_k{kernel}")
+        image_candidates = sorted(attacked.glob("*.jpg"))
+        if not image_candidates:
+            continue
+
+        print(f"\n=== Kernel Size: {kernel} ===")
+        results = model.predict(source=str(image_candidates[0]))
+        for result in results:
+            for box in result.boxes:
+                print(f"Class: {int(box.cls)} | Confidence: {float(box.conf):.4f}")
+
+
+if __name__ == "__main__":
+    main()
