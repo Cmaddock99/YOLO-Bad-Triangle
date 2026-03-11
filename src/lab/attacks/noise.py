@@ -6,11 +6,12 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .base import Attack
+from .base import Attack, register_attack
 from .utils import iter_images
 
 
 @dataclass
+@register_attack("gaussian_noise", "noise")
 class GaussianNoiseAttack(Attack):
     stddev: float = 12.0
     name: str = "gaussian_noise"

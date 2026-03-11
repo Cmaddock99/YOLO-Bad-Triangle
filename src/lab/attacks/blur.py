@@ -5,11 +5,12 @@ from pathlib import Path
 
 import cv2
 
-from .base import Attack
+from .base import Attack, register_attack
 from .utils import iter_images
 
 
 @dataclass
+@register_attack("blur", "gaussian_blur")
 class GaussianBlurAttack(Attack):
     kernel_size: int = 9
     name: str = "blur"
