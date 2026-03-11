@@ -1,65 +1,34 @@
-# =========================
 # Python
-# =========================
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-*.pt
-*.zip
-*.cache
+.ipynb_checkpoints/
 
 # Virtual environments
-venv/
 .venv/
-.env/
-.envrc
+venv/
 
-# =========================
-# Dataset
-coco/
+# Experiment outputs
+outputs/
 runs/
-results/
-attack_results/
-baseline_results/
-# =========================
-# Ignore generated YOLO labels only
-coco/val2017_subset500/labels/
-
-# =========================
-# YOLO / ML Outputs
-# =========================
-runs/
-results/
 logs/
-attack_results/
-baseline_results/
-outputs/*
-!outputs/.gitkeep
-*.log
-
-# =========================
-# Generated Attack Images
-# =========================
+results/
 attacks/*/images/
 
-# =========================
-# Model Weights (optional)
-# Uncomment if you do NOT want weights tracked
-# *.pt
-# *.pth
+# Model artifacts
+*.pt
+*.pth
 
-# =========================
-# macOS
-# =========================
+# Datasets
+coco/
+datasets/
+
+# OS files
 .DS_Store
+Thumbs.db
 
-# =========================
-# VS Code
-# =========================
-.vscode/
-
-# =========================
-# Jupyter
-# =========================
-.ipynb_checkpoints/
+# Keep example configs and scripts tracked
+!configs/examples/
+!configs/examples/**
+!scripts/examples/
+!scripts/examples/**
