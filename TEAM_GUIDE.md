@@ -1,297 +1,308 @@
-# Team Guide: Adversarial YOLO Experiment Lab
+# Team Guide (Beginner + Technical): YOLO Robustness Experiment Lab
 
-This guide explains what the project does, how to run it, and what every current function/class is responsible for.
+This document is written for both:
+- people new to ML/engineering workflows, and
+- engineers who need implementation details.
 
-## 1) What this project is
+If you only read one section, read **Section 3: 10-minute Quick Start**.
 
-This repository is a modular experiment framework for object detection robustness testing with YOLO.
+## 1) What this project does (plain English)
 
-The run lifecycle is:
-1. Resolve experiment settings from YAML + CLI overrides.
-2. Optionally generate attacked images.
-3. Optionally apply a defense preprocessor.
-4. Run YOLO prediction (and optional validation).
-5. Aggregate metrics into a CSV.
+This project helps you answer:
 
-Primary package: `src/lab`.
+**“How does YOLO object detection performance change when images are attacked and then optionally defended?”**
 
-## 2) Repository map (current state)
+In each run, the framework:
+1. chooses a model + dataset + settings,
+2. optionally distorts images with an **attack**,
+3. optionally cleans images with a **defense**,
+4. runs YOLO prediction (and optional validation),
+5. writes results and summary metrics.
 
-- `src/lab/attacks`: Attack interface + attack implementations + registry loader.
-- `src/lab/defenses`: Defense interface + defense implementations + registry loader.
-- `src/lab/models`: `YOLOModel` wrapper around Ultralytics YOLO.
-- `src/lab/runners`: Experiment orchestration and registry/config resolver.
-- `src/lab/eval`: Metrics parsing and CSV appending.
-- `configs/`: YAML configs for modular and alias-based experiment execution.
-- `scripts/`: CLI wrappers for framework run, metrics append, and dataset conversion.
-- `run_experiment.py`: One-command alias-based entrypoint.
-- `run_experiment_api.py`, `collect_metrics_api.py`: Compatibility/API-style wrappers.
-- `baseline/` and `attacks/`: Legacy/demo entry scripts built on the same core package.
+Core code lives in `src/lab`.
 
-## 3) Prerequisites and environment
+## 2) Key terms (quick glossary)
 
-## Python and deps
+- **Model**: the YOLO weights file (default: `yolov8n.pt`).
+- **Dataset**: images + labels config (default points to COCO subset).
+- **Attack**: a transformation that makes images harder (blur, noise, deepfool-like).
+- **Defense**: a preprocessing step intended to recover signal (median blur, denoise).
+- **Confidence threshold (`conf`)**: minimum score for predicted boxes.
+- **IoU threshold (`iou`)**: overlap threshold used in NMS/evaluation logic.
+- **Validation**: optional mAP/precision/recall scoring pass.
+- **Run**: one full experiment execution with one configuration.
 
-- Use the project virtual environment when available:
-  - `./.venv/bin/python --version`
-- Install deps (if needed):
-  - `./.venv/bin/pip install -r requirements.txt`
+## 3) 10-minute quick start (recommended path)
 
-Why `.venv` matters: some entrypoints import `ultralytics` at module import time, so system `python3` without installed deps will fail.
+## Step 0: Use the project environment
 
-## Expected assets
+Use the repo virtual environment to avoid missing package issues:
 
-- Model weights expected by default:
-  - `yolov8n.pt`
-- Dataset expected by default:
-  - `coco/val2017_subset500/images`
-  - `configs/coco_subset500.yaml`
+- `./.venv/bin/python --version`
+- `./.venv/bin/pip install -r requirements.txt` (if needed)
 
-## 4) How to run the project
+## Step 1: Verify configuration without heavy compute
 
-## A. One-command lab flow (recommended)
+Dry run resolves config only:
 
-Entrypoint: `run_experiment.py`
+- `python3 run_experiment.py dry_run=true`
 
-Example:
-- `python3 run_experiment.py attack=blur model=yolo11 dataset=coco_subset conf=0.25,0.5`
+You should see a resolved summary and runner config.
 
-Dry-run only (no model inference, prints resolved config):
-- `python3 run_experiment.py attack=deepfool defense=denoise dry_run=true`
+## Step 2: Run a small test experiment
+
+- `./.venv/bin/python run_experiment.py attack=blur conf=0.25`
+
+## Step 3: Check outputs
+
+Look at:
+- output run folder under `outputs/experiments/...`
+- `metrics_summary.csv` in that output root
+- `val/metrics.json` if validation was enabled
+
+That is enough to prove your environment and workflow are working.
+
+## 4) Which command should I use?
+
+Use this table:
+
+- **I want the simplest command**  
+  Use: `run_experiment.py`
+
+- **I want to run a predefined multi-experiment YAML**  
+  Use: `scripts/run_framework.py --config <yaml>`
+
+- **I need explicit CLI args from another script/tool**  
+  Use: `run_experiment_api.py`
+
+- **I already ran inference and only want to append metrics**  
+  Use: `scripts/collect_metrics.py` or `collect_metrics_api.py`
+
+- **I need old/demo examples**  
+  Use files in `baseline/` and `attacks/`
+
+## 5) Typical usage examples
+
+## A) One-command run (best default)
+
+- `./.venv/bin/python run_experiment.py attack=deepfool defense=denoise conf=0.25,0.5`
 
 Useful overrides:
-- `config=configs/experiment_lab.yaml`
-- `run_name=my_run run_id=20260311`
-- `attack.kernel_size=11 defense.h=12`
+- `model=yolo11 dataset=coco_subset`
+- `attack.kernel_size=11`
+- `defense.h=12`
 - `iou=0.7 imgsz=640 seed=42`
 - `validate=true`
 - `output_root=outputs/experiments`
 
-How it works:
-1. Parses `key=value` tokens.
-2. Resolves aliases and parameters with `ExperimentRegistry`.
-3. Builds `ExperimentRunner`.
-4. Executes attack -> defense -> prediction -> metrics append.
+## B) Modular YAML runner
 
-## B. YAML modular flow
-
-Entrypoint: `scripts/run_framework.py` (delegates to `lab.runners.cli.main`)
-
-Example:
 - `./.venv/bin/python scripts/run_framework.py --config configs/modular_experiments.yaml`
 - `./.venv/bin/python scripts/run_framework.py --config configs/modular_experiments.yaml --confs 0.25,0.5 --output_root outputs/custom`
 
-## C. API/compat wrappers
+## C) API/compat wrappers
 
-- `run_experiment_api.py`: CLI wrapper that builds one `ExperimentRunner` config from explicit args.
-- `collect_metrics_api.py`: appends metrics for an already-completed run.
-- `scripts/collect_metrics.py`: same purpose as above with explicit `--defense`.
-- `scripts/run_experiment.py`: runs `configs/baseline_blur_compat.yaml`.
+- `./.venv/bin/python run_experiment_api.py --help`
+- `./.venv/bin/python scripts/collect_metrics.py --help`
 
-## D. Legacy/demo scripts
+## 6) What happens inside one run?
 
-- `baseline/run_baseline.py`: one baseline run (`none` attack/defense).
-- `baseline/baseline_inference.py`: predicts on `bus.jpg`.
-- `attacks/run_confidence_attack.py`: blur attack run example.
-- `attacks/confidence_supression.py`: kernel sweep sample for blur confidence effects.
+Pipeline:
 
-## 5) Config system
+`CLI/YAML settings -> registry resolution -> runner build -> attack apply -> defense apply -> YOLO predict/validate -> metrics append`
 
-## Alias config (`configs/experiment_lab.yaml`)
+More detail:
+1. `ExperimentRegistry` resolves aliases and merges overrides.
+2. `ExperimentRunner` creates a run name and output paths.
+3. Attack module transforms source images (or passes through).
+4. Defense module transforms attacked images (or passes through).
+5. `YOLOModel` runs prediction and optional validation.
+6. `append_run_metrics` parses labels/metrics and appends a CSV row.
 
-Defines:
-- `defaults` for model/dataset/attack/defense.
-- `models`, `datasets` aliases.
-- attack and defense aliases with module names + default params.
-- runner defaults (`confs`, `iou`, `imgsz`, `seed`, output settings).
-
-Used by:
-- `run_experiment.py` + `ExperimentRegistry`.
-
-## Direct modular configs
-
-- `configs/modular_experiments.yaml`: multi-experiment batch examples (baseline, blur, blur+median, noise).
-- `configs/baseline_blur_compat.yaml`: compatibility-style runs.
-
-## Dataset yaml
-
-- `configs/coco_subset500.yaml`: dataset root and class names.
-
-## 6) Output structure and artifacts
+## 7) Output files and how to read them
 
 Common outputs:
-- Run directories under configured `output_root`.
-- YOLO prediction outputs (images + labels + confidences).
-- Optional validation metrics at `run_dir/val/metrics.json`.
-- Metrics table at `output_root/metrics_summary.csv`.
-- Intermediate transformed images under:
-  - `output_root/_intermediates/<run_name>/attacked`
-  - `output_root/_intermediates/<run_name>/defended`
+- `output_root/<run_name>/...` (prediction outputs)
+- `output_root/_intermediates/<run_name>/attacked/...`
+- `output_root/_intermediates/<run_name>/defended/...`
+- `output_root/metrics_summary.csv` (one row per run)
+- `output_root/<run_name>/val/metrics.json` (if validation is on)
 
-## 7) Complete function/class index (current code)
+In `metrics_summary.csv`, important columns include:
+- `attack`, `defense`, `conf`, `iou`, `imgsz`, `seed`
+- `images_with_detections`, `total_detections`
+- `avg_conf`, `median_conf`, `p25_conf`, `p75_conf`
+- `precision`, `recall`, `mAP50`, `mAP50-95`
 
-Below is every current top-level function/class and its role.
+## 8) Project layout (quick map)
 
-## Root/API scripts
+- `src/lab/attacks`: attack interface + attack implementations
+- `src/lab/defenses`: defense interface + defense implementations
+- `src/lab/models`: YOLO wrapper
+- `src/lab/runners`: registry + experiment orchestration
+- `src/lab/eval`: metrics parsing/writing
+- `configs/`: dataset and experiment YAMLs
+- `scripts/`: helper CLIs
+- root scripts: `run_experiment.py`, `run_experiment_api.py`, `collect_metrics_api.py`
+
+## 9) Known gotchas (important)
+
+- If you see `ModuleNotFoundError: ultralytics`, use `./.venv/bin/python ...`.
+- Explicit `attack=none` (or `defense=none`) in `run_experiment.py` currently fails in parser logic.  
+  Workaround: omit those keys and let defaults handle `none`.
+- Missing/empty metrics usually means no label files were produced in the run output.
+- Validation metrics only appear when validation is enabled (`validate=true` or `run_validation: true`).
+
+## 10) How to extend the framework (developer notes)
+
+## Add a new attack
+
+1. Create a class in `src/lab/attacks/` that subclasses `Attack`.
+2. Implement `apply(source_dir, output_dir, seed=...)`.
+3. Register it with `@register_attack("your_name", "alias2")`.
+4. Add alias/config defaults in `configs/experiment_lab.yaml` under `attacks`.
+5. Run with `attack=your_name`.
+
+## Add a new defense
+
+1. Create a class in `src/lab/defenses/` that subclasses `Defense`.
+2. Implement `apply(source_dir, output_dir, seed=...)`.
+3. Register it with `@register_defense("your_name", "alias2")`.
+4. Add alias/config defaults in `configs/experiment_lab.yaml` under `defenses`.
+5. Run with `defense=your_name`.
+
+## Add a new model/dataset alias
+
+Edit `configs/experiment_lab.yaml`:
+- add entry under `models` or `datasets`,
+- then call it using `model=<alias>` or `dataset=<alias>`.
+
+## 11) Full function and class reference (current code)
+
+This is the full callable index as of now.
+
+## Root scripts
 
 - `run_experiment.py`
-  - `main()`: parse key-value overrides, resolve registry config, optionally dry-run, execute runner.
+  - `main()`: parse key/value overrides, resolve aliases, optionally dry-run, run experiments.
 - `run_experiment_api.py`
-  - `main()`: parse explicit CLI args, map to runner config, execute single experiment.
+  - `main()`: explicit CLI wrapper that builds a one-experiment config.
 - `collect_metrics_api.py`
-  - `main()`: append metrics row for a completed run.
+  - `main()`: append one run’s metrics to CSV.
 
 ## `scripts/`
 
 - `scripts/run_framework.py`
-  - no top-level function; imports and runs `lab.runners.cli.main`.
+  - no top-level function (imports and runs `lab.runners.cli.main`).
 - `scripts/run_experiment.py`
-  - `main()`: run compatibility config `baseline_blur_compat.yaml`.
+  - `main()`: run compatibility YAML (`configs/baseline_blur_compat.yaml`).
 - `scripts/collect_metrics.py`
-  - `main()`: append metrics row with explicit CLI params.
+  - `main()`: append metrics from a run dir into CSV.
 - `scripts/convert_coco_to_yolo.py`
-  - script-style module (no function): converts COCO JSON boxes into YOLO label `.txt` files.
+  - script-style converter (no function) from COCO JSON boxes to YOLO labels.
 
 ## `src/lab/attacks/`
 
 - `base.py`
-  - `class Attack`: abstract `apply(...)` interface.
-  - `register_attack(*names)`: decorator to register attack class names.
-  - `get_attack_class(name)`: lookup from registry.
-  - `list_registered_attacks()`: sorted registry keys.
+  - `class Attack`: abstract `apply(...)`.
+  - `register_attack(*names)`: registry decorator.
+  - `get_attack_class(name)`: lookup by key.
+  - `list_registered_attacks()`: list keys.
 - `registry.py`
-  - `_load_builtin_attacks()`: lazy-imports attack modules to trigger decorators.
-  - `build_attack(name, params=None)`: instantiate registered attack by name.
+  - `_load_builtin_attacks()`: lazy-load modules to register implementations.
+  - `build_attack(name, params=None)`: construct attack instance.
 - `utils.py`
-  - `iter_images(source_dir)`: recursively yields supported image files.
+  - `iter_images(source_dir)`: recursively yield supported image files.
 - `none.py`
   - `class NoAttack(Attack).apply(...)`: identity pass-through.
 - `blur.py`
   - `class GaussianBlurAttack(Attack)`
-    - `__post_init__()`: validates odd kernel size >= 3.
-    - `apply(...)`: writes Gaussian-blurred image copies.
+    - `__post_init__()`: validates kernel.
+    - `apply(...)`: Gaussian blur transform.
 - `noise.py`
-  - `class GaussianNoiseAttack(Attack).apply(...)`: adds seeded Gaussian noise per pixel.
+  - `class GaussianNoiseAttack(Attack).apply(...)`: Gaussian noise transform.
 - `deepfool.py`
   - `class DeepFoolAttack(Attack)`
-    - `__post_init__()`: validates `steps` and `epsilon`.
+    - `__post_init__()`: validates epsilon/steps.
     - `apply(...)`: iterative gradient-style perturbation approximation.
 
 ## `src/lab/defenses/`
 
 - `base.py`
-  - `class Defense`: abstract `apply(...)` interface.
-  - `register_defense(*names)`: decorator to register defense class names.
-  - `get_defense_class(name)`: lookup from registry.
-  - `list_registered_defenses()`: sorted registry keys.
+  - `class Defense`: abstract `apply(...)`.
+  - `register_defense(*names)`: registry decorator.
+  - `get_defense_class(name)`: lookup by key.
+  - `list_registered_defenses()`: list keys.
 - `registry.py`
-  - `_load_builtin_defenses()`: lazy-import defense modules.
-  - `build_defense(name, params=None)`: instantiate registered defense by name.
+  - `_load_builtin_defenses()`: lazy-load defense modules.
+  - `build_defense(name, params=None)`: construct defense instance.
 - `none.py`
   - `class NoDefense(Defense).apply(...)`: identity pass-through.
 - `median_blur.py`
   - `class MedianBlurDefense(Defense)`
-    - `__post_init__()`: validates odd kernel size >= 3.
-    - `apply(...)`: applies median blur defense.
+    - `__post_init__()`: validates kernel.
+    - `apply(...)`: median blur defense.
 - `denoise.py`
-  - `class DenoiseDefense(Defense).apply(...)`: applies OpenCV NLM color denoise.
+  - `class DenoiseDefense(Defense).apply(...)`: OpenCV NLM denoise defense.
 
 ## `src/lab/models/`
 
 - `yolo_model.py`
   - `class YOLOModel`
-    - `__post_init__()`: loads Ultralytics model from `model_path`.
-    - `predict(**kwargs)`: forwards to `YOLO.predict`.
-    - `validate(**kwargs)`: forwards to `YOLO.val`.
+    - `__post_init__()`: loads Ultralytics model.
+    - `predict(**kwargs)`: runs prediction.
+    - `validate(**kwargs)`: runs validation.
 
 ## `src/lab/eval/`
 
 - `metrics.py`
-  - `_git_metadata()`: best-effort commit/branch lookup.
-  - `_read_json(path)`: safe JSON reader.
+  - `_git_metadata()`: reads git commit/branch metadata.
+  - `_read_json(path)`: safe JSON load.
   - `_find_label_files(run_dir)`: locate YOLO label text files.
-  - `_parse_detection_stats(run_dir)`: aggregate detection counts and confidence stats.
-  - `_read_val_metrics(run_dir)`: read precision/recall/mAP from metrics JSON.
-  - `append_run_metrics(...)`: build and append CSV row for one run.
+  - `_parse_detection_stats(run_dir)`: compute detection count/confidence stats.
+  - `_read_val_metrics(run_dir)`: parse validation metrics JSON.
+  - `append_run_metrics(...)`: append run metrics row to CSV.
 
 ## `src/lab/runners/`
 
 - `cli.py`
-  - `main()`: argparse wrapper to run modular config with optional overrides.
+  - `main()`: argparse entrypoint for modular YAML runs.
 - `experiment_registry.py`
-  - `_parse_scalar(value)`: parse bool/none/int/float/string.
-  - `parse_key_value_overrides(tokens)`: parse `key=value` CLI tokens.
-  - `_prefixed(overrides, prefix)`: extract prefix-scoped override dict.
-  - `_coerce_float_list(value)`: normalize scalar/list into float list.
-  - `_merge_dict(base, extra)`: recursive dict merge.
-  - `class ResolvedExperiment`: data container (`runner_config`, `summary`).
+  - `_parse_scalar(value)`: scalar parser for CLI tokens.
+  - `parse_key_value_overrides(tokens)`: parse `key=value` tokens.
+  - `_prefixed(overrides, prefix)`: extract namespaced overrides.
+  - `_coerce_float_list(value)`: normalize to float list.
+  - `_merge_dict(base, extra)`: recursive merge utility.
+  - `class ResolvedExperiment`: container with `runner_config` and summary.
   - `class ExperimentRegistry`
-    - `from_yaml(path)`: load registry config.
-    - `resolve(overrides)`: resolve aliases + overrides into runnable config.
+    - `from_yaml(path)`: load alias config.
+    - `resolve(overrides)`: produce executable runner config.
 - `experiment_runner.py`
-  - `class ExperimentSpec`: experiment declaration data model.
+  - `class ExperimentSpec`: per-experiment spec object.
   - `class ExperimentRunner`
-    - `from_yaml(config_path)`: load runner config from YAML.
-    - `from_dict(config)`: construct validated runner from dict.
-    - `_conf_token(conf)`: convert confidence to `NNN` token.
-    - `_run_name_for(spec, conf)`: render `run_name_template`.
-    - `_write_val_metrics(run_dir, validation_results)`: persist validation summary JSON.
-    - `_prepare_source(spec, run_name)`: apply attack then defense into intermediate dirs.
-    - `run()`: full execution loop and metrics append.
+    - `from_yaml(config_path)`: build runner from YAML.
+    - `from_dict(config)`: build runner from dict.
+    - `_conf_token(conf)`: convert confidence to short token.
+    - `_run_name_for(spec, conf)`: render run name template.
+    - `_write_val_metrics(run_dir, validation_results)`: write validation summary.
+    - `_prepare_source(spec, run_name)`: run attack+defense preprocessing.
+    - `run()`: execute all configured runs and append metrics.
 
-## Baseline/attack demo scripts
+## Legacy/demo scripts
 
 - `baseline/baseline_inference.py`
-  - `main()`: quick single-image YOLO inference demo.
+  - `main()`: quick prediction demo.
 - `baseline/run_baseline.py`
-  - `main()`: baseline experiment run.
+  - `main()`: baseline run (`none` attack/defense).
 - `attacks/run_confidence_attack.py`
-  - `main()`: one blur attack experiment run.
+  - `main()`: blur attack experiment example.
 - `attacks/confidence_supression.py`
-  - `main()`: blur-kernel sweep and sample confidence prints.
+  - `main()`: blur kernel sweep sample.
 
-## 8) How to extend the framework
+## 12) Recommended team workflow
 
-## Add a new attack
-
-1. Create file under `src/lab/attacks/`, subclass `Attack`, implement `apply`.
-2. Decorate class with `@register_attack("new_name", "...aliases...")`.
-3. Add alias entry to `configs/experiment_lab.yaml` under `attacks`.
-4. Reference with `attack=new_name` in `run_experiment.py`.
-
-## Add a new defense
-
-1. Create file under `src/lab/defenses/`, subclass `Defense`, implement `apply`.
-2. Decorate class with `@register_defense("new_name", "...aliases...")`.
-3. Add alias entry under `defenses` in `configs/experiment_lab.yaml`.
-4. Run with `defense=new_name`.
-
-## Add a new dataset/model alias
-
-- Add to `datasets:` or `models:` in `configs/experiment_lab.yaml`.
-- Use via `dataset=<alias>` and `model=<alias>`.
-
-## 9) Troubleshooting
-
-- `ModuleNotFoundError: ultralytics`
-  - Use `./.venv/bin/python ...` or install deps into your active interpreter.
-- Empty/partial metrics
-  - Ensure YOLO label outputs exist under run folder (`labels/*.txt` or `predict/labels/*.txt`).
-- Validation metrics missing
-  - Set `validate=true` in one-command flow, or `run_validation: true` in experiment spec.
-- One-command alias `none` passed explicitly fails (for example `attack=none`)
-  - Current parser converts `none` to null; rely on defaults by omitting the override.
-- Unexpected run name
-  - `run_name` automatically gets `_conf{conf_token}` suffix if not already present.
-
-## 10) Recommended daily workflow for teammates
-
-1. Activate/use `.venv`.
-2. Start with dry-run:
-   - `python3 run_experiment.py dry_run=true`
-3. Run a small single-conf experiment:
-   - `./.venv/bin/python run_experiment.py attack=blur conf=0.25`
-4. Inspect:
-   - run folder outputs
-   - `metrics_summary.csv`
-5. Iterate with parameter overrides (`attack.*`, `defense.*`, `imgsz`, `iou`, `seed`, `confs`).
+1. Use `.venv`.
+2. Run `python3 run_experiment.py dry_run=true`.
+3. Run a small experiment (`attack=blur conf=0.25`).
+4. Review `metrics_summary.csv`.
+5. Iterate on attack/defense and thresholds.
