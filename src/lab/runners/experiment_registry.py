@@ -28,6 +28,7 @@ def _parse_scalar(value: str) -> Any:
 
 def parse_key_value_overrides(tokens: list[str]) -> dict[str, Any]:
     overrides: dict[str, Any] = {}
+    force_string_keys = {"attack", "defense", "model", "dataset", "run_name", "run_id", "config"}
     for token in tokens:
         if token in {"-h", "--help", "help"}:
             overrides["help"] = True
@@ -40,7 +41,9 @@ def parse_key_value_overrides(tokens: list[str]) -> dict[str, Any]:
             raise ValueError(f"Invalid override '{token}'. Key cannot be empty.")
         parts = [part.strip() for part in raw_value.split(",")]
         parsed_value: Any
-        if len(parts) > 1:
+        if key in force_string_keys:
+            parsed_value = raw_value.strip()
+        elif len(parts) > 1:
             parsed_value = [_parse_scalar(part) for part in parts if part]
         else:
             parsed_value = _parse_scalar(raw_value.strip())
@@ -97,15 +100,25 @@ class ExperimentRegistry:
         attack_alias = str(overrides.get("attack", defaults.get("attack", "none")))
         defense_alias = str(overrides.get("defense", defaults.get("defense", "none")))
 
+        # Friendly CLI aliases for common shorthand values.
+        attack_aliases = {
+            "gaussian": "gaussian_noise",
+        }
+        defense_aliases = {
+            "median": "median_blur",
+        }
+        attack_lookup = attack_aliases.get(attack_alias, attack_alias)
+        defense_lookup = defense_aliases.get(defense_alias, defense_alias)
+
         models = cfg.get("models", {})
         datasets = cfg.get("datasets", {})
         attacks = cfg.get("attacks", {})
         defenses = cfg.get("defenses", {})
         if dataset_alias not in datasets:
             raise ValueError(f"Unknown dataset '{dataset_alias}'. Available: {sorted(datasets)}")
-        if attack_alias not in attacks:
+        if attack_lookup not in attacks:
             raise ValueError(f"Unknown attack '{attack_alias}'. Available: {sorted(attacks)}")
-        if defense_alias not in defenses:
+        if defense_lookup not in defenses:
             raise ValueError(f"Unknown defense '{defense_alias}'. Available: {sorted(defenses)}")
 
         if model_alias in models:
@@ -128,8 +141,8 @@ class ExperimentRegistry:
         dataset_entry = datasets[dataset_alias]
         if not isinstance(dataset_entry, dict):
             raise ValueError(f"Dataset '{dataset_alias}' must define data_yaml and image_dir.")
-        attack_entry = attacks[attack_alias]
-        defense_entry = defenses[defense_alias]
+        attack_entry = attacks[attack_lookup]
+        defense_entry = defenses[defense_lookup]
         if not isinstance(attack_entry, dict) or not isinstance(defense_entry, dict):
             raise ValueError("Attack/defense config entries must be maps.")
 
