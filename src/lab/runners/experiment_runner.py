@@ -157,21 +157,6 @@ class ExperimentRunner:
                     shutil.rmtree(run_dir)
 
                 source_dir = self._prepare_source(spec=spec, run_name=run_name)
-                should_validate = (
-                    spec.run_validation
-                    if spec.run_validation is not None
-                    else spec.attack == "none" and spec.defense == "none"
-                )
-                if should_validate:
-                    validation = model.validate(
-                        data=self.data_yaml,
-                        imgsz=self.imgsz,
-                        conf=conf,
-                        iou=self.iou,
-                        seed=self.seed,
-                    )
-                    self._write_val_metrics(run_dir, validation)
-
                 model.predict(
                     source=str(source_dir),
                     imgsz=self.imgsz,
@@ -185,6 +170,16 @@ class ExperimentRunner:
                     name=run_name,
                     exist_ok=True,
                 )
+                should_validate = spec.run_validation if spec.run_validation is not None else True
+                if should_validate:
+                    validation = model.validate(
+                        data=self.data_yaml,
+                        imgsz=self.imgsz,
+                        conf=conf,
+                        iou=self.iou,
+                        seed=self.seed,
+                    )
+                    self._write_val_metrics(run_dir, validation)
 
                 row = append_run_metrics(
                     run_dir=run_dir,

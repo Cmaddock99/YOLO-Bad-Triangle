@@ -65,6 +65,8 @@ def main() -> None:
 
     config_path = Path(str(overrides.pop("config", "configs/experiment_lab.yaml")))
     dry_run = bool(overrides.pop("dry_run", False))
+    if "validate" not in overrides:
+        overrides["validate"] = True
 
     registry = ExperimentRegistry.from_yaml(ROOT / config_path)
     resolved = registry.resolve(overrides)

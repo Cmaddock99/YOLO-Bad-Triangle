@@ -105,6 +105,33 @@ def _read_val_metrics(run_dir: Path) -> dict[str, Any]:
     }
 
 
+def _ensure_csv_columns(csv_path: Path, required_columns: list[str]) -> list[str]:
+    ordered_required = list(dict.fromkeys(required_columns))
+    if not csv_path.is_file():
+        return ordered_required
+
+    with csv_path.open(newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        existing_fieldnames = list(reader.fieldnames or [])
+        existing_rows = list(reader)
+
+    merged_fieldnames = existing_fieldnames[:]
+    for column in ordered_required:
+        if column not in merged_fieldnames:
+            merged_fieldnames.append(column)
+
+    if merged_fieldnames != existing_fieldnames:
+        with csv_path.open("w", newline="") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=merged_fieldnames)
+            writer.writeheader()
+            for existing_row in existing_rows:
+                writer.writerow(
+                    {name: existing_row.get(name, "") for name in merged_fieldnames}
+                )
+
+    return merged_fieldnames
+
+
 def append_run_metrics(
     *,
     run_dir: Path,
@@ -126,6 +153,7 @@ def append_run_metrics(
         "date": datetime.now(timezone.utc).isoformat(),
         "commit": commit,
         "branch": branch,
+        "experiment": run_name,
         "run_name": run_name,
         "MODEL": model,
         "attack": attack,
@@ -142,6 +170,7 @@ def append_run_metrics(
         "date",
         "commit",
         "branch",
+        "experiment",
         "run_name",
         "MODEL",
         "attack",
@@ -161,16 +190,21 @@ def append_run_metrics(
         "mAP50",
         "mAP50-95",
     ]
-
-    fieldnames = default_fieldnames
-    if csv_path.is_file():
-        with csv_path.open(newline="") as csv_file:
-            reader = csv.reader(csv_file)
-            first_row = next(reader, None)
-            if first_row:
-                fieldnames = first_row
+    required_columns = [
+        "experiment",
+        "attack",
+        "defense",
+        "precision",
+        "recall",
+        "mAP50",
+        "mAP50-95",
+    ]
 
     csv_path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = _ensure_csv_columns(
+        csv_path=csv_path,
+        required_columns=default_fieldnames + required_columns,
+    )
     write_header = not csv_path.is_file()
     with csv_path.open("a", newline="") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
