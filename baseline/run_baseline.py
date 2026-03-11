@@ -1,40 +1,44 @@
-from ultralytics import YOLO
-import json
-import os
+from __future__ import annotations
 
-# Load model
-model = YOLO("yolov8n.pt")
+import sys
+from pathlib import Path
 
-# Run baseline inference
-results = model.predict(
-    source="coco/val2017_subset500/images",
-    conf=0.25,
-    iou=0.7,
-    save=True,
-    save_txt=True,
-    save_conf=True,
-    project="baseline_results",
-    name="iteration1",
-    exist_ok=True
-)
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 
-# Collect metrics
-total_detections = 0
-for r in results:
-    total_detections += len(r.boxes)
+from lab.runners import ExperimentRunner
 
-metrics = {
-    "model": "yolov8n.pt",
-    "conf_threshold": 0.25,
-    "iou_threshold": 0.7,
-    "total_images": len(results),
-    "total_detections": total_detections
-}
 
-os.makedirs("baseline_results/iteration1", exist_ok=True)
+def main() -> None:
+    runner = ExperimentRunner.from_dict(
+        {
+            "model": {"path": "yolov8n.pt"},
+            "data": {
+                "data_yaml": "configs/coco_subset500.yaml",
+                "image_dir": "coco/val2017_subset500/images",
+            },
+            "runner": {
+                "confs": [0.25],
+                "iou": 0.7,
+                "imgsz": 640,
+                "seed": 42,
+                "output_root": "baseline_results",
+                "metrics_csv": "metrics_summary.csv",
+            },
+            "experiments": [
+                {
+                    "name": "iteration1",
+                    "run_name_template": "iteration1",
+                    "attack": "none",
+                    "defense": "none",
+                    "run_validation": True,
+                }
+            ],
+        }
+    )
+    runner.run()
+    print("Baseline complete.")
 
-with open("baseline_results/iteration1/metrics.json", "w") as f:
-    json.dump(metrics, f, indent=4)
 
-print("Baseline complete.")
-print(metrics)
+if __name__ == "__main__":
+    main()

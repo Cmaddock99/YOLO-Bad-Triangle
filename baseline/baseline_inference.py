@@ -1,10 +1,22 @@
-from ultralytics import YOLO
+from __future__ import annotations
 
-model = YOLO("./yolov8n.pt")
+import sys
+from pathlib import Path
 
-results = model("bus.jpg")
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 
-for r in results:
-    for box in r.boxes:
-        print(f"Class: {int(box.cls)} | Confidence: {float(box.conf):.4f}")
+from lab.models import YOLOModel
+
+
+def main() -> None:
+    model = YOLOModel("yolov8n.pt")
+    results = model.predict(source="bus.jpg")
+    for result in results:
+        for box in result.boxes:
+            print(f"Class: {int(box.cls)} | Confidence: {float(box.conf):.4f}")
+
+
+if __name__ == "__main__":
+    main()
     
