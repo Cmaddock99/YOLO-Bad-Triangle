@@ -8,6 +8,8 @@ from pathlib import Path
 from statistics import mean, median
 from typing import Any
 
+from .experiment_table import generate_experiment_table
+
 
 def _git_metadata() -> tuple[str, str]:
     try:
@@ -175,5 +177,10 @@ def append_run_metrics(
         if write_header:
             writer.writeheader()
         writer.writerow({name: row.get(name, "") for name in fieldnames})
+
+    generate_experiment_table(
+        csv_path=csv_path,
+        markdown_path=csv_path.with_name("experiment_table.md"),
+    )
     return row
 
