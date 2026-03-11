@@ -15,6 +15,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run YOLOv8 experiment via modular runner")
     parser.add_argument("--run_name", required=True, help="Name of this run (used as output folder)")
     parser.add_argument(
+        "--model",
+        default="yolov8n",
+        help="YOLO model name/path (for example: yolov8n, yolo11n, yolo11s.pt)",
+    )
+    parser.add_argument(
         "--attack",
         required=True,
         choices=["none", "blur", "gaussian_noise"],
@@ -64,7 +69,7 @@ def main() -> None:
 
     runner = ExperimentRunner.from_dict(
         {
-            "model": {"path": "yolov8n.pt"},
+            "model": {"path": args.model},
             "data": {
                 "data_yaml": "configs/coco_subset500.yaml",
                 "image_dir": "coco/val2017_subset500/images",
@@ -91,9 +96,10 @@ def main() -> None:
             ],
         }
     )
-    runner.run()
-    print(f"\nExperiment {args.run_name} completed successfully.")
-    print(f"Outputs saved to: results/{args.run_name}\n")
+    rows = runner.run()
+    run_names = ", ".join(str(row.get("run_name")) for row in rows)
+    print(f"\nExperiment(s) {run_names} completed successfully.")
+    print("Outputs saved under: results/\n")
 
 
 if __name__ == "__main__":

@@ -4,14 +4,17 @@ import json
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import yaml
 
 from lab.attacks import build_attack
 from lab.defenses import build_defense
 from lab.eval import append_run_metrics
-from lab.models import YOLOModel
+from lab.models.model_utils import model_label_from_path, normalize_model_path
+
+if TYPE_CHECKING:
+    from lab.models import YOLOModel
 
 
 @dataclass
@@ -31,6 +34,7 @@ class ExperimentSpec:
 @dataclass
 class ExperimentRunner:
     model_path: str
+    model_label: str
     data_yaml: str
     image_dir: Path
     confs: list[float]
@@ -56,9 +60,21 @@ class ExperimentRunner:
         if not experiments_cfg:
             raise ValueError("Config must include at least one experiment in 'experiments'.")
 
+        model_path: str
+        model_label: str
+        if isinstance(model_cfg, dict):
+            model_path = normalize_model_path(
+                str(model_cfg.get("path") or model_cfg.get("name") or "")
+            )
+            model_label = str(model_cfg.get("label") or model_label_from_path(model_path))
+        else:
+            model_path = normalize_model_path(str(model_cfg or ""))
+            model_label = model_label_from_path(model_path)
+
         experiments = [ExperimentSpec(**exp_cfg) for exp_cfg in experiments_cfg]
         return cls(
-            model_path=model_cfg.get("path", "yolov8n.pt"),
+            model_path=model_path,
+            model_label=model_label,
             data_yaml=data_cfg.get("data_yaml", "configs/coco_subset500.yaml"),
             image_dir=Path(data_cfg.get("image_dir", "coco/val2017_subset500/images")),
             confs=[float(value) for value in runner_cfg.get("confs", [0.5])],
@@ -76,6 +92,7 @@ class ExperimentRunner:
 
     def _run_name_for(self, spec: ExperimentSpec, conf: float) -> str:
         context = {
+            "model": self.model_label,
             "name": spec.name,
             "attack": spec.attack,
             "defense": spec.defense,
@@ -84,7 +101,11 @@ class ExperimentRunner:
             **spec.attack_params,
             **spec.defense_params,
         }
-        return spec.run_name_template.format(**context)
+        run_name = spec.run_name_template.format(**context)
+        model_prefix = f"{self.model_label}_"
+        if run_name.startswith(model_prefix):
+            return run_name
+        return f"{model_prefix}{run_name}"
 
     def _write_val_metrics(self, run_dir: Path, validation_results: Any) -> None:
         box = getattr(validation_results, "box", None)
@@ -122,6 +143,8 @@ class ExperimentRunner:
 
     def run(self) -> list[dict[str, Any]]:
         self.output_root.mkdir(parents=True, exist_ok=True)
+        from lab.models import YOLOModel
+
         model = YOLOModel(self.model_path)
         csv_path = self.output_root / self.metrics_csv
         all_rows: list[dict[str, Any]] = []
@@ -167,6 +190,7 @@ class ExperimentRunner:
                     run_dir=run_dir,
                     csv_path=csv_path,
                     run_name=run_name,
+                    model=self.model_label,
                     attack=spec.attack_label or spec.attack,
                     defense=spec.defense_label or spec.defense,
                     conf=conf,
@@ -176,7 +200,8 @@ class ExperimentRunner:
                 )
                 all_rows.append(row)
                 print(
-                    f"Completed run={run_name} attack={spec.attack_label or spec.attack} "
+                    f"Completed run={run_name} model={self.model_label} "
+                    f"attack={spec.attack_label or spec.attack} "
                     f"defense={spec.defense_label or spec.defense} conf={conf}"
                 )
         return all_rows
