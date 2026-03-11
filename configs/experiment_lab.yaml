@@ -1,0 +1,59 @@
+defaults:
+  model: yolo11
+  dataset: coco_subset
+  attack: none
+  defense: none
+
+models:
+  yolo11:
+    path: yolov8n.pt
+  yolo8n:
+    path: yolov8n.pt
+
+datasets:
+  coco_subset:
+    data_yaml: configs/coco_subset500.yaml
+    image_dir: coco/val2017_subset500/images
+
+runner:
+  confs: [0.5]
+  iou: 0.7
+  imgsz: 640
+  seed: 42
+  output_root: outputs/experiments
+  metrics_csv: metrics_summary.csv
+  run_validation: false
+
+attacks:
+  none:
+    module: none
+    params: {}
+  blur:
+    module: blur
+    params:
+      kernel_size: 9
+  gaussian_noise:
+    module: gaussian_noise
+    params:
+      stddev: 12.0
+  deepfool:
+    module: deepfool
+    params:
+      epsilon: 0.8
+      steps: 3
+
+defenses:
+  none:
+    module: none
+    params: {}
+  median_blur:
+    module: median_blur
+    params:
+      kernel_size: 3
+  denoise:
+    module: denoise
+    params:
+      h: 10.0
+      h_color: 10.0
+      template_window_size: 7
+      search_window_size: 21

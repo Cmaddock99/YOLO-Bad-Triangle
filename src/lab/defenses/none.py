@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .base import Defense
+from .base import Defense, register_defense
 
 
+@register_defense("none", "identity")
 class NoDefense(Defense):
     name = "none"
 
