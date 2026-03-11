@@ -17,7 +17,7 @@ def main() -> None:
     if temp_root.exists():
         shutil.rmtree(temp_root)
 
-    model = YOLOModel(str(ROOT / "yolov8n.pt"))
+    model = YOLOModel("yolo11n.pt")
     for kernel in [3, 7, 11, 15, 21, 31]:
         attack = GaussianBlurAttack(kernel_size=kernel)
         attacked = attack.apply(source_dir, temp_root / f"blur_k{kernel}")

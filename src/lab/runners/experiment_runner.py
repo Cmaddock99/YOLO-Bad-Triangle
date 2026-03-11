@@ -58,7 +58,7 @@ class ExperimentRunner:
 
         experiments = [ExperimentSpec(**exp_cfg) for exp_cfg in experiments_cfg]
         return cls(
-            model_path=model_cfg.get("path", "yolov8n.pt"),
+            model_path=model_cfg.get("path", "yolo11n.pt"),
             data_yaml=data_cfg.get("data_yaml", "configs/coco_subset500.yaml"),
             image_dir=Path(data_cfg.get("image_dir", "coco/val2017_subset500/images")),
             confs=[float(value) for value in runner_cfg.get("confs", [0.5])],

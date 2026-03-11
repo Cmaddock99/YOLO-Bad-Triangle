@@ -10,7 +10,7 @@ from lab.models import YOLOModel
 
 
 def main() -> None:
-    model = YOLOModel("yolov8n.pt")
+    model = YOLOModel("yolo11n.pt")
     results = model.predict(source="bus.jpg")
     for result in results:
         for box in result.boxes:

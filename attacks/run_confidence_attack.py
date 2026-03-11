@@ -12,7 +12,7 @@ from lab.runners import ExperimentRunner
 def main() -> None:
     runner = ExperimentRunner.from_dict(
         {
-            "model": {"path": "yolov8n.pt"},
+            "model": {"path": "yolo11n.pt"},
             "data": {
                 "data_yaml": "configs/coco_subset500.yaml",
                 "image_dir": "coco/val2017_subset500/images",

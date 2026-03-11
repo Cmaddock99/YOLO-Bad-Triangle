@@ -12,7 +12,7 @@ from lab.runners import ExperimentRunner
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run YOLOv8 experiment via modular runner")
+    parser = argparse.ArgumentParser(description="Run YOLO experiment via modular runner")
     parser.add_argument("--run_name", required=True, help="Name of this run (used as output folder)")
     parser.add_argument(
         "--attack",
@@ -64,7 +64,7 @@ def main() -> None:
 
     runner = ExperimentRunner.from_dict(
         {
-            "model": {"path": "yolov8n.pt"},
+            "model": {"path": "yolo11n.pt"},
             "data": {
                 "data_yaml": "configs/coco_subset500.yaml",
                 "image_dir": "coco/val2017_subset500/images",
