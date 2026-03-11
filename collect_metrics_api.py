@@ -1,93 +1,44 @@
 #!/usr/bin/env python3
-import os, glob, csv, json, argparse
-from statistics import mean, median
+from __future__ import annotations
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--run_name', required=True)
-parser.add_argument('--attack', required=True)
-parser.add_argument('--conf', required=True)
-parser.add_argument('--iou', required=True)
-parser.add_argument('--imgsz', required=True)
-parser.add_argument('--seed', required=True)
-parser.add_argument('--date', required=True)
-parser.add_argument('--commit', required=True)
-parser.add_argument('--branch', required=True)
-parser.add_argument('--cmd', required=True)
-args = parser.parse_args()
+import argparse
+import sys
+from pathlib import Path
 
-run = args.run_name
-metrics_path = os.path.join("results", run, "val", "metrics.json")
-images_dir = os.path.join("results", run, "predict")
-confidences = []
-images_with_det = 0
-total_dets = 0
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "src"))
 
-# Read detection label files for confidences
-if os.path.isdir(images_dir):
-    for txt in glob.glob(os.path.join(images_dir, "*.txt")):
-        lines = [l.strip().split() for l in open(txt) if l.strip()]
-        if lines:
-            images_with_det += 1
-            total_dets += len(lines)
-            for parts in lines:
-                try:
-                    confidences.append(float(parts[-1]))
-                except:
-                    pass
+from lab.eval import append_run_metrics
 
-# Compute confidence stats
-if confidences:
-    avg_conf = mean(confidences)
-    med_conf = median(confidences)
-    sorted_conf = sorted(confidences)
-    p25_conf = sorted_conf[max(0, int(0.25*len(sorted_conf))-1)]
-    p75_conf = sorted_conf[min(len(sorted_conf)-1, int(0.75*len(sorted_conf))-1)]
-else:
-    avg_conf = med_conf = p25_conf = p75_conf = ''
 
-# Read validation metrics from JSON if exists
-mAP50 = mAP50_95 = ''
-prec = recall = ''
-if os.path.isfile(metrics_path):
-    data = json.load(open(metrics_path))
-    mAP50 = data.get("mAP50", '')
-    mAP50_95 = data.get("mAP50-95", '')
-    prec = data.get("precision", '')
-    recall = data.get("recall", '')
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run_name", required=True)
+    parser.add_argument("--attack", required=True)
+    parser.add_argument("--conf", required=True)
+    parser.add_argument("--iou", required=True)
+    parser.add_argument("--imgsz", required=True)
+    parser.add_argument("--seed", required=True)
+    parser.add_argument("--output_root", default="results")
+    parser.add_argument("--date", default=None)
+    parser.add_argument("--commit", default=None)
+    parser.add_argument("--branch", default=None)
+    parser.add_argument("--cmd", default=None)
+    args = parser.parse_args()
 
-# Prepare CSV entry
-csv_file = os.path.join("results", "metrics_summary.csv")
-headers = ["date","commit","branch","run_name","attack","conf","iou",
-           "imgsz","seed","precision","recall","images_with_detections",
-           "total_detections","avg_conf","median_conf","p25_conf","p75_conf","mAP50","mAP50-95"]
-row = {
-    "date": args.date, 
-    "commit": args.commit, 
-    "branch": args.branch,
-    "run_name": run,
-    "attack": args.attack,
-    "conf": args.conf,
-    "iou": args.iou,
-    "imgsz": args.imgsz,
-    "seed": args.seed,
-    "precision": prec,
-    "recall": recall,
-    "images_with_detections": images_with_det,
-    "total_detections": total_dets,
-    "avg_conf": avg_conf,
-    "median_conf": med_conf,
-    "p25_conf": p25_conf,
-    "p75_conf": p75_conf,
-    "mAP50": mAP50,
-    "mAP50-95": mAP50_95
-}
+    row = append_run_metrics(
+        run_dir=Path(args.output_root) / args.run_name,
+        csv_path=Path(args.output_root) / "metrics_summary.csv",
+        run_name=args.run_name,
+        attack=args.attack,
+        defense="none",
+        conf=float(args.conf),
+        iou=float(args.iou),
+        imgsz=int(args.imgsz),
+        seed=int(args.seed),
+    )
+    print(f"Logged metrics for {args.run_name}: {row}")
 
-# Write/append CSV
-write_header = not os.path.isfile(csv_file)
-with open(csv_file, "a", newline="") as f:
-    writer = csv.DictWriter(f, fieldnames=headers)
-    if write_header:
-        writer.writeheader()
-    writer.writerow(row)
 
-print(f"Logged metrics for {run} (attack={args.attack})")
+if __name__ == "__main__":
+    main()
