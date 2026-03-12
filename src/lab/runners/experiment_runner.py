@@ -110,6 +110,10 @@ class ExperimentRunner:
     def _write_val_metrics(self, run_dir: Path, validation_results: Any) -> None:
         box = getattr(validation_results, "box", None)
         if box is None:
+            print(
+                f"WARNING: Validation results for run '{run_dir.name}' did not include "
+                "a 'box' metrics object; precision/recall/mAP will be unavailable."
+            )
             return
 
         metrics = {
@@ -121,6 +125,11 @@ class ExperimentRunner:
         val_dir = run_dir / "val"
         val_dir.mkdir(parents=True, exist_ok=True)
         (val_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
+        print(
+            f"Validation metrics saved for run '{run_dir.name}' from data='{self.data_yaml}': "
+            f"precision={metrics['precision']:.6f}, recall={metrics['recall']:.6f}, "
+            f"mAP50={metrics['mAP50']:.6f}, mAP50-95={metrics['mAP50-95']:.6f}"
+        )
 
     def _prepare_source(
         self,
@@ -171,6 +180,11 @@ class ExperimentRunner:
                         seed=self.seed,
                     )
                     self._write_val_metrics(run_dir, validation)
+                else:
+                    print(
+                        f"WARNING: Validation disabled for run '{run_name}' "
+                        "(run_validation=false); precision/recall/mAP fields may be empty."
+                    )
 
                 model.predict(
                     source=str(source_dir),
