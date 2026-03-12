@@ -157,10 +157,10 @@ class ExperimentRunner:
                     shutil.rmtree(run_dir)
 
                 source_dir = self._prepare_source(spec=spec, run_name=run_name)
+                # Validate every run by default so precision/recall/mAP fields
+                # are always populated in metrics_summary.csv.
                 should_validate = (
-                    spec.run_validation
-                    if spec.run_validation is not None
-                    else spec.attack == "none" and spec.defense == "none"
+                    spec.run_validation if spec.run_validation is not None else True
                 )
                 if should_validate:
                     validation = model.validate(
