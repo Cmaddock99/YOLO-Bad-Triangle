@@ -6,6 +6,14 @@ This document is written for both:
 
 If you only read one section, read **Section 3: 10-minute Quick Start**.
 
+## Templates for new modules
+
+Use these starter docs when creating new components:
+
+- `ATTACK_TEMPLATE.md`: step-by-step template for adding a new attack module.
+- `DEFENSE_TEMPLATE.md`: step-by-step template for adding a new defense module.
+- `PIPELINE_IN_PLAIN_ENGLISH.md`: plain-language walkthrough of the full experiment flow.
+
 ## 1) What this project does (plain English)
 
 This project helps you answer:

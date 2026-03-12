@@ -105,6 +105,16 @@ def _read_val_metrics(run_dir: Path) -> dict[str, Any]:
     }
 
 
+def _warn_if_missing_val_metrics(run_name: str, run_dir: Path, metrics: dict[str, Any]) -> None:
+    missing = [name for name, value in metrics.items() if value is None or value == ""]
+    if not missing:
+        return
+    print(
+        f"WARNING: Missing validation metrics for run '{run_name}': {', '.join(missing)}. "
+        f"Expected validation output at '{run_dir / 'val' / 'metrics.json'}'."
+    )
+
+
 def append_run_metrics(
     *,
     run_dir: Path,
@@ -121,6 +131,7 @@ def append_run_metrics(
     commit, branch = _git_metadata()
     detection_stats = _parse_detection_stats(run_dir)
     val_metrics = _read_val_metrics(run_dir)
+    _warn_if_missing_val_metrics(run_name=run_name, run_dir=run_dir, metrics=val_metrics)
 
     row = {
         "date": datetime.now(timezone.utc).isoformat(),
