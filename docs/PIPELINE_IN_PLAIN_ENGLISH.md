@@ -14,7 +14,7 @@ Each experiment run does the same sequence:
 2. Apply an attack (or do nothing).
 3. Apply a defense (or do nothing).
 4. Run YOLO prediction on the final images.
-5. Run YOLO validation to get quality metrics (precision/recall/mAP).
+5. Run YOLO validation on those same final images to get quality metrics (precision/recall/mAP).
 6. Append one row to `metrics_summary.csv`.
 7. Plot results from that CSV.
 
@@ -57,7 +57,7 @@ If validation is missing or disabled, those final four fields can be empty.
 4. Reference it in experiment YAML via `attack`/`defense` and params.
 5. Run:
    - `source .venv/bin/activate`
-   - `python scripts/run_experiment.py`
+   - `python run_experiment.py attack=blur conf=0.25`
    - `tail -n 1 results/metrics_summary.csv`
    - `python scripts/plot_results.py`
 

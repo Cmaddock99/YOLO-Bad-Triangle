@@ -27,6 +27,11 @@ datasets/
 .DS_Store
 Thumbs.db
 
+# Local developer files
+.env
+.env.*
+.vscode/
+
 # Keep example configs and scripts tracked
 !configs/examples/
 !configs/examples/**
