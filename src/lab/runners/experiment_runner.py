@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
+import inspect
 import json
 import shutil
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
@@ -43,6 +46,7 @@ class ExperimentRunner:
     seed: int
     output_root: Path
     metrics_csv: str
+    default_run_validation: bool
     experiments: list[ExperimentSpec]
 
     @classmethod
@@ -83,6 +87,7 @@ class ExperimentRunner:
             seed=int(runner_cfg.get("seed", 0)),
             output_root=Path(runner_cfg.get("output_root", "outputs")),
             metrics_csv=runner_cfg.get("metrics_csv", "metrics_summary.csv"),
+            default_run_validation=bool(runner_cfg.get("run_validation", True)),
             experiments=experiments,
         )
 
@@ -107,7 +112,13 @@ class ExperimentRunner:
             return run_name
         return f"{model_prefix}{run_name}"
 
-    def _write_val_metrics(self, run_dir: Path, validation_results: Any) -> None:
+    def _write_val_metrics(
+        self,
+        run_dir: Path,
+        validation_results: Any,
+        *,
+        data_yaml_used: str,
+    ) -> None:
         box = getattr(validation_results, "box", None)
         if box is None:
             print(
@@ -126,16 +137,111 @@ class ExperimentRunner:
         val_dir.mkdir(parents=True, exist_ok=True)
         (val_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
         print(
-            f"Validation metrics saved for run '{run_dir.name}' from data='{self.data_yaml}': "
+            f"Validation metrics saved for run '{run_dir.name}' from data='{data_yaml_used}': "
             f"precision={metrics['precision']:.6f}, recall={metrics['recall']:.6f}, "
             f"mAP50={metrics['mAP50']:.6f}, mAP50-95={metrics['mAP50-95']:.6f}"
         )
+
+    def _resolve_labels_dir(self, *, source_dir: Path) -> Path:
+        source_labels = source_dir.parent / "labels"
+        default_labels = self.image_dir.parent / "labels"
+        for candidate in (source_labels, default_labels):
+            if candidate.exists():
+                return candidate
+        raise FileNotFoundError(
+            "Cannot locate labels directory for per-run validation. "
+            f"Checked '{source_labels}' and '{default_labels}'."
+        )
+
+    @staticmethod
+    def _count_source_images(source_dir: Path) -> int:
+        image_exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+        return sum(
+            1
+            for path in source_dir.rglob("*")
+            if path.is_file() and path.suffix.lower() in image_exts
+        )
+
+    def _validation_data_yaml_for_run(self, *, run_name: str, source_dir: Path) -> str:
+        """Build a per-run data YAML that validates against attacked/defended images."""
+        labels_dir = self._resolve_labels_dir(source_dir=source_dir)
+
+        intermediate_root = self.output_root / "_intermediates" / run_name
+        val_dataset_root = intermediate_root / "_val_dataset"
+        if val_dataset_root.exists():
+            shutil.rmtree(val_dataset_root)
+        val_dataset_root.mkdir(parents=True, exist_ok=True)
+
+        images_link = val_dataset_root / "images"
+        labels_link = val_dataset_root / "labels"
+        try:
+            images_link.symlink_to(source_dir.resolve(), target_is_directory=True)
+            labels_link.symlink_to(labels_dir.resolve(), target_is_directory=True)
+        except OSError:
+            # Fallback for environments where symlinks are restricted.
+            shutil.copytree(source_dir, images_link)
+            shutil.copytree(labels_dir, labels_link)
+
+        base_data = yaml.safe_load(Path(self.data_yaml).read_text()) or {}
+        if not isinstance(base_data, dict):
+            base_data = {}
+        names = base_data.get("names", {})
+
+        run_data_yaml = val_dataset_root / "data.yaml"
+        run_data_yaml.write_text(
+            yaml.safe_dump(
+                {
+                    "path": str(val_dataset_root.resolve()),
+                    "train": "images",
+                    "val": "images",
+                    "names": names,
+                },
+                sort_keys=False,
+            )
+        )
+        return str(run_data_yaml)
+
+    def _config_fingerprint(
+        self,
+        *,
+        spec: ExperimentSpec,
+        conf: float,
+        transformed_source_dir: Path,
+        validation_labels_dir: str,
+        transformed_image_count: int,
+        validation_data_yaml: str | None,
+    ) -> str:
+        payload = {
+            "model_path": self.model_path,
+            "model_label": self.model_label,
+            "data_yaml": self.data_yaml,
+            "image_dir": str(self.image_dir),
+            "conf": conf,
+            "iou": self.iou,
+            "imgsz": self.imgsz,
+            "seed": self.seed,
+            "attack": spec.attack,
+            "attack_label": spec.attack_label,
+            "attack_params": spec.attack_params,
+            "defense": spec.defense,
+            "defense_label": spec.defense_label,
+            "defense_params": spec.defense_params,
+            "run_name_template": spec.run_name_template,
+            "source_override": spec.source_override,
+            "transformed_source_dir": str(transformed_source_dir.resolve()),
+            "validation_labels_dir": validation_labels_dir,
+            "transformed_image_count": transformed_image_count,
+            "validation_data_yaml": validation_data_yaml or "",
+        }
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
     def _prepare_source(
         self,
         *,
         spec: ExperimentSpec,
         run_name: str,
+        model: YOLOModel,
     ) -> Path:
         source_dir = Path(spec.source_override) if spec.source_override else self.image_dir
         intermediate_root = self.output_root / "_intermediates" / run_name
@@ -144,7 +250,23 @@ class ExperimentRunner:
         intermediate_root.mkdir(parents=True, exist_ok=True)
 
         attack = build_attack(spec.attack, spec.attack_params)
-        attacked_source = attack.apply(source_dir, intermediate_root / "attacked", seed=self.seed)
+        attack_apply_kwargs: dict[str, Any] = {"seed": self.seed}
+        attack_signature = inspect.signature(attack.apply)
+        accepts_var_kwargs = any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD
+            for parameter in attack_signature.parameters.values()
+        )
+        if "model" in attack_signature.parameters or accepts_var_kwargs:
+            # Use a fresh model instance for gradient-based attack preprocessing
+            # to avoid inference-mode tensor state leaking from prior predict/val calls.
+            from lab.models import YOLOModel as AttackYOLOModel
+
+            attack_apply_kwargs["model"] = AttackYOLOModel(self.model_path)
+        attacked_source = attack.apply(
+            source_dir,
+            intermediate_root / "attacked",
+            **attack_apply_kwargs,
+        )
 
         defense = build_defense(spec.defense, spec.defense_params)
         defended_source = defense.apply(attacked_source, intermediate_root / "defended", seed=self.seed)
@@ -157,6 +279,12 @@ class ExperimentRunner:
         model = YOLOModel(self.model_path)
         csv_path = self.output_root / self.metrics_csv
         all_rows: list[dict[str, Any]] = []
+        run_started_at_utc = datetime.now(timezone.utc).isoformat()
+        run_session_id = hashlib.sha1(
+            f"{run_started_at_utc}|{self.output_root.resolve()}|{self.model_path}|{self.seed}".encode(
+                "utf-8"
+            )
+        ).hexdigest()[:12]
 
         for conf in self.confs:
             for spec in self.experiments:
@@ -165,22 +293,48 @@ class ExperimentRunner:
                 if run_dir.exists():
                     shutil.rmtree(run_dir)
 
-                source_dir = self._prepare_source(spec=spec, run_name=run_name)
+                source_dir = self._prepare_source(spec=spec, run_name=run_name, model=model)
                 # Validate every run by default so precision/recall/mAP fields
                 # are always populated in metrics_summary.csv.
                 should_validate = (
-                    spec.run_validation if spec.run_validation is not None else True
+                    spec.run_validation
+                    if spec.run_validation is not None
+                    else self.default_run_validation
                 )
+                source_image_count = self._count_source_images(source_dir)
+                if source_image_count == 0:
+                    raise RuntimeError(
+                        f"No source images found for run '{run_name}' at '{source_dir}'. "
+                        "Cannot trust metrics for an empty transformed dataset."
+                    )
+                validation_data_yaml: str | None = None
+                validation_labels_dir = ""
                 if should_validate:
+                    labels_dir = self._resolve_labels_dir(source_dir=source_dir)
+                    validation_labels_dir = str(labels_dir.resolve())
+                    validation_data_yaml = self._validation_data_yaml_for_run(
+                        run_name=run_name,
+                        source_dir=source_dir,
+                    )
                     validation = model.validate(
-                        data=self.data_yaml,
+                        data=validation_data_yaml,
                         imgsz=self.imgsz,
                         conf=conf,
                         iou=self.iou,
                         seed=self.seed,
                     )
-                    self._write_val_metrics(run_dir, validation)
+                    self._write_val_metrics(
+                        run_dir,
+                        validation,
+                        data_yaml_used=validation_data_yaml,
+                    )
                 else:
+                    try:
+                        validation_labels_dir = str(
+                            self._resolve_labels_dir(source_dir=source_dir).resolve()
+                        )
+                    except FileNotFoundError:
+                        validation_labels_dir = ""
                     print(
                         f"WARNING: Validation disabled for run '{run_name}' "
                         "(run_validation=false); precision/recall/mAP fields may be empty."
@@ -211,6 +365,25 @@ class ExperimentRunner:
                     iou=self.iou,
                     imgsz=self.imgsz,
                     seed=self.seed,
+                    extra_metadata={
+                        "validation_enabled": should_validate,
+                        "run_session_id": run_session_id,
+                        "run_started_at_utc": run_started_at_utc,
+                        "validation_data_yaml": validation_data_yaml or "",
+                        "validation_labels_dir": validation_labels_dir,
+                        "transformed_source_dir": str(source_dir.resolve()),
+                        "transformed_image_count": source_image_count,
+                        "config_fingerprint": self._config_fingerprint(
+                            spec=spec,
+                            conf=conf,
+                            transformed_source_dir=source_dir,
+                            validation_labels_dir=validation_labels_dir,
+                            transformed_image_count=source_image_count,
+                            validation_data_yaml=validation_data_yaml,
+                        ),
+                        "attack_params_json": json.dumps(spec.attack_params, sort_keys=True),
+                        "defense_params_json": json.dumps(spec.defense_params, sort_keys=True),
+                    },
                 )
                 all_rows.append(row)
                 print(
