@@ -84,4 +84,4 @@ experiments:
 - Uses `@register_attack(...)` with at least one name.
 - Works with a tiny test run:
   - `source .venv/bin/activate`
-  - `python scripts/run_experiment.py`
+  - `python run_experiment.py attack=blur conf=0.25`

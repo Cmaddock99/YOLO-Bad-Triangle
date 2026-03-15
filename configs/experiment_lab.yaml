@@ -55,6 +55,10 @@ attacks:
     params:
       epsilon: 0.8
       steps: 3
+  fgsm:
+    module: fgsm
+    params:
+      epsilon: 0.01
 
 defenses:
   none:

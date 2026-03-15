@@ -1,6 +1,6 @@
 # YOLO Robustness Lab: Current Design Artifacts and Delivery Status
 
-Last updated: 2026-03-11
+Last updated: 2026-03-15
 
 This document captures the project as implemented in the repository today, including:
 - requirements (functional and non-functional),
@@ -46,7 +46,7 @@ Build a repeatable experiment lab to measure how YOLO object detection quality c
 
 ```mermaid
 flowchart LR
-  U[User / CLI] --> A[run_experiment.py<br/>or run_framework.py]
+  U[User / CLI] --> A[run_experiment.py<br/>or scripts/run_framework.py]
   A --> B[ExperimentRegistry<br/>parse + resolve]
   B --> C[ExperimentRunner]
   C --> D[Attack Registry + Attack Impl]
@@ -97,7 +97,7 @@ sequenceDiagram
 - `src/lab/runners`: config resolution and orchestration of full experiment runs.
 - `src/lab/eval`: metric extraction, CSV append, markdown table generation.
 - `configs/`: alias/config definitions for models, datasets, and experiment batches.
-- root + `scripts/`: one-command and compatibility CLIs.
+- root + `scripts/`: one-command CLI plus modular and utility CLIs.
 
 ## 3) Implementation details (major functionality delivered)
 
@@ -163,24 +163,28 @@ For each `(experiment, conf)` pair, `ExperimentRunner`:
 
 ### 4.2 Accomplished execution milestones (actual runs recorded)
 
-Current `results/metrics_summary.csv` contains 2 completed experiment rows:
+Week1 stabilization matrix completed under:
 
-| Run date (UTC) | Run name | Attack | Defense | Conf | Validation metrics present |
-|---|---|---|---|---|---|
-| 2026-03-11T00:44:19 | `baseline_conf050` | none | N/A in current CSV header | 0.5 | Yes (precision/recall populated) |
-| 2026-03-11T00:44:46 | `blur_attack_conf050` | blur | N/A in current CSV header | 0.5 | No |
+- `outputs/week1_20260315_182807/`
+- `metrics_summary.csv` rows: 4
+- `experiment_table.md` generated
+- plots generated in `outputs/week1_20260315_182807/plots/`
 
-Also present on disk under `results/`:
-- `baseline_conf050/`
-- `blur_attack_conf050/`
-- `metrics_summary.csv`
+Recorded rows from that fresh run session:
+
+| Run name | Attack | Conf | Precision | Recall | mAP50 | mAP50-95 |
+|---|---|---|---:|---:|---:|---:|
+| `yolo8_baseline_week1_conf025` | none | 0.25 | 0.6245 | 0.5017 | 0.5988 | 0.4688 |
+| `yolo8_fgsm_e004_week1_conf025` | fgsm (`epsilon=0.004`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `yolo8_fgsm_e008_week1_conf025` | fgsm (`epsilon=0.008`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `yolo8_fgsm_e016_week1_conf025` | fgsm (`epsilon=0.016`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
 
 ### 4.3 Tasks remaining
 
 #### Highest priority
-1. Execute full planned experiment matrix (baseline, blur, noise, deepfool, with and without defenses) across target confidence sweep.
-2. Ensure validation metrics are collected consistently for attacked/defended runs where evaluation is required.
-3. Regenerate and commit markdown summary table (`experiment_table.md`) from latest metrics CSV.
+1. Add defense-enabled FGSM runs (for example median blur and denoise) in the same week1 matrix.
+2. Add confidence-threshold sweep (`conf=0.25,0.5`) for robustness curves, still using fresh timestamped output roots.
+3. Document benchmark epsilon choice for current model/config based on this run set.
 
 #### Medium priority
 4. Add automated tests for:
@@ -196,6 +200,6 @@ Also present on disk under `results/`:
 ## 5) Current readiness summary
 
 - Framework architecture and core implementation are in place and usable now.
-- Environment bootstrapping and command-level UX are present.
-- Actual recorded experiment coverage is still thin (2 runs), so scientific conclusions are not yet complete.
-- Next focus should be execution breadth + automated verification.
+- Per-run validation now uses transformed images (`_intermediates/.../attacked`) with original labels for trustworthy attack evaluation.
+- Week1 baseline + FGSM matrix has been executed from a fresh output root with generated table and plots.
+- Next focus should be defense comparison breadth and confidence-threshold sweeps.
