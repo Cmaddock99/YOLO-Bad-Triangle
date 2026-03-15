@@ -1,0 +1,45 @@
+model:
+  path: yolov8n.pt
+
+data:
+  data_yaml: configs/coco_subset500.yaml
+  image_dir: coco/val2017_subset500/images
+
+runner:
+  confs: [0.25]
+  iou: 0.7
+  imgsz: 640
+  seed: 42
+  output_root: outputs
+  metrics_csv: metrics_summary.csv
+
+experiments:
+  - name: baseline_week1
+    attack: none
+    defense: none
+    run_name_template: baseline_week1_conf{conf_token}
+    run_validation: true
+
+  - name: fgsm_e004_week1
+    attack: fgsm
+    attack_params:
+      epsilon: 0.004
+    defense: none
+    run_name_template: fgsm_e004_week1_conf{conf_token}
+    run_validation: true
+
+  - name: fgsm_e008_week1
+    attack: fgsm
+    attack_params:
+      epsilon: 0.008
+    defense: none
+    run_name_template: fgsm_e008_week1_conf{conf_token}
+    run_validation: true
+
+  - name: fgsm_e016_week1
+    attack: fgsm
+    attack_params:
+      epsilon: 0.016
+    defense: none
+    run_name_template: fgsm_e016_week1_conf{conf_token}
+    run_validation: true

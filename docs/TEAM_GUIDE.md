@@ -10,9 +10,9 @@ If you only read one section, read **Section 3: 10-minute Quick Start**.
 
 Use these starter docs when creating new components:
 
-- `ATTACK_TEMPLATE.md`: step-by-step template for adding a new attack module.
-- `DEFENSE_TEMPLATE.md`: step-by-step template for adding a new defense module.
-- `PIPELINE_IN_PLAIN_ENGLISH.md`: plain-language walkthrough of the full experiment flow.
+- `docs/ATTACK_TEMPLATE.md`: step-by-step template for adding a new attack module.
+- `docs/DEFENSE_TEMPLATE.md`: step-by-step template for adding a new defense module.
+- `docs/PIPELINE_IN_PLAIN_ENGLISH.md`: plain-language walkthrough of the full experiment flow.
 
 ## 1) What this project does (plain English)
 
@@ -86,9 +86,6 @@ Use this table:
 - **I already ran inference and only want to append metrics**  
   Use: `scripts/collect_metrics.py` or `collect_metrics_api.py`
 
-- **I need old/demo examples**  
-  Use files in `baseline/` and `attacks/`
-
 ## 5) Typical usage examples
 
 ## A) One-command run (best default)
@@ -108,10 +105,35 @@ Useful overrides:
 - `./.venv/bin/python scripts/run_framework.py --config configs/modular_experiments.yaml`
 - `./.venv/bin/python scripts/run_framework.py --config configs/modular_experiments.yaml --confs 0.25,0.5 --output_root outputs/custom`
 
-## C) API/compat wrappers
+## C) API wrappers
 
 - `./.venv/bin/python run_experiment_api.py --help`
 - `./.venv/bin/python scripts/collect_metrics.py --help`
+
+## D) FGSM epsilon sweep (recommended)
+
+Use FGSM with a fixed seed and compare against `attack=none`:
+
+- Baseline:
+  - `./.venv/bin/python run_experiment.py conf=0.25 seed=42 run_name=baseline_fgsm_ref`
+- FGSM examples:
+  - `./.venv/bin/python run_experiment.py attack=fgsm attack.epsilon=0.002 conf=0.25 seed=42 run_name=fgsm_e002`
+  - `./.venv/bin/python run_experiment.py attack=fgsm attack.epsilon=0.004 conf=0.25 seed=42 run_name=fgsm_e004`
+  - `./.venv/bin/python run_experiment.py attack=fgsm attack.epsilon=0.008 conf=0.25 seed=42 run_name=fgsm_e008`
+  - `./.venv/bin/python run_experiment.py attack=fgsm attack.epsilon=0.016 conf=0.25 seed=42 run_name=fgsm_e016`
+
+## E) Week1 rerun and verify (single command)
+
+Use the canonical week1 matrix runner to produce a fresh, timestamped output root:
+
+- `./scripts/run_week1_stabilization.sh`
+
+What this does:
+
+1. runs baseline + FGSM (`0.004`, `0.008`, `0.016`) from `configs/week1_stabilization_matrix.yaml`,
+2. writes outputs to `outputs/week1_<UTC timestamp>/`,
+3. validates metrics integrity with `scripts/check_metrics_integrity.py`,
+4. generates `experiment_table.md` and plots in that same output root.
 
 ## 6) What happens inside one run?
 
@@ -202,8 +224,6 @@ This is the full callable index as of now.
 
 - `scripts/run_framework.py`
   - no top-level function (imports and runs `lab.runners.cli.main`).
-- `scripts/run_experiment.py`
-  - `main()`: run compatibility YAML (`configs/baseline_blur_compat.yaml`).
 - `scripts/collect_metrics.py`
   - `main()`: append metrics from a run dir into CSV.
 - `scripts/convert_coco_to_yolo.py`
@@ -295,17 +315,6 @@ This is the full callable index as of now.
     - `_write_val_metrics(run_dir, validation_results)`: write validation summary.
     - `_prepare_source(spec, run_name)`: run attack+defense preprocessing.
     - `run()`: execute all configured runs and append metrics.
-
-## Legacy/demo scripts
-
-- `baseline/baseline_inference.py`
-  - `main()`: quick prediction demo.
-- `baseline/run_baseline.py`
-  - `main()`: baseline run (`none` attack/defense).
-- `attacks/run_confidence_attack.py`
-  - `main()`: blur attack experiment example.
-- `attacks/confidence_supression.py`
-  - `main()`: blur kernel sweep sample.
 
 ## 12) Recommended team workflow
 

@@ -127,11 +127,13 @@ def append_run_metrics(
     iou: float,
     imgsz: int,
     seed: int,
+    extra_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     commit, branch = _git_metadata()
     detection_stats = _parse_detection_stats(run_dir)
     val_metrics = _read_val_metrics(run_dir)
     _warn_if_missing_val_metrics(run_name=run_name, run_dir=run_dir, metrics=val_metrics)
+    extra_metadata = extra_metadata or {}
 
     row = {
         "date": datetime.now(timezone.utc).isoformat(),
@@ -147,6 +149,7 @@ def append_run_metrics(
         "seed": seed,
         **detection_stats,
         **val_metrics,
+        **extra_metadata,
     }
 
     default_fieldnames = [
@@ -171,15 +174,38 @@ def append_run_metrics(
         "recall",
         "mAP50",
         "mAP50-95",
+        "run_session_id",
+        "run_started_at_utc",
+        "validation_enabled",
+        "validation_data_yaml",
+        "validation_labels_dir",
+        "transformed_source_dir",
+        "transformed_image_count",
+        "config_fingerprint",
+        "attack_params_json",
+        "defense_params_json",
     ]
+    desired_fieldnames = default_fieldnames + [
+        key for key in extra_metadata.keys() if key not in default_fieldnames
+    ]
+    fieldnames = desired_fieldnames
 
-    fieldnames = default_fieldnames
     if csv_path.is_file():
         with csv_path.open(newline="") as csv_file:
-            reader = csv.reader(csv_file)
-            first_row = next(reader, None)
-            if first_row:
-                fieldnames = first_row
+            reader = csv.DictReader(csv_file)
+            existing_fieldnames = list(reader.fieldnames or [])
+            existing_rows = list(reader)
+        if existing_fieldnames:
+            missing_fields = [name for name in desired_fieldnames if name not in existing_fieldnames]
+            if missing_fields:
+                fieldnames = existing_fieldnames + missing_fields
+                with csv_path.open("w", newline="") as csv_file:
+                    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+                    writer.writeheader()
+                    for existing_row in existing_rows:
+                        writer.writerow({name: existing_row.get(name, "") for name in fieldnames})
+            else:
+                fieldnames = existing_fieldnames
 
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     write_header = not csv_path.is_file()
