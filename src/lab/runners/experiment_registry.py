@@ -29,9 +29,18 @@ def _parse_scalar(value: str) -> Any:
 def parse_key_value_overrides(tokens: list[str]) -> dict[str, Any]:
     overrides: dict[str, Any] = {}
     force_string_keys = {"attack", "defense", "model", "dataset", "run_name", "run_id", "config"}
+    standalone_flags = {
+        "--list-attacks": "list_attacks",
+        "--list-defenses": "list_defenses",
+        "--list-models": "list_models",
+        "--list-datasets": "list_datasets",
+    }
     for token in tokens:
         if token in {"-h", "--help", "help"}:
             overrides["help"] = True
+            continue
+        if token in standalone_flags:
+            overrides[standalone_flags[token]] = True
             continue
         if "=" not in token:
             raise ValueError(f"Invalid override '{token}'. Expected key=value format.")
@@ -65,6 +74,22 @@ def _coerce_float_list(value: Any) -> list[float]:
     return [float(value)]
 
 
+def _assert_safe_run_name(run_name: str) -> None:
+    normalized = run_name.strip()
+    if not normalized:
+        raise ValueError("run_name cannot be empty.")
+    if normalized in {".", ".."}:
+        raise ValueError(f"Unsafe run_name '{run_name}'.")
+    if Path(normalized).is_absolute():
+        raise ValueError(f"Unsafe run_name '{run_name}': absolute paths are not allowed.")
+    if ".." in Path(normalized).parts:
+        raise ValueError(f"Unsafe run_name '{run_name}': path traversal is not allowed.")
+    if "/" in normalized or "\\" in normalized:
+        raise ValueError(
+            f"Unsafe run_name '{run_name}': path separators are not allowed in run names."
+        )
+
+
 def _merge_dict(base: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:
     merged = deepcopy(base)
     for key, value in extra.items():
@@ -91,6 +116,34 @@ class ExperimentRegistry:
         if not isinstance(loaded, dict):
             raise ValueError(f"Expected mapping config in {path}.")
         return cls(config=loaded)
+
+    def available_models(self) -> list[str]:
+        models = self.config.get("models", {})
+        if not isinstance(models, dict):
+            return []
+        return sorted(str(key) for key in models.keys())
+
+    def available_datasets(self) -> list[str]:
+        datasets = self.config.get("datasets", {})
+        if not isinstance(datasets, dict):
+            return []
+        return sorted(str(key) for key in datasets.keys())
+
+    def available_attack_aliases(self) -> list[str]:
+        attacks = self.config.get("attacks", {})
+        if not isinstance(attacks, dict):
+            return []
+        aliases = {str(key) for key in attacks.keys()}
+        aliases.update({"gaussian"})
+        return sorted(aliases)
+
+    def available_defense_aliases(self) -> list[str]:
+        defenses = self.config.get("defenses", {})
+        if not isinstance(defenses, dict):
+            return []
+        aliases = {str(key) for key in defenses.keys()}
+        aliases.update({"median"})
+        return sorted(aliases)
 
     def resolve(self, overrides: dict[str, Any]) -> ResolvedExperiment:
         cfg = deepcopy(self.config)
@@ -195,6 +248,7 @@ class ExperimentRegistry:
             run_name = default_run_name
         if "{conf_token}" not in run_name and len(confs) > 1:
             run_name = f"{run_name}_conf{{conf_token}}"
+        _assert_safe_run_name(run_name)
 
         output_root = Path(str(runner_cfg.get("output_root", "outputs")))
         organized_output_root = output_root

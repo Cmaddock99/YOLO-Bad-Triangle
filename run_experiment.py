@@ -9,6 +9,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from lab.attacks.registry import list_available_attacks
+from lab.defenses.registry import list_available_defenses
 from lab.runners.experiment_registry import ExperimentRegistry, parse_key_value_overrides
 
 
@@ -20,12 +22,18 @@ Usage:
   python run_experiment.py attack=blur model=yolo11 defense=none conf=0.5 imgsz=640
 
 Key arguments:
-  attack=none|blur|gaussian_noise|deepfool
+  attack=none|blur|gaussian_noise|fgsm|deepfool
   defense=none|median|median_blur|denoise
   model=yolo8|yolo11|yolo11n|yolo11s|<weights-path>
   conf=0.5               # single threshold
   conf=0.25,0.5,0.75     # multiple thresholds
   imgsz=640
+
+Discovery flags:
+  --list-attacks
+  --list-defenses
+  --list-models
+  --list-datasets
 
 Additional optional overrides:
   config=configs/experiment_lab.yaml
@@ -50,6 +58,15 @@ def _print_readable_summary(summary: dict[str, Any], resolved_runner: dict[str, 
     print()
 
 
+def _print_list(title: str, values: list[str]) -> None:
+    print(f"{title}:")
+    if not values:
+        print("  (none)")
+        return
+    for value in values:
+        print(f"  - {value}")
+
+
 def main() -> None:
     try:
         overrides = parse_key_value_overrides(sys.argv[1:])
@@ -67,6 +84,30 @@ def main() -> None:
     dry_run = bool(overrides.pop("dry_run", False))
 
     registry = ExperimentRegistry.from_yaml(ROOT / config_path)
+    requested_lists = {
+        "attacks": bool(overrides.pop("list_attacks", False)),
+        "defenses": bool(overrides.pop("list_defenses", False)),
+        "models": bool(overrides.pop("list_models", False)),
+        "datasets": bool(overrides.pop("list_datasets", False)),
+    }
+    wants_list_output = any(requested_lists.values())
+    if wants_list_output:
+        if requested_lists["attacks"]:
+            config_attacks = registry.available_attack_aliases()
+            registered_attacks = list_available_attacks()
+            _print_list("Configured attack aliases", config_attacks)
+            _print_list("Registered attack plugins", registered_attacks)
+        if requested_lists["defenses"]:
+            config_defenses = registry.available_defense_aliases()
+            registered_defenses = list_available_defenses()
+            _print_list("Configured defense aliases", config_defenses)
+            _print_list("Registered defense plugins", registered_defenses)
+        if requested_lists["models"]:
+            _print_list("Configured models", registry.available_models())
+        if requested_lists["datasets"]:
+            _print_list("Configured datasets", registry.available_datasets())
+        return
+
     resolved = registry.resolve(overrides)
     _print_readable_summary(resolved.summary, resolved.runner_config)
 

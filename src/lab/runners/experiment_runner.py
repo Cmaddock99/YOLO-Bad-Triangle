@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import re
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -98,6 +99,37 @@ class ExperimentRunner:
     def _conf_token(conf: float) -> str:
         return f"{int(round(conf * 100)):03d}"
 
+    @staticmethod
+    def _assert_run_name_safe(run_name: str) -> None:
+        normalized = run_name.strip()
+        if not normalized:
+            raise ValueError("run_name cannot be empty.")
+        if normalized in {".", ".."}:
+            raise ValueError(f"Unsafe run_name '{run_name}'.")
+        if Path(normalized).is_absolute():
+            raise ValueError(f"Unsafe run_name '{run_name}': absolute paths are not allowed.")
+        if ".." in Path(normalized).parts:
+            raise ValueError(f"Unsafe run_name '{run_name}': path traversal is not allowed.")
+        if re.search(r"[\\/]", normalized):
+            raise ValueError(
+                f"Unsafe run_name '{run_name}': path separators are not allowed in run names."
+            )
+
+    def _assert_within_output_root(self, path: Path, *, context: str) -> Path:
+        output_root_resolved = self.output_root.resolve()
+        candidate = path.resolve()
+        if candidate != output_root_resolved and output_root_resolved not in candidate.parents:
+            raise ValueError(
+                f"Refusing to access path outside output_root for {context}: "
+                f"'{candidate}' not under '{output_root_resolved}'."
+            )
+        return candidate
+
+    def _metrics_csv_path(self) -> Path:
+        raw = Path(self.metrics_csv).expanduser()
+        candidate = raw if raw.is_absolute() else (self.output_root / raw)
+        return self._assert_within_output_root(candidate, context="metrics_csv")
+
     def _run_name_for(self, spec: ExperimentSpec, conf: float) -> str:
         context = {
             "model": self.model_label,
@@ -167,10 +199,19 @@ class ExperimentRunner:
 
     def _validation_data_yaml_for_run(self, *, run_name: str, source_dir: Path) -> str:
         """Build a per-run data YAML that validates against attacked/defended images."""
+        self._assert_run_name_safe(run_name)
         labels_dir = self._resolve_labels_dir(source_dir=source_dir)
 
         intermediate_root = self.output_root / "_intermediates" / run_name
+        self._assert_within_output_root(
+            intermediate_root,
+            context=f"validation intermediate root for run '{run_name}'",
+        )
         val_dataset_root = intermediate_root / "_val_dataset"
+        self._assert_within_output_root(
+            val_dataset_root,
+            context=f"validation dataset root for run '{run_name}'",
+        )
         if val_dataset_root.exists():
             shutil.rmtree(val_dataset_root)
         val_dataset_root.mkdir(parents=True, exist_ok=True)
@@ -259,12 +300,17 @@ class ExperimentRunner:
         run_name: str,
         model: YOLOModel,
     ) -> Path:
+        self._assert_run_name_safe(run_name)
         source_dir = (
             Path(spec.source_override).expanduser().resolve()
             if spec.source_override
             else self.image_dir
         )
         intermediate_root = self.output_root / "_intermediates" / run_name
+        self._assert_within_output_root(
+            intermediate_root,
+            context=f"attack/defense intermediate root for run '{run_name}'",
+        )
         if intermediate_root.exists():
             shutil.rmtree(intermediate_root)
         intermediate_root.mkdir(parents=True, exist_ok=True)
@@ -297,7 +343,7 @@ class ExperimentRunner:
         from lab.models import YOLOModel
 
         model = YOLOModel(self.model_path)
-        csv_path = self.output_root / self.metrics_csv
+        csv_path = self._metrics_csv_path()
         all_rows: list[dict[str, Any]] = []
         run_started_at_utc = datetime.now(timezone.utc).isoformat()
         run_session_id = hashlib.sha1(
@@ -309,7 +355,11 @@ class ExperimentRunner:
         for conf in self.confs:
             for spec in self.experiments:
                 run_name = self._run_name_for(spec, conf)
-                run_dir = self.output_root / run_name
+                self._assert_run_name_safe(run_name)
+                run_dir = self._assert_within_output_root(
+                    self.output_root / run_name,
+                    context=f"run directory for run '{run_name}'",
+                )
                 if run_dir.exists():
                     shutil.rmtree(run_dir)
 

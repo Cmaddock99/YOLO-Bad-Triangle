@@ -9,6 +9,11 @@ from typing import Any
 
 
 METRIC_KEYS = ("precision", "recall", "mAP50", "mAP50-95")
+PROFILE_DEFAULT_ATTACK = {
+    "week1-demo": "fgsm",
+    "week1-stress": "fgsm",
+    "custom": "fgsm",
+}
 
 
 def _to_float(value: Any) -> float | None:
@@ -132,10 +137,15 @@ def _assert_not_all_zero_fgsm(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Fail if FGSM sweep metrics look unexpectedly unchanged."
+        description="Fail if attack sweep metrics look unexpectedly unchanged."
     )
     parser.add_argument("--csv", default="outputs/metrics_summary.csv", help="Path to metrics CSV.")
-    parser.add_argument("--attack", default="fgsm", help="Attack name to check.")
+    parser.add_argument(
+        "--profile",
+        default="week1-demo",
+        help="Run profile name used to determine default attack check target.",
+    )
+    parser.add_argument("--attack", default=None, help="Attack name to check (overrides profile default).")
     parser.add_argument(
         "--run-session-id",
         default=None,
@@ -166,6 +176,8 @@ def main() -> None:
     if not rows:
         raise ValueError(f"No rows found in metrics CSV: {csv_path}")
 
+    attack_name = args.attack or PROFILE_DEFAULT_ATTACK.get(args.profile, "fgsm")
+
     session_id = args.run_session_id
     if args.use_latest_session and not session_id:
         session_id = _latest_session_id(rows)
@@ -176,12 +188,12 @@ def main() -> None:
         raise ValueError("No rows left after applying run-session filter.")
 
     _assert_metrics_present(scoped_rows)
-    _assert_fgsm_sweep_not_flat(scoped_rows, attack_name=args.attack)
-    _assert_baseline_differs(scoped_rows, attack_name=args.attack)
+    _assert_fgsm_sweep_not_flat(scoped_rows, attack_name=attack_name)
+    _assert_baseline_differs(scoped_rows, attack_name=attack_name)
     if args.fail_on_all_zero_fgsm:
         _assert_not_all_zero_fgsm(
             scoped_rows,
-            attack_name=args.attack,
+            attack_name=attack_name,
             zero_epsilon=float(args.zero_epsilon),
         )
 
@@ -193,7 +205,8 @@ def main() -> None:
                 "rows_total": len(rows),
                 "rows_latest_by_run": len(latest_rows),
                 "rows_checked": len(scoped_rows),
-                "attack_checked": args.attack,
+                "attack_checked": attack_name,
+                "profile": args.profile,
                 "run_session_id": session_id or "",
             },
             indent=2,

@@ -10,17 +10,54 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
 fi
 
 MODE="demo"
-CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_matrix.yaml"
+PROFILE="week1-demo"
+CONFIG_PATH=""
 OUTPUT_ROOT=""
 INCLUDE_PRESENTATION_PLOTS="true"
+SANITY_ATTACK=""
+
+apply_profile_defaults() {
+  case "${PROFILE}" in
+    week1-demo)
+      MODE="demo"
+      CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_demo_matrix.yaml"
+      SANITY_ATTACK="fgsm"
+      ;;
+    week1-stress)
+      MODE="strict"
+      CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_matrix.yaml"
+      SANITY_ATTACK="fgsm"
+      ;;
+    custom)
+      if [[ -z "${SANITY_ATTACK}" ]]; then
+        SANITY_ATTACK="fgsm"
+      fi
+      ;;
+    *)
+      echo "ERROR: --profile must be one of: week1-demo, week1-stress, custom"
+      exit 1
+      ;;
+  esac
+}
+
+apply_profile_defaults
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --profile)
+      PROFILE="${2:-}"
+      apply_profile_defaults
+      shift 2
+      ;;
     --mode)
       MODE="${2:-}"
       shift 2
       ;;
     --config)
       CONFIG_PATH="${2:-}"
+      shift 2
+      ;;
+    --sanity-attack)
+      SANITY_ATTACK="${2:-}"
       shift 2
       ;;
     --output-root)
@@ -33,11 +70,16 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 [--mode demo|strict] [--config <yaml>] [--output-root <dir>] [--skip-presentation-plots]"
+      echo "Usage: $0 [--profile week1-demo|week1-stress|custom] [--mode demo|strict] [--config <yaml>] [--sanity-attack <name>] [--output-root <dir>] [--skip-presentation-plots]"
       exit 1
       ;;
   esac
 done
+
+if [[ -z "${CONFIG_PATH}" ]]; then
+  echo "ERROR: Config path is empty. Set --config or use a known --profile."
+  exit 1
+fi
 
 if [[ "${MODE}" != "demo" && "${MODE}" != "strict" ]]; then
   echo "ERROR: --mode must be 'demo' or 'strict' (got '${MODE}')"
@@ -58,7 +100,9 @@ METRICS_CSV="${OUTPUT_ROOT}/metrics_summary.csv"
 TABLE_MD="${OUTPUT_ROOT}/experiment_table.md"
 
 echo "Running week1 stabilization matrix (${MODE} mode)"
+echo "Profile: ${PROFILE}"
 echo "Config: ${CONFIG_PATH}"
+echo "Sanity attack target: ${SANITY_ATTACK}"
 echo "Output root: ${OUTPUT_ROOT}"
 echo "Preflight: checking local environment and assets"
 "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_environment.py"
@@ -69,7 +113,7 @@ echo "Preflight: checking local environment and assets"
 
 "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_metrics_integrity.py" \
   --csv "${METRICS_CSV}" \
-  --attack fgsm
+  --attack "${SANITY_ATTACK}"
 
 "${PYTHON_BIN}" "${ROOT_DIR}/scripts/generate_experiment_table.py" \
   --input_csv "${METRICS_CSV}" \
@@ -77,16 +121,17 @@ echo "Preflight: checking local environment and assets"
 
 if "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_fgsm_sanity.py" \
   --csv "${METRICS_CSV}" \
-  --attack fgsm \
+  --attack "${SANITY_ATTACK}" \
+  --profile "${PROFILE}" \
   --use-latest-session \
   --fail-on-all-zero-fgsm; then
-  echo "FGSM sanity check: PASS"
+  echo "${SANITY_ATTACK} sanity check: PASS"
 else
   if [[ "${MODE}" == "strict" ]]; then
-    echo "FGSM sanity check: FAIL (strict mode abort)"
+    echo "${SANITY_ATTACK} sanity check: FAIL (strict mode abort)"
     exit 1
   fi
-  echo "FGSM sanity check: FAIL (demo mode continues)"
+  echo "${SANITY_ATTACK} sanity check: FAIL (demo mode continues)"
   echo "NOTE: Present this as a stress-test collapse result and continue to plots."
 fi
 
