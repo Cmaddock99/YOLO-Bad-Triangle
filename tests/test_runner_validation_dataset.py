@@ -61,6 +61,11 @@ class RunnerValidationDatasetTests(unittest.TestCase):
             dataset_root = generated_path.parent
             self.assertTrue((dataset_root / "images").exists())
             self.assertTrue((dataset_root / "labels").exists())
+            # "images" must be a real directory so dataset loaders resolve
+            # sibling labels under the same dataset root.
+            self.assertTrue((dataset_root / "images").is_dir())
+            self.assertFalse((dataset_root / "images").is_symlink())
+            self.assertTrue((dataset_root / "images" / "sample.jpg").exists())
 
     def test_validation_data_yaml_requires_labels_directory(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

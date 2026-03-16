@@ -76,16 +76,19 @@ class ExperimentRunner:
             model_label = model_label_from_path(model_path)
 
         experiments = [ExperimentSpec(**exp_cfg) for exp_cfg in experiments_cfg]
+        data_yaml_path = Path(data_cfg.get("data_yaml", "configs/coco_subset500.yaml")).expanduser().resolve()
+        image_dir_path = Path(data_cfg.get("image_dir", "coco/val2017_subset500/images")).expanduser().resolve()
+        output_root_path = Path(runner_cfg.get("output_root", "outputs")).expanduser().resolve()
         return cls(
             model_path=model_path,
             model_label=model_label,
-            data_yaml=data_cfg.get("data_yaml", "configs/coco_subset500.yaml"),
-            image_dir=Path(data_cfg.get("image_dir", "coco/val2017_subset500/images")),
+            data_yaml=str(data_yaml_path),
+            image_dir=image_dir_path,
             confs=[float(value) for value in runner_cfg.get("confs", [0.5])],
             iou=float(runner_cfg.get("iou", 0.7)),
             imgsz=int(runner_cfg.get("imgsz", 640)),
             seed=int(runner_cfg.get("seed", 0)),
-            output_root=Path(runner_cfg.get("output_root", "outputs")),
+            output_root=output_root_path,
             metrics_csv=runner_cfg.get("metrics_csv", "metrics_summary.csv"),
             default_run_validation=bool(runner_cfg.get("run_validation", True)),
             experiments=experiments,
@@ -174,12 +177,25 @@ class ExperimentRunner:
 
         images_link = val_dataset_root / "images"
         labels_link = val_dataset_root / "labels"
+        images_link.mkdir(parents=True, exist_ok=True)
+        image_exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+
+        # Keep "images/" as a real directory under val_dataset_root so Ultralytics
+        # can consistently resolve sibling "labels/" for validation.
+        for image_path in source_dir.rglob("*"):
+            if not image_path.is_file() or image_path.suffix.lower() not in image_exts:
+                continue
+            relative = image_path.relative_to(source_dir)
+            target_path = images_link / relative
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                target_path.symlink_to(image_path.resolve())
+            except OSError:
+                shutil.copy2(image_path, target_path)
+
         try:
-            images_link.symlink_to(source_dir.resolve(), target_is_directory=True)
             labels_link.symlink_to(labels_dir.resolve(), target_is_directory=True)
         except OSError:
-            # Fallback for environments where symlinks are restricted.
-            shutil.copytree(source_dir, images_link)
             shutil.copytree(labels_dir, labels_link)
 
         base_data = yaml.safe_load(Path(self.data_yaml).read_text()) or {}
@@ -243,7 +259,11 @@ class ExperimentRunner:
         run_name: str,
         model: YOLOModel,
     ) -> Path:
-        source_dir = Path(spec.source_override) if spec.source_override else self.image_dir
+        source_dir = (
+            Path(spec.source_override).expanduser().resolve()
+            if spec.source_override
+            else self.image_dir
+        )
         intermediate_root = self.output_root / "_intermediates" / run_name
         if intermediate_root.exists():
             shutil.rmtree(intermediate_root)
