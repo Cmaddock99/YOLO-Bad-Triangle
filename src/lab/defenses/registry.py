@@ -31,3 +31,8 @@ def build_defense(name: str, params: dict[str, Any] | None = None) -> Defense:
         raise ValueError(f"Unsupported defense '{name}'. Supported defenses: {supported}")
     return defense_cls(**params)
 
+
+def list_available_defenses() -> list[str]:
+    _load_builtin_defenses()
+    return list_registered_defenses()
+

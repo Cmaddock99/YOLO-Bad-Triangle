@@ -106,7 +106,7 @@ sequenceDiagram
 - `run_experiment.py`: one-command entrypoint that parses key=value overrides, resolves aliases, supports dry-run, then executes the runner.
 - `scripts/run_framework.py`: modular YAML runner for multi-experiment configs.
 - `run_experiment_api.py`: explicit-argument wrapper for programmatic integration.
-- `collect_metrics_api.py` and `scripts/collect_metrics.py`: append-only metrics collection helpers.
+- metrics collection is integrated in `append_run_metrics(...)` during runner execution; no separate collector script is required.
 
 ### 3.2 Config and resolution
 
@@ -174,10 +174,10 @@ Recorded rows from that fresh run session:
 
 | Run name | Attack | Conf | Precision | Recall | mAP50 | mAP50-95 |
 |---|---|---|---:|---:|---:|---:|
-| `baseline-demo-confidence025` | none | 0.25 | 0.6245 | 0.5017 | 0.5988 | 0.4688 |
-| `fgsm-epsilon-0005-demo-confidence025` | fgsm (`epsilon=0.0005`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
-| `fgsm-epsilon-0010-demo-confidence025` | fgsm (`epsilon=0.001`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
-| `fgsm-epsilon-0020-demo-confidence025` | fgsm (`epsilon=0.002`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `baseline-control-demo-confidence025` | none | 0.25 | 0.6245 | 0.5017 | 0.5988 | 0.4688 |
+| `attack-primary-level-0005-demo-confidence025` | fgsm (`epsilon=0.0005`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `attack-primary-level-0060-demo-confidence025` | fgsm (`epsilon=0.006`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `attack-primary-level-0100-demo-confidence025` | fgsm (`epsilon=0.01`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
 
 ### 4.3 Tasks remaining
 
