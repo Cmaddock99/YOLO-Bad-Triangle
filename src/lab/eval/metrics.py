@@ -39,8 +39,6 @@ def _find_label_files(run_dir: Path) -> list[Path]:
     patterns = [
         "labels/*.txt",
         "predict/labels/*.txt",
-        "predict/*.txt",
-        "*.txt",
     ]
     found: dict[str, Path] = {}
     for pattern in patterns:
@@ -55,6 +53,8 @@ def _parse_detection_stats(run_dir: Path) -> dict[str, Any]:
     images_with_detections = 0
     total_detections = 0
     confidences: list[float] = []
+    has_non_six_column_rows = False
+    malformed_conf_rows = 0
 
     for txt_file in label_files:
         lines = [line.strip().split() for line in txt_file.read_text().splitlines() if line.strip()]
@@ -62,12 +62,27 @@ def _parse_detection_stats(run_dir: Path) -> dict[str, Any]:
             images_with_detections += 1
             total_detections += len(lines)
             for parts in lines:
-                try:
-                    confidences.append(float(parts[-1]))
-                except Exception:
+                if len(parts) != 6:
+                    has_non_six_column_rows = True
                     continue
+                try:
+                    confidences.append(float(parts[5]))
+                except Exception:
+                    malformed_conf_rows += 1
 
-    if confidences:
+    if has_non_six_column_rows or malformed_conf_rows:
+        issue_parts: list[str] = []
+        if has_non_six_column_rows:
+            issue_parts.append("found rows without 6 columns")
+        if malformed_conf_rows:
+            issue_parts.append(f"found {malformed_conf_rows} rows with non-numeric confidence")
+        print(
+            "WARNING: Confidence statistics omitted because prediction label format is invalid in "
+            f"'{run_dir}': {', '.join(issue_parts)}. "
+            "Expected YOLO prediction labels with 6 columns."
+        )
+        avg_conf = med_conf = p25_conf = p75_conf = None
+    elif confidences:
         sorted_confs = sorted(confidences)
         p25_idx = max(0, int(0.25 * len(sorted_confs)) - 1)
         p75_idx = min(len(sorted_confs) - 1, int(0.75 * len(sorted_confs)) - 1)

@@ -13,16 +13,51 @@ ACTION="${1:-help}"
 shift || true
 
 OUTPUT_ROOT="${ROOT_DIR}/outputs/demo-reference"
-CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_demo_matrix.yaml"
+PROFILE="week1-demo"
+CONFIG_PATH=""
+SANITY_ATTACK=""
+
+apply_profile_defaults() {
+  case "${PROFILE}" in
+    week1-demo)
+      CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_demo_matrix.yaml"
+      SANITY_ATTACK="fgsm"
+      ;;
+    week1-stress)
+      CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_matrix.yaml"
+      SANITY_ATTACK="fgsm"
+      ;;
+    custom)
+      if [[ -z "${SANITY_ATTACK}" ]]; then
+        SANITY_ATTACK="fgsm"
+      fi
+      ;;
+    *)
+      echo "ERROR: --profile must be one of: week1-demo, week1-stress, custom"
+      exit 1
+      ;;
+  esac
+}
+
+apply_profile_defaults
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --profile)
+      PROFILE="${2:-}"
+      apply_profile_defaults
+      shift 2
+      ;;
     --output-root)
       OUTPUT_ROOT="${2:-}"
       shift 2
       ;;
     --config)
       CONFIG_PATH="${2:-}"
+      shift 2
+      ;;
+    --sanity-attack)
+      SANITY_ATTACK="${2:-}"
       shift 2
       ;;
     *)
@@ -52,7 +87,7 @@ resolve_default_output_root() {
 print_usage() {
   cat <<EOF
 Usage:
-  bash scripts/demo/run_demo_package.sh <action> [--output-root <dir>] [--config <yaml>]
+  bash scripts/demo/run_demo_package.sh <action> [--profile <name>] [--output-root <dir>] [--config <yaml>] [--sanity-attack <name>]
 
 Actions:
   preflight    Run environment checks only.
@@ -75,16 +110,20 @@ run_preflight() {
 run_live_demo() {
   echo "== Live demo run =="
   bash "${ROOT_DIR}/scripts/run_week1_stabilization.sh" \
+    --profile "${PROFILE}" \
     --mode demo \
     --config "${CONFIG_PATH}" \
+    --sanity-attack "${SANITY_ATTACK}" \
     --output-root "${OUTPUT_ROOT}"
 }
 
 run_live_strict() {
   echo "== Live strict run =="
   bash "${ROOT_DIR}/scripts/run_week1_stabilization.sh" \
+    --profile "${PROFILE}" \
     --mode strict \
     --config "${CONFIG_PATH}" \
+    --sanity-attack "${SANITY_ATTACK}" \
     --output-root "${OUTPUT_ROOT}"
 }
 
@@ -96,23 +135,27 @@ run_artifacts() {
 
 run_gates() {
   echo "== Gate checks =="
+  echo "Profile: ${PROFILE}"
+  echo "Sanity attack target: ${SANITY_ATTACK}"
   "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_metrics_integrity.py" \
     --csv "${METRICS_CSV}" \
-    --attack fgsm
+    --attack "${SANITY_ATTACK}"
 
   "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_fgsm_sanity.py" \
     --csv "${METRICS_CSV}" \
-    --attack fgsm \
+    --attack "${SANITY_ATTACK}" \
+    --profile "${PROFILE}" \
     --use-latest-session
 
   if "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_fgsm_sanity.py" \
     --csv "${METRICS_CSV}" \
-    --attack fgsm \
+    --attack "${SANITY_ATTACK}" \
+    --profile "${PROFILE}" \
     --use-latest-session \
     --fail-on-all-zero-fgsm; then
-    echo "Strict FGSM collapse gate: PASS"
+    echo "Strict ${SANITY_ATTACK} collapse gate: PASS"
   else
-    echo "Strict FGSM collapse gate: FAIL (expected on current stress-test behavior)"
+    echo "Strict ${SANITY_ATTACK} collapse gate: FAIL (expected on current stress-test behavior)"
   fi
 }
 

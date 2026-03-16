@@ -14,32 +14,32 @@ runner:
   metrics_csv: metrics_summary.csv
 
 experiments:
-  - name: baseline_demo
+  - name: baseline_control_demo
     attack: none
     defense: none
-    run_name_template: baseline-demo-confidence{conf_token}
+    run_name_template: baseline-control-demo-confidence{conf_token}
     run_validation: true
 
-  - name: fgsm_epsilon_0005_demo
+  - name: attack_primary_level_0005_demo
     attack: fgsm
     attack_params:
       epsilon: 0.0005
     defense: none
-    run_name_template: fgsm-epsilon-0005-demo-confidence{conf_token}
+    run_name_template: attack-primary-level-0005-demo-confidence{conf_token}
     run_validation: true
 
-  - name: fgsm_epsilon_0010_demo
+  - name: attack_primary_level_0060_demo
     attack: fgsm
     attack_params:
       epsilon: 0.006
     defense: none
-    run_name_template: fgsm-epsilon-0060-demo-confidence{conf_token}
+    run_name_template: attack-primary-level-0060-demo-confidence{conf_token}
     run_validation: true
 
-  - name: fgsm_epsilon_0100_demo
+  - name: attack_primary_level_0100_demo
     attack: fgsm
     attack_params:
       epsilon: 0.01
     defense: none
-    run_name_template: fgsm-epsilon-0100-demo-confidence{conf_token}
+    run_name_template: attack-primary-level-0100-demo-confidence{conf_token}
     run_validation: true

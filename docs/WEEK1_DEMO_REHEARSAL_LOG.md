@@ -4,7 +4,7 @@
 
 - Date (UTC): `2026-03-15`
 - Command:
-  - `./scripts/run_week1_stabilization.sh --mode demo --config configs/week1_stabilization_demo_matrix.yaml`
+  - `./scripts/run_week1_stabilization.sh --profile week1-demo --mode demo`
 - Output root:
   - `outputs/demo-reference` (linked to timestamped rehearsal run)
 - Total wall clock:

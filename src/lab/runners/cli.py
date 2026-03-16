@@ -21,15 +21,22 @@ def main() -> None:
     parser.add_argument(
         "--output_root",
         default=None,
-        help="Optional override for output directory root.",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--output-root",
+        dest="output_root_dash",
+        default=None,
+        help="Optional override for output directory root (default: outputs/ from config).",
     )
     args = parser.parse_args()
 
     runner = ExperimentRunner.from_yaml(args.config)
     if args.confs:
         runner.confs = [float(part) for part in args.confs.split(",") if part.strip()]
-    if args.output_root:
-        runner.output_root = Path(args.output_root)
+    output_root_override = args.output_root_dash or args.output_root
+    if output_root_override:
+        runner.output_root = Path(output_root_override)
     runner.run()
 
 

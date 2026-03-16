@@ -31,3 +31,8 @@ def build_attack(name: str, params: dict[str, Any] | None = None) -> Attack:
         raise ValueError(f"Unsupported attack '{name}'. Supported attacks: {supported}")
     return attack_cls(**params)
 
+
+def list_available_attacks() -> list[str]:
+    _load_builtin_attacks()
+    return list_registered_attacks()
+

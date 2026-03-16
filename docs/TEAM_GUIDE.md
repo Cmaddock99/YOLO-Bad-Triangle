@@ -66,7 +66,7 @@ You should see a resolved summary and runner config.
 ## Step 3: Check outputs
 
 Look at:
-- output run folder under `outputs/experiments/...`
+- output run folder under `outputs/<run_name>/...`
 - `metrics_summary.csv` in that output root
 - `val/metrics.json` if validation was enabled
 
@@ -86,7 +86,7 @@ Use this table:
   Use: `run_experiment_api.py`
 
 - **I already ran inference and only want to append metrics**  
-  Use: `scripts/collect_metrics.py` or `collect_metrics_api.py`
+  Use: this is automatic in `run_experiment.py`/`scripts/run_framework.py`; no separate collector step is required.
 
 ## 5) Typical usage examples
 
@@ -100,7 +100,7 @@ Useful overrides:
 - `defense.h=12`
 - `iou=0.7 imgsz=640 seed=42`
 - `validate=true`
-- `output_root=outputs/experiments`
+- `output_root=outputs/custom`
 
 ## B) Modular YAML runner
 
@@ -110,7 +110,7 @@ Useful overrides:
 ## C) API wrappers
 
 - `./.venv/bin/python run_experiment_api.py --help`
-- `./.venv/bin/python scripts/collect_metrics.py --help`
+- `./.venv/bin/python run_experiment_api.py --list-attacks`
 
 ## D) FGSM epsilon sweep (recommended)
 
@@ -128,11 +128,11 @@ Use FGSM with a fixed seed and compare against `attack=none`:
 
 Use the canonical week1 matrix runner to produce a fresh, timestamped output root:
 
-- `./scripts/run_week1_stabilization.sh --mode demo --config configs/week1_stabilization_matrix.yaml`
+- `./scripts/run_week1_stabilization.sh --profile week1-demo --mode demo`
 
 What this does:
 
-1. runs baseline + FGSM (`0.004`, `0.008`, `0.016`) from `configs/week1_stabilization_matrix.yaml`,
+1. runs baseline + FGSM (`0.0005`, `0.006`, `0.01`) from `configs/week1_stabilization_demo_matrix.yaml`,
 2. writes outputs to `outputs/week1_<UTC timestamp>/`,
 3. validates metrics integrity with `scripts/check_metrics_integrity.py`,
 4. checks FGSM sanity (`warn+continue` in `--mode demo`, `fail` in `--mode strict`),
@@ -180,13 +180,23 @@ In `metrics_summary.csv`, important columns include:
 - `src/lab/eval`: metrics parsing/writing
 - `configs/`: dataset and experiment YAMLs
 - `scripts/`: helper CLIs
-- root scripts: `run_experiment.py`, `run_experiment_api.py`, `collect_metrics_api.py`
+- root scripts: `run_experiment.py`, `run_experiment_api.py`
+
+### Canonical entrypoints (authoritative)
+
+- `run_experiment.py`: easiest one-command operator flow with `key=value` overrides.
+- `run_experiment_api.py`: explicit-arg one-run wrapper for script/tool integrations.
+- `scripts/run_framework.py`: YAML batch runner backed by `src/lab/runners/cli.py`.
+- `scripts/demo/run_demo_package.sh`: demo/rehearsal orchestration (preflight, live run, artifacts, gates, summary).
+
+Where to add new modules:
+- attacks: `src/lab/attacks/` (+ registration in `configs/experiment_lab.yaml`)
+- defenses: `src/lab/defenses/` (+ registration in `configs/experiment_lab.yaml`)
 
 ## 9) Known gotchas (important)
 
 - If you see `ModuleNotFoundError: ultralytics`, use `./.venv/bin/python ...`.
-- Explicit `attack=none` (or `defense=none`) in `run_experiment.py` currently fails in parser logic.  
-  Workaround: omit those keys and let defaults handle `none`.
+- `attack=none` and `defense=none` are valid explicit values in `run_experiment.py`.
 - Missing/empty metrics usually means no label files were produced in the run output.
 - Validation metrics only appear when validation is enabled (`validate=true` or `run_validation: true`).
 
@@ -224,15 +234,11 @@ This is the full callable index as of now.
   - `main()`: parse key/value overrides, resolve aliases, optionally dry-run, run experiments.
 - `run_experiment_api.py`
   - `main()`: explicit CLI wrapper that builds a one-experiment config.
-- `collect_metrics_api.py`
-  - `main()`: append one run’s metrics to CSV.
 
 ## `scripts/`
 
 - `scripts/run_framework.py`
   - no top-level function (imports and runs `lab.runners.cli.main`).
-- `scripts/collect_metrics.py`
-  - `main()`: append metrics from a run dir into CSV.
 - `scripts/convert_coco_to_yolo.py`
   - script-style converter (no function) from COCO JSON boxes to YOLO labels.
 
