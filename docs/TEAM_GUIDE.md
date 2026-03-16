@@ -6,6 +6,8 @@ This document is written for both:
 
 If you only read one section, read **Section 3: 10-minute Quick Start**.
 
+For live team presentation flow, use `docs/WEEK1_DEMO_RUNBOOK.md`.
+
 ## Templates for new modules
 
 Use these starter docs when creating new components:
@@ -53,7 +55,7 @@ Use the repo virtual environment to avoid missing package issues:
 
 Dry run resolves config only:
 
-- `python3 run_experiment.py dry_run=true`
+- `./.venv/bin/python run_experiment.py dry_run=true`
 
 You should see a resolved summary and runner config.
 
@@ -126,14 +128,19 @@ Use FGSM with a fixed seed and compare against `attack=none`:
 
 Use the canonical week1 matrix runner to produce a fresh, timestamped output root:
 
-- `./scripts/run_week1_stabilization.sh`
+- `./scripts/run_week1_stabilization.sh --mode demo --config configs/week1_stabilization_matrix.yaml`
 
 What this does:
 
 1. runs baseline + FGSM (`0.004`, `0.008`, `0.016`) from `configs/week1_stabilization_matrix.yaml`,
 2. writes outputs to `outputs/week1_<UTC timestamp>/`,
 3. validates metrics integrity with `scripts/check_metrics_integrity.py`,
-4. generates `experiment_table.md` and plots in that same output root.
+4. checks FGSM sanity (`warn+continue` in `--mode demo`, `fail` in `--mode strict`),
+5. generates `experiment_table.md` and all week1 plots in that same output root.
+
+Current canonical fallback demo root:
+
+- `outputs/demo-reference`
 
 ## 6) What happens inside one run?
 
@@ -319,7 +326,7 @@ This is the full callable index as of now.
 ## 12) Recommended team workflow
 
 1. Use `.venv`.
-2. Run `python3 run_experiment.py dry_run=true`.
+2. Run `./.venv/bin/python run_experiment.py dry_run=true`.
 3. Run a small experiment (`attack=blur conf=0.25`).
 4. Review `metrics_summary.csv`.
 5. Iterate on attack/defense and thresholds.

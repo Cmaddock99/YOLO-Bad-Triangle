@@ -63,6 +63,21 @@ class FGSMSmokeTests(unittest.TestCase):
             self.assertIsNotNone(out_image)
             self.assertEqual(tuple(out_image.shape), tuple(image.shape))
 
+    def test_uint8_conversion_uses_rounding_not_truncation(self) -> None:
+        # Tiny +/- deltas around an exact integer level should remain unchanged
+        # after conversion to uint8.
+        base = 10.0 / 255.0
+        tensor = torch.tensor(
+            [[[[base - 1e-5]], [[base + 1e-5]], [[base]]]],
+            dtype=torch.float32,
+        )
+        converted = FGSMAttack._tensor_to_uint8_rgb(tensor)
+
+        self.assertEqual(converted.shape, (1, 1, 3))
+        self.assertEqual(int(converted[0, 0, 0]), 10)
+        self.assertEqual(int(converted[0, 0, 1]), 10)
+        self.assertEqual(int(converted[0, 0, 2]), 10)
+
 
 if __name__ == "__main__":
     unittest.main()

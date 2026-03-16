@@ -111,6 +111,13 @@ class FGSMAttack(Attack):
             "Unable to compute FGSM loss from model outputs (no differentiable tensor found)."
         )
 
+    @staticmethod
+    def _tensor_to_uint8_rgb(image_tensor: torch.Tensor) -> np.ndarray:
+        """Convert BCHW float tensor in [0,1] to HWC uint8 RGB safely."""
+        return np.rint(
+            image_tensor.squeeze(0).permute(1, 2, 0).cpu().numpy() * 255.0
+        ).clip(0, 255).astype(np.uint8)
+
     def _apply_to_tensor(
         self,
         image: torch.Tensor,
@@ -207,9 +214,7 @@ class FGSMAttack(Attack):
                 torch.from_numpy(image_rgb).float().permute(2, 0, 1).unsqueeze(0) / 255.0
             )
             adv_tensor = self._apply_to_tensor(image_tensor, model=model, target=target)
-            adv_rgb = (
-                adv_tensor.squeeze(0).permute(1, 2, 0).cpu().numpy() * 255.0
-            ).clip(0, 255).astype(np.uint8)
+            adv_rgb = self._tensor_to_uint8_rgb(adv_tensor)
             adv_bgr = cv2.cvtColor(adv_rgb, cv2.COLOR_RGB2BGR)
 
             relative = image_path.relative_to(source_path)
