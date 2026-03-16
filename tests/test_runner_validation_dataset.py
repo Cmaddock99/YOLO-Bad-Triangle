@@ -123,6 +123,48 @@ class RunnerValidationDatasetTests(unittest.TestCase):
         runner = ExperimentRunner.from_dict(config)
         self.assertFalse(runner.default_run_validation)
 
+    def test_run_name_safety_blocks_traversal_patterns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runner = ExperimentRunner(
+                model_path="yolov8n.pt",
+                model_label="yolo8",
+                data_yaml=str(root / "data.yaml"),
+                image_dir=root / "images",
+                confs=[0.25],
+                iou=0.7,
+                imgsz=640,
+                seed=42,
+                output_root=root / "outputs",
+                metrics_csv="metrics_summary.csv",
+                default_run_validation=True,
+                experiments=[],
+            )
+            with self.assertRaises(ValueError):
+                runner._assert_run_name_safe("../escape")
+            with self.assertRaises(ValueError):
+                runner._assert_run_name_safe("nested/run")
+
+    def test_metrics_csv_path_must_resolve_under_output_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runner = ExperimentRunner(
+                model_path="yolov8n.pt",
+                model_label="yolo8",
+                data_yaml=str(root / "data.yaml"),
+                image_dir=root / "images",
+                confs=[0.25],
+                iou=0.7,
+                imgsz=640,
+                seed=42,
+                output_root=root / "outputs",
+                metrics_csv="../outside.csv",
+                default_run_validation=True,
+                experiments=[],
+            )
+            with self.assertRaises(ValueError):
+                runner._metrics_csv_path()
+
 
 if __name__ == "__main__":
     unittest.main()

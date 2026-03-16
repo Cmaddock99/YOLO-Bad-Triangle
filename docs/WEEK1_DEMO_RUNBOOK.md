@@ -30,11 +30,11 @@ From repo root:
 Use this tuned sweep for the clearest live trend on current environment
 (`epsilon = 0.0005`, `0.006`, `0.01`):
 
-- `./scripts/run_week1_stabilization.sh --mode demo --config configs/week1_stabilization_demo_matrix.yaml`
+- `./scripts/run_week1_stabilization.sh --profile week1-demo --mode demo`
 
 ### Step B - Reference stress-test run (original week1 matrix)
 
-- `./scripts/run_week1_stabilization.sh --mode demo --config configs/week1_stabilization_matrix.yaml`
+- `./scripts/run_week1_stabilization.sh --profile week1-stress --mode demo`
 
 The script now:
 
@@ -99,7 +99,7 @@ Fallback presentation command (regenerate plots if needed):
 
 Run at least one full rehearsal before the meeting:
 
-- `time ./scripts/run_week1_stabilization.sh --mode demo --config configs/week1_stabilization_demo_matrix.yaml`
+- `time ./scripts/run_week1_stabilization.sh --profile week1-demo --mode demo`
 
 Expected runtime windows on current machine profile (CPU, 500-image subset):
 
