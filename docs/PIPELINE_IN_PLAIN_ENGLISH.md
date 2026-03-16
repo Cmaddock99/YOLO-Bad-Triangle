@@ -22,10 +22,10 @@ Each experiment run does the same sequence:
 
 For each run, you get:
 
-- Predictions and label text files in `results/<run_name>/...`
-- Intermediate attacked/defended images in `results/_intermediates/<run_name>/...`
-- Validation summary in `results/<run_name>/val/metrics.json`
-- A CSV row in `results/metrics_summary.csv`
+- Predictions and label text files in `outputs/<run_name>/...`
+- Intermediate attacked/defended images in `outputs/_intermediates/<run_name>/...`
+- Validation summary in `outputs/<run_name>/val/metrics.json`
+- A CSV row in `outputs/metrics_summary.csv` (or `<custom_output_root>/metrics_summary.csv`)
 
 ## Why two types of metrics exist
 
@@ -56,10 +56,8 @@ If validation is missing or disabled, those final four fields can be empty.
 3. Register it with `@register_attack(...)` or `@register_defense(...)`.
 4. Reference it in experiment YAML via `attack`/`defense` and params.
 5. Run:
-   - `source .venv/bin/activate`
-   - `python run_experiment.py attack=blur conf=0.25`
-   - `tail -n 1 results/metrics_summary.csv`
-   - `python scripts/plot_results.py`
+   - `./.venv/bin/python run_experiment.py attack=blur conf=0.25`
+   - `./.venv/bin/python scripts/plot_results.py --csv outputs/metrics_summary.csv`
 
 ## How to think about results
 
@@ -68,3 +66,11 @@ If validation is missing or disabled, those final four fields can be empty.
 - If defense recovers validation metrics, the defense is helping.
 
 That is the entire loop: change attack/defense, rerun, inspect CSV + plots, iterate.
+
+For week1 demo artifact regeneration from one known output root, use:
+
+- `bash scripts/generate_week1_demo_artifacts.sh --output-root outputs/week1_<timestamp>`
+
+Current canonical fallback root for presentation:
+
+- `outputs/demo-reference`

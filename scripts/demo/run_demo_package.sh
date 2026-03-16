@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  echo "ERROR: Missing virtualenv python at ${PYTHON_BIN}"
+  exit 1
+fi
+
+ACTION="${1:-help}"
+shift || true
+
+OUTPUT_ROOT="${ROOT_DIR}/outputs/demo-reference"
+CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_demo_matrix.yaml"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-root)
+      OUTPUT_ROOT="${2:-}"
+      shift 2
+      ;;
+    --config)
+      CONFIG_PATH="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
+
+METRICS_CSV="${OUTPUT_ROOT}/metrics_summary.csv"
+
+resolve_default_output_root() {
+  if [[ -f "${OUTPUT_ROOT}/metrics_summary.csv" ]]; then
+    return
+  fi
+  if [[ -L "${ROOT_DIR}/outputs/demo-latest" ]] || [[ -d "${ROOT_DIR}/outputs/demo-latest" ]]; then
+    OUTPUT_ROOT="${ROOT_DIR}/outputs/demo-latest"
+    return
+  fi
+  local latest
+  latest="$(ls -dt "${ROOT_DIR}"/outputs/week1_* 2>/dev/null | head -n 1 || true)"
+  if [[ -n "${latest}" ]]; then
+    OUTPUT_ROOT="${latest}"
+  fi
+}
+
+print_usage() {
+  cat <<EOF
+Usage:
+  bash scripts/demo/run_demo_package.sh <action> [--output-root <dir>] [--config <yaml>]
+
+Actions:
+  preflight    Run environment checks only.
+  live-demo    Run full week1 demo mode pipeline (compute).
+  live-strict  Run full week1 strict mode pipeline (compute).
+  artifacts    Rebuild all plots/tables from existing CSV.
+  gates        Run integrity + FGSM sanity gates on existing CSV.
+  summary      Print concise interpretation summary from CSV.
+  fast         preflight + artifacts + gates + summary (no model rerun).
+  full-demo    preflight + live-demo + artifacts + gates + summary.
+  help         Show this message.
+EOF
+}
+
+run_preflight() {
+  echo "== Preflight =="
+  "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_environment.py"
+}
+
+run_live_demo() {
+  echo "== Live demo run =="
+  bash "${ROOT_DIR}/scripts/run_week1_stabilization.sh" \
+    --mode demo \
+    --config "${CONFIG_PATH}" \
+    --output-root "${OUTPUT_ROOT}"
+}
+
+run_live_strict() {
+  echo "== Live strict run =="
+  bash "${ROOT_DIR}/scripts/run_week1_stabilization.sh" \
+    --mode strict \
+    --config "${CONFIG_PATH}" \
+    --output-root "${OUTPUT_ROOT}"
+}
+
+run_artifacts() {
+  echo "== Artifact rebuild =="
+  bash "${ROOT_DIR}/scripts/generate_week1_demo_artifacts.sh" \
+    --output-root "${OUTPUT_ROOT}"
+}
+
+run_gates() {
+  echo "== Gate checks =="
+  "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_metrics_integrity.py" \
+    --csv "${METRICS_CSV}" \
+    --attack fgsm
+
+  "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_fgsm_sanity.py" \
+    --csv "${METRICS_CSV}" \
+    --attack fgsm \
+    --use-latest-session
+
+  if "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_fgsm_sanity.py" \
+    --csv "${METRICS_CSV}" \
+    --attack fgsm \
+    --use-latest-session \
+    --fail-on-all-zero-fgsm; then
+    echo "Strict FGSM collapse gate: PASS"
+  else
+    echo "Strict FGSM collapse gate: FAIL (expected on current stress-test behavior)"
+  fi
+}
+
+run_summary() {
+  echo "== Interpretation summary =="
+  "${PYTHON_BIN}" "${ROOT_DIR}/scripts/demo/summary_interpretation.py" \
+    --csv "${METRICS_CSV}"
+}
+
+resolve_default_output_root
+METRICS_CSV="${OUTPUT_ROOT}/metrics_summary.csv"
+
+case "${ACTION}" in
+  preflight)
+    run_preflight
+    ;;
+  live-demo)
+    run_live_demo
+    ;;
+  live-strict)
+    run_live_strict
+    ;;
+  artifacts)
+    run_artifacts
+    ;;
+  gates)
+    run_gates
+    ;;
+  summary)
+    run_summary
+    ;;
+  fast)
+    resolve_default_output_root
+    METRICS_CSV="${OUTPUT_ROOT}/metrics_summary.csv"
+    run_preflight
+    run_artifacts
+    run_gates
+    run_summary
+    ;;
+  full-demo)
+    resolve_default_output_root
+    METRICS_CSV="${OUTPUT_ROOT}/metrics_summary.csv"
+    run_preflight
+    run_live_demo
+    run_artifacts
+    run_gates
+    run_summary
+    ;;
+  help|--help|-h)
+    print_usage
+    ;;
+  *)
+    echo "Unknown action: ${ACTION}"
+    print_usage
+    exit 1
+    ;;
+esac

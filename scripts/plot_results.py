@@ -193,7 +193,7 @@ def main() -> None:
 
     # Plot 1: mAP50 by attack
     map50_df = df.dropna(subset=["mAP50"])
-    map50_path = plots_dir / "attack_vs_map50.png"
+    map50_path = plots_dir / "map50-by-attack.png"
     if map50_df.empty:
         reason = "Metric 'mAP50' is empty or non-numeric for all rows."
         print(f"Skipping data plot for mAP50: {reason}")
@@ -228,7 +228,7 @@ def main() -> None:
 
     # Plot 2: precision/recall by attack (plot whichever metrics are valid)
     pr_metrics = [metric for metric in ["precision", "recall"] if valid_counts[metric] > 0]
-    pr_path = plots_dir / "precision_recall.png"
+    pr_path = plots_dir / "precision-recall-by-attack.png"
     if not pr_metrics:
         reason = "Both 'precision' and 'recall' are empty or non-numeric."
         print(f"Skipping data plot for precision/recall: {reason}")

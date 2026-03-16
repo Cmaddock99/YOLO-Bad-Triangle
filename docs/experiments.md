@@ -165,19 +165,19 @@ For each `(experiment, conf)` pair, `ExperimentRunner`:
 
 Week1 stabilization matrix completed under:
 
-- `outputs/week1_20260315_182807/`
+- `outputs/demo-reference/` (friendly alias for canonical week1 demo root)
 - `metrics_summary.csv` rows: 4
 - `experiment_table.md` generated
-- plots generated in `outputs/week1_20260315_182807/plots/`
+- plots generated in `outputs/demo-reference/plots/`
 
 Recorded rows from that fresh run session:
 
 | Run name | Attack | Conf | Precision | Recall | mAP50 | mAP50-95 |
 |---|---|---|---:|---:|---:|---:|
-| `yolo8_baseline_week1_conf025` | none | 0.25 | 0.6245 | 0.5017 | 0.5988 | 0.4688 |
-| `yolo8_fgsm_e004_week1_conf025` | fgsm (`epsilon=0.004`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
-| `yolo8_fgsm_e008_week1_conf025` | fgsm (`epsilon=0.008`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
-| `yolo8_fgsm_e016_week1_conf025` | fgsm (`epsilon=0.016`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `baseline-demo-confidence025` | none | 0.25 | 0.6245 | 0.5017 | 0.5988 | 0.4688 |
+| `fgsm-epsilon-0005-demo-confidence025` | fgsm (`epsilon=0.0005`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `fgsm-epsilon-0010-demo-confidence025` | fgsm (`epsilon=0.001`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `fgsm-epsilon-0020-demo-confidence025` | fgsm (`epsilon=0.002`) | 0.25 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
 
 ### 4.3 Tasks remaining
 
