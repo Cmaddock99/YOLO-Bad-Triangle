@@ -33,7 +33,7 @@ Core code lives in `src/lab`.
 
 ## 2) Key terms (quick glossary)
 
-- **Model**: the YOLO weights file (default: `yolov8n.pt`).
+- **Model**: the YOLO weights file (default: `yolo26n.pt` via `model=yolo26`).
 - **Dataset**: images + labels config (default points to COCO subset).
 - **Attack**: a transformation that makes images harder (blur, noise, deepfool-like).
 - **Defense**: a preprocessing step intended to recover signal (median blur, denoise).
@@ -95,7 +95,8 @@ Use this table:
 - `./.venv/bin/python run_experiment.py attack=deepfool defense=denoise conf=0.25,0.5`
 
 Useful overrides:
-- `model=yolo11 dataset=coco_subset`
+- `model=yolo26 dataset=coco_subset`
+- fallback options: `model=yolo11` or `model=yolo8`
 - `attack.kernel_size=11`
 - `defense.h=12`
 - `iou=0.7 imgsz=640 seed=42`

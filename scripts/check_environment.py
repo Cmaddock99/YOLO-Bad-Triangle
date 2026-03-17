@@ -9,7 +9,7 @@ from pathlib import Path
 
 MIN_PYTHON = (3, 9)
 DEFAULT_DATASET_PATH = "coco/val2017_subset500/images"
-DEFAULT_MODEL_CANDIDATES = ("yolov8n.pt", "yolo11n.pt", "yolo11s.pt")
+DEFAULT_MODEL_CANDIDATES = ("yolo26n.pt", "yolo11n.pt", "yolo11s.pt", "yolov8n.pt")
 CHECKMARK = "✔"
 CROSSMARK = "✘"
 
@@ -103,7 +103,7 @@ def check_model_weights(model_path: str | None) -> CheckResult:
         "YOLO model missing",
         False,
         instruction=(
-            "Download YOLO weights (for example `yolov8n.pt`) into the repo root, "
+            "Download YOLO weights (for example `yolo26n.pt`) into the repo root, "
             "or set --model-path to your weights file."
         ),
         detail=f"checked: {missing_target}",

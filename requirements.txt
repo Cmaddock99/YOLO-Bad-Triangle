@@ -1,7 +1,7 @@
 # Core YOLO framework and experiment utilities (supports Python 3.9+)
 
-# Ultralytics YOLO implementation and training/inference tooling
-ultralytics>=8.2.0,<9.0.0
+# Ultralytics YOLO implementation and training/inference tooling (YOLO26-ready floor)
+ultralytics>=8.4.23,<9.0.0
 
 # PyTorch backend for model training/inference
 torch>=2.2.0,<2.6.0
