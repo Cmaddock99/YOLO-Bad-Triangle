@@ -1,5 +1,5 @@
 model:
-  path: yolov8n.pt
+  path: yolo26n.pt
 
 data:
   data_yaml: configs/coco_subset500.yaml
