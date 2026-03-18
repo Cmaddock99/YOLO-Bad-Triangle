@@ -15,7 +15,10 @@ from lab.runners.experiment_registry import ExperimentRegistry, parse_key_value_
 
 
 USAGE = """\
-One-command experiment lab
+[DEPRECATED COMPAT ENTRYPOINT] one-command experiment lab
+
+Preferred framework runner:
+  PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml
 
 Usage:
   python run_experiment.py attack=blur model=yolo11 defense=median
@@ -44,6 +47,11 @@ Additional optional overrides:
   validate=true dry_run=true
 """
 
+DEPRECATION_NOTICE = (
+    "DEPRECATION NOTICE: 'run_experiment.py' is a legacy compatibility entrypoint. "
+    "Use 'src/lab/runners/run_experiment.py' for framework-first operation."
+)
+
 
 def _print_readable_summary(summary: dict[str, Any], resolved_runner: dict[str, Any]) -> None:
     confs = resolved_runner.get("runner", {}).get("confs", [])
@@ -68,6 +76,7 @@ def _print_list(title: str, values: list[str]) -> None:
 
 
 def main() -> None:
+    print(DEPRECATION_NOTICE)
     try:
         overrides = parse_key_value_overrides(sys.argv[1:])
     except ValueError as exc:

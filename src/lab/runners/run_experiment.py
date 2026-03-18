@@ -181,9 +181,12 @@ class UnifiedExperimentRunner:
         defense = build_defense_plugin(defense_name or "none", **defense_params)
 
         prepared_paths: list[Path] = []
+        skipped_unreadable = 0
+        failed_writes = 0
         for image_path in images:
             image = cv2.imread(str(image_path))
             if image is None:
+                skipped_unreadable += 1
                 continue
             defended_image, _ = defense.preprocess(image)
             transformed = defended_image
@@ -191,11 +194,18 @@ class UnifiedExperimentRunner:
                 transformed, _ = attack.apply(defended_image, model=model)
 
             target = prepared_dir / image_path.name
-            cv2.imwrite(str(target), transformed)
+            wrote = cv2.imwrite(str(target), transformed)
+            if not wrote:
+                failed_writes += 1
+                continue
             prepared_paths.append(target)
 
         if not prepared_paths:
-            raise ValueError("No readable images were processed.")
+            raise ValueError(
+                "No images were prepared for inference. "
+                f"unreadable={skipped_unreadable}, failed_writes={failed_writes}, "
+                f"source_count={len(images)}"
+            )
 
         predictions = model.predict(prepared_paths, **predict_cfg)
         postprocessed: list[PredictionRecord] = []
@@ -250,6 +260,8 @@ class UnifiedExperimentRunner:
             "source_dir": str(source_dir),
             "input_image_count": len(images),
             "processed_image_count": len(prepared_paths),
+            "skipped_unreadable_images": skipped_unreadable,
+            "failed_image_writes": failed_writes,
             "prediction_record_count": len(postprocessed),
             "model": {"name": model_name, "params": model_params},
             "attack": {"name": attack_name or "none", "params": attack_params},
