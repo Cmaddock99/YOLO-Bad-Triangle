@@ -156,7 +156,7 @@ For each `(experiment, conf)` pair, `ExperimentRunner`:
 | 2026-03-01 | YOLO API runner, metrics collector, and mAP pipeline added. | merge + feature commits |
 | 2026-03-10 | Modular experiment framework refactor completed. | framework refactor commit |
 | 2026-03-10 | One-command config-driven experiment lab delivered. | one-command lab commit |
-| 2026-03-10 | Multi-model selection support (`yolo8`, `yolo11*`) added. | model selection commit |
+| 2026-03-10 | Multi-model selection support (`yolo8`, `yolo11*`, `yolo26*`) added. | model selection + YOLO26 upgrade commits |
 | 2026-03-10 | Env setup/check scripts added. | setup + check commits |
 | 2026-03-10 | Auto markdown experiment table generation added. | table generation commit |
 | 2026-03-10 | CLI UX improvements for run summary and usage completed. | latest CLI UX commit |

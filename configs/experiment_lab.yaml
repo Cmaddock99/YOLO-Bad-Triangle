@@ -1,5 +1,5 @@
 defaults:
-  model: yolo8
+  model: yolo26
   dataset: coco_subset
   attack: none
   defense: none
@@ -23,6 +23,15 @@ models:
   yolo11s:
     path: yolo11s.pt
     label: yolo11
+  yolo26:
+    path: yolo26n.pt
+    label: yolo26
+  yolo26n:
+    path: yolo26n.pt
+    label: yolo26
+  yolo26s:
+    path: yolo26s.pt
+    label: yolo26
 
 datasets:
   coco_subset:
@@ -59,6 +68,28 @@ attacks:
     module: fgsm
     params:
       epsilon: 0.01
+  center_mask_blur_noise:
+    module: center_mask_blur_noise
+    params:
+      center_scale: 0.5
+      blur_kernel_size: 9
+      noise_stddev: 8.0
+      mask_strength: 0.6
+  patch_occlusion_affine:
+    module: patch_occlusion_affine
+    params:
+      occlusion_fraction: 0.12
+      occlusion_count: 2
+      rotation_deg: 6.0
+      translate_frac: 0.04
+      scale_jitter: 0.06
+  brightness_contrast_noise:
+    module: brightness_contrast_noise
+    params:
+      brightness_delta: 18.0
+      contrast_gain: 1.15
+      noise_stddev: 7.5
+      channel_jitter: 0.04
 
 defenses:
   none:

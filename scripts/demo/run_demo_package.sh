@@ -13,6 +13,7 @@ ACTION="${1:-help}"
 shift || true
 
 OUTPUT_ROOT="${ROOT_DIR}/outputs/demo-reference"
+OUTPUT_ROOT_EXPLICIT="false"
 PROFILE="week1-demo"
 CONFIG_PATH=""
 SANITY_ATTACK=""
@@ -50,6 +51,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --output-root)
       OUTPUT_ROOT="${2:-}"
+      OUTPUT_ROOT_EXPLICIT="true"
       shift 2
       ;;
     --config)
@@ -70,6 +72,9 @@ done
 METRICS_CSV="${OUTPUT_ROOT}/metrics_summary.csv"
 
 resolve_default_output_root() {
+  if [[ "${OUTPUT_ROOT_EXPLICIT}" == "true" ]]; then
+    return
+  fi
   if [[ -f "${OUTPUT_ROOT}/metrics_summary.csv" ]]; then
     return
   fi

@@ -24,7 +24,7 @@ Usage:
 Key arguments:
   attack=none|blur|gaussian_noise|fgsm|deepfool
   defense=none|median|median_blur|denoise
-  model=yolo8|yolo11|yolo11n|yolo11s|<weights-path>
+  model=yolo26|yolo26n|yolo26s|yolo11|yolo11n|yolo11s|yolo8|<weights-path>
   conf=0.5               # single threshold
   conf=0.25,0.5,0.75     # multiple thresholds
   imgsz=640
