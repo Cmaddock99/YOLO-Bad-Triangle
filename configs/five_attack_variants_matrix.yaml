@@ -1,0 +1,73 @@
+model:
+  path: yolo26n.pt
+
+data:
+  data_yaml: configs/coco_subset500.yaml
+  image_dir: coco/val2017_subset500/images
+
+runner:
+  confs: [0.25]
+  iou: 0.7
+  imgsz: 640
+  seed: 42
+  output_root: outputs
+  metrics_csv: metrics_summary.csv
+
+experiments:
+  - name: variant_baseline_control
+    attack: none
+    defense: none
+    run_name_template: variant-baseline-control-conf{conf_token}
+    run_validation: true
+
+  - name: variant_fgsm_center_mask
+    attack: fgsm_center_mask
+    attack_params:
+      epsilon: 0.008
+      radius_fraction: 0.30
+    defense: none
+    run_name_template: variant-fgsm-center-mask-conf{conf_token}
+    run_validation: true
+
+  - name: variant_fgsm_edge_mask
+    attack: fgsm_edge_mask
+    attack_params:
+      epsilon: 0.008
+      edge_threshold: 35
+      edge_dilate: 1
+    defense: none
+    run_name_template: variant-fgsm-edge-mask-conf{conf_token}
+    run_validation: true
+
+  - name: variant_blur_anisotropic
+    attack: blur_anisotropic
+    attack_params:
+      kernel_x: 21
+      kernel_y: 3
+      sigma_x: 0.0
+      sigma_y: 0.0
+    defense: none
+    run_name_template: variant-blur-anisotropic-conf{conf_token}
+    run_validation: true
+
+  - name: variant_noise_blockwise
+    attack: noise_blockwise
+    attack_params:
+      stddev: 12.0
+      block_size: 32
+      scale_jitter: 0.6
+    defense: none
+    run_name_template: variant-noise-blockwise-conf{conf_token}
+    run_validation: true
+
+  - name: variant_deepfool_band_limited
+    attack: deepfool_band_limited
+    attack_params:
+      epsilon: 1.0
+      steps: 3
+      stripe_period: 28
+      stripe_width: 10
+      blur_kernel: 7
+    defense: none
+    run_name_template: variant-deepfool-band-limited-conf{conf_token}
+    run_validation: true
