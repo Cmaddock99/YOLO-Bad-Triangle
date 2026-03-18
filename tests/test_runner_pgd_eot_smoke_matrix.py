@@ -178,10 +178,10 @@ class RunnerPGDEOTSmokeMatrixTests(unittest.TestCase):
                 defended_dir = output_root / "_intermediates" / run_name / "defended"
                 if attack_by_run[run_name] == "none":
                     self.assertFalse(attacked_dir.exists())
-                    self.assertFalse(defended_dir.exists())
                 else:
                     self.assertTrue(attacked_dir.exists())
-                    self.assertTrue(defended_dir.exists())
+                # Defense is "none" in this smoke matrix, so defense artifacts are not materialized.
+                self.assertFalse(defended_dir.exists())
             self.assertTrue(all(row["row_status"] in {"ok", "partial"} for row in csv_rows))
 
 
