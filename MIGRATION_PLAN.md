@@ -10,6 +10,26 @@ This document defines a **non-destructive migration** from the current YOLO-focu
 
 The migration is wrapper-first and parity-first. Existing working scripts remain available during transition.
 
+## Audit Refresh (Current Repository State)
+
+This plan has been refreshed against the current codebase state (post framework phases 2-6 foundation work):
+
+- Legacy operational path remains active:
+  - `run_experiment.py`
+  - `run_experiment_api.py`
+  - `scripts/run_framework.py` -> `src/lab/runners/cli.py` -> `ExperimentRunner`
+  - week1/demo scripts under `scripts/` and `scripts/demo/`
+- Additive framework path exists and is runnable:
+  - `src/lab/runners/run_experiment.py` (`UnifiedExperimentRunner`)
+  - framework interfaces/registries/adapters under `src/lab/{models,attacks,defenses,eval}`
+- Metrics now exist in two parallel systems:
+  - legacy CSV/table path (`src/lab/eval/metrics.py`)
+  - per-run framework JSON path (`metrics.json` via unified runner)
+
+Current migration stance:
+- Preserve legacy path as the canonical operator flow until unified parity covers demo and matrix needs.
+- Continue wrapper-first migration, not replacement-first migration.
+
 ## Non-Destructive Rules (Must Follow)
 
 - Do not delete or move legacy files in early phases.
@@ -87,6 +107,73 @@ Common artifacts currently produced:
 | Defense plugins | `src/lab/defenses/*` | `src/lab/defenses/` with `BaseDefense` | Reuse current implementations via adapter/wrapper |
 | Metrics | `src/lab/eval/metrics.py` | `src/lab/eval/` standardized JSON outputs | Keep CSV path; add structured JSON in parallel |
 | Reporting | scripts + table/plots | `src/lab/reporting/` | Keep existing scripts; add comparison APIs/utilities |
+
+## File-by-File Mapping (Detailed)
+
+### Entrypoints and runners
+
+- Legacy key=value CLI:
+  - old: `run_experiment.py`
+  - bridge target: wrapper to unified runner once compatibility mode exists
+  - current status: **legacy-active**
+- Legacy argparse one-run CLI:
+  - old: `run_experiment_api.py`
+  - bridge target: compatibility wrapper over unified schema
+  - current status: **legacy-active**
+- Legacy matrix CLI:
+  - old: `scripts/run_framework.py` + `src/lab/runners/cli.py`
+  - bridge target: matrix adapter that feeds unified runner config
+  - current status: **legacy-active**
+- Legacy core runner:
+  - old: `src/lab/runners/experiment_runner.py`
+  - bridge target: stage decomposition mirrored in unified runner
+  - current status: **legacy-active**
+- Unified runner:
+  - new: `src/lab/runners/run_experiment.py`
+  - current status: **additive-active**
+
+### Models
+
+- Legacy model wrapper:
+  - `src/lab/models/yolo_model.py`
+- New interface + adapter:
+  - `src/lab/models/base_model.py`
+  - `src/lab/models/yolo_adapter.py`
+  - `src/lab/models/registry.py`
+
+### Attacks
+
+- Legacy attack interface/registry:
+  - `src/lab/attacks/base.py`
+  - `src/lab/attacks/registry.py`
+  - existing concrete attacks remain source of truth
+- New framework interface/registry:
+  - `src/lab/attacks/base_attack.py`
+  - `src/lab/attacks/plugin_registry.py`
+  - `src/lab/attacks/framework_registry.py`
+  - currently wrapped plugin: `src/lab/attacks/blur_adapter.py`
+
+### Defenses
+
+- Legacy defense interface/registry:
+  - `src/lab/defenses/base.py`
+  - `src/lab/defenses/registry.py`
+- New framework interface/registry:
+  - `src/lab/defenses/base_defense.py`
+  - `src/lab/defenses/plugin_registry.py`
+  - `src/lab/defenses/framework_registry.py`
+  - currently wrapped plugin: `src/lab/defenses/none_adapter.py`
+
+### Metrics and outputs
+
+- Legacy metrics path:
+  - `src/lab/eval/metrics.py`
+  - outputs: `metrics_summary.csv`, `experiment_table.md`, run folders/plots
+- New structured path:
+  - `src/lab/eval/framework_metrics.py`
+  - `src/lab/eval/prediction_schema.py`
+  - `src/lab/eval/prediction_io.py`
+  - outputs: `predictions.jsonl`, `metrics.json`, `run_summary.json`, `resolved_config.yaml`
 
 ## Target Additive Structure
 
@@ -167,6 +254,10 @@ Hold gate:
 - replaces nothing yet
 - passes smoke checks against parity scenarios
 
+Status:
+- **Implemented as additive path** in `src/lab/runners/run_experiment.py`
+- supports baseline + blur + no-defense in framework schema
+
 ### Phase 6: Metrics + Output Standardization
 
 Add structured per-run artifacts:
@@ -186,6 +277,11 @@ Hold gate:
 - structured outputs generated for each run
 - legacy CSV path still produced
 
+Status:
+- **Partially implemented and validated in framework path**
+  - `metrics.json` now includes sanitized validation fields and status.
+  - legacy CSV behavior remains unchanged.
+
 ### Phase 7: Extend Attacks and Defenses
 
 Incrementally add:
@@ -198,6 +294,10 @@ Incrementally add:
 Hold gate:
 - no regression in baseline/blur workflows
 
+Execution intent update:
+- Implement FGSM, PGD, DeepFool as framework plugins by wrapping/stabilizing current legacy implementations.
+- Add explicit limitations notes for detector-gradient attacks where exact formulation is model-output dependent.
+
 ### Phase 8: Reporting + Comparison
 
 Add comparison utilities:
@@ -207,6 +307,10 @@ Add comparison utilities:
 
 Hold gate:
 - baseline/attack/defense comparisons reproducible by command
+
+Execution intent update:
+- Keep legacy week1 plotting scripts as compatibility reports.
+- Add framework-native comparison utilities under `src/lab/reporting/` before any script replacement.
 
 ## Mandatory Interface Contract (Target)
 
@@ -243,6 +347,12 @@ Before moving beyond wrapping:
 4. Metric deltas (precision/recall/mAP) are reviewed and accepted.
 5. Output artifact set exists for both old and new flows.
 
+Additional explicit parity checkpoints:
+
+6. Legacy week1 command sequence (`scripts/run_week1_stabilization.sh`) remains functionally unchanged.
+7. Demo package actions (`scripts/demo/run_demo_package.sh`) continue to produce expected artifact names.
+8. Framework runner emits valid `validation.status` and finite-or-null metrics semantics for every run.
+
 ## Risk Register and Mitigation
 
 - **Risk: hidden dependency on legacy scripts**  
@@ -270,4 +380,9 @@ Migration is considered complete when:
 3. Structured outputs are generated consistently.
 4. Comparison/reporting pipeline is reproducible.
 5. Legacy path can be deprecated safely (not before parity sign-off).
+
+Operational deprecation prerequisites:
+
+6. A single canonical CLI command can run baseline/blur/FGSM/PGD/DeepFool plus defense toggles using one stable schema.
+7. Week1/demo package scripts are either safely re-pointed to unified runner or explicitly retained as legacy wrappers with no behavior drift.
 
