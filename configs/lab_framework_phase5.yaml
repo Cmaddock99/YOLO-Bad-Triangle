@@ -19,6 +19,11 @@ predict:
   iou: 0.7
   imgsz: 640
 
+validation:
+  enabled: false
+  dataset: configs/coco_subset500.yaml
+  params: {}
+
 runner:
   seed: 42
   max_images: 8
