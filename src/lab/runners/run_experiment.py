@@ -18,7 +18,13 @@ import yaml
 from lab.attacks.framework_registry import build_attack_plugin, list_available_attack_plugins
 from lab.attacks.utils import iter_images
 from lab.defenses.framework_registry import build_defense_plugin, list_available_defense_plugins
+from lab.eval.framework_metrics import (
+    sanitize_validation_metrics,
+    summarize_prediction_metrics,
+    validation_status,
+)
 from lab.eval.prediction_io import write_predictions_jsonl
+from lab.eval.prediction_schema import PredictionRecord
 from lab.models.registry import build_model, list_available_models
 
 
@@ -96,7 +102,7 @@ def _as_mapping(config: dict[str, Any], key: str) -> dict[str, Any]:
 
 @dataclass
 class UnifiedExperimentRunner:
-    """Phase 5 unified runner for baseline/blur/no-defense framework runs."""
+    """Unified runner with structured outputs and metrics capture."""
 
     config: dict[str, Any]
     config_path: Path | None = None
@@ -134,6 +140,7 @@ class UnifiedExperimentRunner:
         defense_cfg = _as_mapping(self.config, "defense")
         runner_cfg = _as_mapping(self.config, "runner")
         predict_cfg = _as_mapping(self.config, "predict")
+        validation_cfg = _as_mapping(self.config, "validation")
 
         model_name = str(model_cfg.get("name", ""))
         if not model_name:
@@ -191,13 +198,48 @@ class UnifiedExperimentRunner:
             raise ValueError("No readable images were processed.")
 
         predictions = model.predict(prepared_paths, **predict_cfg)
-        postprocessed: list[dict[str, Any]] = []
+        postprocessed: list[PredictionRecord] = []
         for record in predictions:
             records, _ = defense.postprocess([record])
             postprocessed.extend(records)
 
         predictions_file = run_dir / "predictions.jsonl"
         write_predictions_jsonl(postprocessed, predictions_file)
+
+        prediction_metrics = summarize_prediction_metrics(postprocessed)
+
+        validation_enabled = bool(validation_cfg.get("enabled", False))
+        validation_dataset = validation_cfg.get("dataset")
+        validation_params = dict(_as_mapping(validation_cfg, "params"))
+        raw_validation_metrics: dict[str, Any] | None = None
+        validation_error: str | None = None
+        if validation_enabled:
+            if not validation_dataset:
+                raise ValueError(
+                    "validation.enabled=true requires config.validation.dataset "
+                    "(for example: configs/coco_subset500.yaml)."
+                )
+            try:
+                raw_validation_metrics = model.validate(str(validation_dataset), **validation_params)
+            except Exception as exc:  # pragma: no cover - runtime path
+                validation_error = str(exc)
+        cleaned_validation_metrics = sanitize_validation_metrics(raw_validation_metrics)
+        validation_state = validation_status(cleaned_validation_metrics)
+        if validation_error is not None:
+            validation_state = "error"
+
+        metrics_payload = {
+            "validation": {
+                **cleaned_validation_metrics,
+                "status": validation_state,
+                "enabled": validation_enabled,
+                "dataset": str(validation_dataset) if validation_dataset else None,
+                "error": validation_error,
+            },
+            "predictions": prediction_metrics,
+        }
+        metrics_file = run_dir / "metrics.json"
+        metrics_file.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
 
         resolved_config_file = run_dir / "resolved_config.yaml"
         resolved_config_file.write_text(yaml.safe_dump(self.config, sort_keys=False), encoding="utf-8")
@@ -213,6 +255,8 @@ class UnifiedExperimentRunner:
             "attack": {"name": attack_name or "none", "params": attack_params},
             "defense": {"name": defense_name or "none", "params": defense_params},
             "predict": predict_cfg,
+            "validation": metrics_payload["validation"],
+            "metrics_path": str(metrics_file),
             "seed": seed,
         }
         summary_file = run_dir / "run_summary.json"
@@ -221,7 +265,7 @@ class UnifiedExperimentRunner:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Phase 5 unified framework runner.")
+    parser = argparse.ArgumentParser(description="Unified framework runner.")
     parser.add_argument(
         "--config",
         default="configs/lab_framework_phase5.yaml",
@@ -275,7 +319,7 @@ def main() -> None:
         runner.config = merged
 
     if args.dry_run:
-        print("Phase 5 unified framework runner (dry-run)")
+        print("Unified framework runner (dry-run)")
         print(json.dumps(runner.config, indent=2, sort_keys=True))
         return
     summary = runner.run()
