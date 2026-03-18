@@ -13,6 +13,8 @@ def _load_builtin_defense_plugins() -> None:
     if _PLUGINS_LOADED:
         return
     import_module("lab.defenses.none_adapter")
+    import_module("lab.defenses.preprocess_median_blur_adapter")
+    import_module("lab.defenses.confidence_filter_adapter")
     _PLUGINS_LOADED = True
 
 

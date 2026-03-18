@@ -13,6 +13,9 @@ def _load_builtin_attack_plugins() -> None:
     if _PLUGINS_LOADED:
         return
     import_module("lab.attacks.blur_adapter")
+    import_module("lab.attacks.fgsm_adapter")
+    import_module("lab.attacks.pgd_adapter")
+    import_module("lab.attacks.deepfool_adapter")
     _PLUGINS_LOADED = True
 
 
