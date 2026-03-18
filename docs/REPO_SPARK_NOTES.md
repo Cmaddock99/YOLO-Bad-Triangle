@@ -141,14 +141,14 @@ Each entry uses: **What**, **Why**, **How used**, **Key symbols**, **Risks/gotch
 - **What**: demo-profile week1 FGSM matrix.
 - **Why**: controlled baseline + 3 FGSM epsilons for presentation/rehearsal.
 - **How used**: default for `--profile week1-demo`.
-- **Key symbols**: attack entries with epsilon `0.0005`, `0.006`, `0.01`.
+- **Key symbols**: `model.path: yolo26n.pt`; attack entries with epsilon `0.0005`, `0.006`, `0.01`.
 - **Risks/gotchas**: if epsilons are too strong/weak, narrative shifts.
 
 #### `configs/week1_stabilization_matrix.yaml`
 - **What**: stress-profile week1 FGSM matrix.
 - **Why**: stronger stress-test variant than demo profile.
 - **How used**: default for `--profile week1-stress`.
-- **Key symbols**: epsilon `0.004`, `0.008`, `0.016`.
+- **Key symbols**: `model.path: yolo26n.pt`; epsilon `0.004`, `0.008`, `0.016`.
 - **Risks/gotchas**: may produce collapse behavior (expected in strict gate context).
 
 ---
