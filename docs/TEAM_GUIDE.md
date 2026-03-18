@@ -51,39 +51,39 @@ Use the repo virtual environment to avoid missing package issues:
 - `./.venv/bin/python --version`
 - `./.venv/bin/pip install -r requirements.txt` (if needed)
 
-## Step 1: Verify configuration without heavy compute
+## Step 1: Verify framework configuration without heavy compute
 
 Dry run resolves config only:
 
-- `./.venv/bin/python run_experiment.py dry_run=true`
+- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml --dry-run`
 
 You should see a resolved summary and runner config.
 
-## Step 2: Run a small test experiment
+## Step 2: Run a small framework test experiment
 
-- `./.venv/bin/python run_experiment.py attack=blur conf=0.25`
+- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml --set attack.name=blur --set runner.max_images=12 --set validation.enabled=false`
 
 ## Step 3: Check outputs
 
 Look at:
-- output run folder under `outputs/<run_name>/...`
-- `metrics_summary.csv` in that output root
-- `val/metrics.json` if validation was enabled
+- output run folder under `outputs/framework_runs/<run_name>/...` (or configured output root)
+- `predictions.jsonl`, `metrics.json`, `run_summary.json`, `resolved_config.yaml`
+- validation fields inside `metrics.json.validation` when enabled
 
 That is enough to prove your environment and workflow are working.
 
 ## 4) Which command should I use?
 
-Use this table:
+Use this table (framework-first):
 
-- **I want the simplest command**  
-  Use: `run_experiment.py`
+- **I want the canonical framework command**  
+  Use: `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml`
 
-- **I want to run a predefined multi-experiment YAML**  
-  Use: `scripts/run_framework.py --config <yaml>`
+- **I want to run framework config with overrides**  
+  Use: `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config <yaml> --set key=value`
 
-- **I need explicit CLI args from another script/tool**  
-  Use: `run_experiment_api.py`
+- **I need legacy compatibility CLI for old scripts**  
+  Use: `run_experiment.py` or `run_experiment_api.py` (**deprecated compatibility only**)
 
 - **I already ran inference and only want to append metrics**  
   Use: this is automatic in `run_experiment.py`/`scripts/run_framework.py`; no separate collector step is required.

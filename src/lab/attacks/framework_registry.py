@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from importlib import import_module
+from pkgutil import iter_modules
 
 from .base_attack import BaseAttack
 from .plugin_registry import get_attack_plugin, list_attack_plugins
@@ -12,10 +13,11 @@ def _load_builtin_attack_plugins() -> None:
     global _PLUGINS_LOADED
     if _PLUGINS_LOADED:
         return
-    import_module("lab.attacks.blur_adapter")
-    import_module("lab.attacks.fgsm_adapter")
-    import_module("lab.attacks.pgd_adapter")
-    import_module("lab.attacks.deepfool_adapter")
+    package = import_module("lab.attacks")
+    for module in iter_modules(package.__path__):
+        if not module.name.endswith("_adapter"):
+            continue
+        import_module(f"{package.__name__}.{module.name}")
     _PLUGINS_LOADED = True
 
 

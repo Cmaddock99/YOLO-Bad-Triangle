@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from importlib import import_module
+from pkgutil import iter_modules
 
 from .base_model import BaseModel
 from .plugin_registry import get_model_class, list_registered_models
@@ -12,7 +13,11 @@ def _load_builtin_models() -> None:
     global _MODELS_LOADED
     if _MODELS_LOADED:
         return
-    import_module("lab.models.yolo_adapter")
+    package = import_module("lab.models")
+    for module in iter_modules(package.__path__):
+        if not module.name.endswith("_adapter"):
+            continue
+        import_module(f"{package.__name__}.{module.name}")
     _MODELS_LOADED = True
 
 

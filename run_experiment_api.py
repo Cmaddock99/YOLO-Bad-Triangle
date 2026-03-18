@@ -54,7 +54,12 @@ def _parse_param_tokens(tokens: list[str]) -> dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run one experiment via explicit CLI arguments.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "[DEPRECATED COMPAT ENTRYPOINT] Run one experiment via explicit CLI arguments. "
+            "Prefer framework runner: src/lab/runners/run_experiment.py"
+        )
+    )
     parser.add_argument(
         "--config",
         default="configs/experiment_lab.yaml",
@@ -155,6 +160,10 @@ def main() -> None:
         help="Dataset image directory (default: coco/val2017_subset500/images).",
     )
     args = parser.parse_args()
+    print(
+        "DEPRECATION NOTICE: 'run_experiment_api.py' is a legacy compatibility entrypoint. "
+        "Use 'src/lab/runners/run_experiment.py' for framework-first operation."
+    )
 
     if args.list_attacks or args.list_defenses or args.list_models or args.list_datasets:
         registry = ExperimentRegistry.from_yaml(ROOT / args.config)
