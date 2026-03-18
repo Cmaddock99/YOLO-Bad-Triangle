@@ -74,6 +74,10 @@ class MetricsCsvIntegrityTests(unittest.TestCase):
             self.assertEqual(rows[1]["run_name"], "run_b")
             self.assertEqual(rows[0]["new_probe_field"], "")
             self.assertEqual(rows[1]["new_probe_field"], "probe")
+            self.assertIn("row_status", fieldnames)
+            self.assertIn("missing_metric_fields", fieldnames)
+            self.assertIn("error_reason", fieldnames)
+            self.assertIn("validation_reason", fieldnames)
 
     def test_confidence_stats_ignore_non_prediction_text_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -104,6 +108,56 @@ class MetricsCsvIntegrityTests(unittest.TestCase):
             self.assertEqual(stats["total_detections"], 1)
             self.assertIsNone(stats["avg_conf"])
             self.assertIsNone(stats["median_conf"])
+
+    def test_append_run_metrics_marks_partial_when_validation_metrics_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_dir = root / "run_partial"
+            labels_dir = run_dir / "labels"
+            labels_dir.mkdir(parents=True, exist_ok=True)
+            (labels_dir / "img1.txt").write_text("0 0.5 0.5 0.2 0.2 0.9\n")
+            csv_path = root / "metrics_summary.csv"
+
+            row = append_run_metrics(
+                run_dir=run_dir,
+                csv_path=csv_path,
+                run_name="run_partial",
+                model="yolo8",
+                attack="pgd",
+                defense="none",
+                conf=0.25,
+                iou=0.7,
+                imgsz=640,
+                seed=42,
+                extra_metadata={"validation_enabled": False, "validation_reason": "validation_disabled"},
+            )
+            self.assertEqual(row["row_status"], "partial")
+            self.assertIn("precision", row["missing_metric_fields"])
+            self.assertEqual(row["validation_reason"], "validation_disabled")
+
+    def test_append_run_metrics_respects_failed_status_and_error_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_dir = root / "run_failed"
+            csv_path = root / "metrics_summary.csv"
+            row = append_run_metrics(
+                run_dir=run_dir,
+                csv_path=csv_path,
+                run_name="run_failed",
+                model="yolo8",
+                attack="eot_pgd",
+                defense="none",
+                conf=0.25,
+                iou=0.7,
+                imgsz=640,
+                seed=42,
+                extra_metadata={
+                    "row_status": "failed",
+                    "error_reason": "RuntimeError at predict: boom",
+                },
+            )
+            self.assertEqual(row["row_status"], "failed")
+            self.assertIn("predict", row["error_reason"])
 
 
 if __name__ == "__main__":

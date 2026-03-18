@@ -11,6 +11,18 @@ from typing import Any
 from .experiment_table import generate_experiment_table
 
 
+_EXPECTED_METRIC_FIELDS = (
+    "precision",
+    "recall",
+    "mAP50",
+    "mAP50-95",
+    "avg_conf",
+    "median_conf",
+    "p25_conf",
+    "p75_conf",
+)
+
+
 def _git_metadata() -> tuple[str, str]:
     try:
         commit = (
@@ -148,7 +160,9 @@ def append_run_metrics(
     detection_stats = _parse_detection_stats(run_dir)
     val_metrics = _read_val_metrics(run_dir)
     _warn_if_missing_val_metrics(run_name=run_name, run_dir=run_dir, metrics=val_metrics)
-    extra_metadata = extra_metadata or {}
+    extra_metadata = dict(extra_metadata or {})
+    error_reason = str(extra_metadata.get("error_reason", "") or "")
+    validation_reason = str(extra_metadata.get("validation_reason", "") or "")
 
     row = {
         "date": datetime.now(timezone.utc).isoformat(),
@@ -166,6 +180,20 @@ def append_run_metrics(
         **val_metrics,
         **extra_metadata,
     }
+    missing_metric_fields = [
+        name for name in _EXPECTED_METRIC_FIELDS if row.get(name) is None or row.get(name) == ""
+    ]
+    requested_status = str(extra_metadata.get("row_status", "") or "").strip().lower()
+    if requested_status == "failed" or error_reason:
+        row_status = "failed"
+    elif missing_metric_fields:
+        row_status = "partial"
+    else:
+        row_status = "ok"
+    row["row_status"] = row_status
+    row["missing_metric_fields"] = ",".join(missing_metric_fields)
+    row["error_reason"] = error_reason
+    row["validation_reason"] = validation_reason
 
     default_fieldnames = [
         "date",
@@ -189,6 +217,10 @@ def append_run_metrics(
         "recall",
         "mAP50",
         "mAP50-95",
+        "row_status",
+        "missing_metric_fields",
+        "error_reason",
+        "validation_reason",
         "run_session_id",
         "run_started_at_utc",
         "validation_enabled",

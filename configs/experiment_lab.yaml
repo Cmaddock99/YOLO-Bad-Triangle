@@ -68,6 +68,60 @@ attacks:
     module: fgsm
     params:
       epsilon: 0.01
+  pgd:
+    module: pgd
+    params:
+      epsilon: 0.016
+      alpha: 0.002
+      steps: 20
+      random_start: true
+      restarts: 1
+  eot_pgd:
+    module: eot_pgd
+    params:
+      epsilon: 0.016
+      alpha: 0.0015
+      steps: 20
+      random_start: true
+      restarts: 1
+      eot_samples: 4
+      scale_jitter: 0.1
+      translate_frac: 0.03
+      brightness_jitter: 0.08
+      contrast_jitter: 0.08
+      blur_prob: 0.25
+  fgsm_center_mask:
+    module: fgsm_center_mask
+    params:
+      epsilon: 0.008
+      radius_fraction: 0.35
+  fgsm_edge_mask:
+    module: fgsm_edge_mask
+    params:
+      epsilon: 0.008
+      edge_threshold: 40
+      edge_dilate: 1
+  blur_anisotropic:
+    module: blur_anisotropic
+    params:
+      kernel_x: 17
+      kernel_y: 3
+      sigma_x: 0.0
+      sigma_y: 0.0
+  noise_blockwise:
+    module: noise_blockwise
+    params:
+      stddev: 10.0
+      block_size: 32
+      scale_jitter: 0.5
+  deepfool_band_limited:
+    module: deepfool_band_limited
+    params:
+      epsilon: 0.9
+      steps: 3
+      stripe_period: 32
+      stripe_width: 12
+      blur_kernel: 7
   center_mask_blur_noise:
     module: center_mask_blur_noise
     params:
