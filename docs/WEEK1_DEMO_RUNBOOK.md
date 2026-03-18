@@ -31,6 +31,7 @@ Use this tuned sweep for the clearest live trend on current environment
 (`epsilon = 0.0005`, `0.006`, `0.01`):
 
 - `./scripts/run_week1_stabilization.sh --profile week1-demo --mode demo`
+- Model used by the profile: `yolo26n.pt` (YOLO26 default demo path).
 
 ### Step B - Reference stress-test run (original week1 matrix)
 

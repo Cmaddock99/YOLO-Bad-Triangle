@@ -2,31 +2,28 @@
 
 ## Rehearsal run
 
-- Date (UTC): `2026-03-15`
+- Date (UTC): `2026-03-17`
 - Command:
   - `./scripts/run_week1_stabilization.sh --profile week1-demo --mode demo`
 - Output root:
-  - `outputs/demo-reference` (linked to timestamped rehearsal run)
+  - `outputs/yolo26_repo_readiness_week1`
 - Total wall clock:
-  - `real 574.15s` (`9m 34s`)
+  - `real 604.30s` (`10m 04s`)
 
 ## Stage timing windows (observed)
 
-These windows are based on `run_started_at_utc`, per-row timestamps in `metrics_summary.csv`,
-and final command wall-clock output.
+The run completed in about `10 minutes` on the current machine profile.
+For planning purposes, budget:
 
-- Preflight + setup: ~`0m 00s` to `0m 03s`
-- Baseline run complete: ~`1m 50s`
-- FGSM `epsilon=0.0005` complete: ~`4m 20s`
-- FGSM `epsilon=0.001` complete: ~`6m 52s`
-- FGSM `epsilon=0.002` complete: ~`9m 27s`
-- Integrity/sanity/table/plots finalization: ~`9m 27s` to `9m 34s`
+- Preflight + setup: `< 1 min`
+- Matrix compute + validation: `8-10 min`
+- Integrity/sanity/table/plots finalization: `< 1 min`
 
 ## Outcome summary
 
 - Pipeline completed end-to-end and generated all demo artifacts.
-- FGSM sanity check failed (all-zero FGSM validation metrics), but demo mode continued as expected.
-- Calibrated epsilons (`0.0005`, `0.001`, `0.002`) still collapsed validation metrics to zero.
+- FGSM sanity checks passed (including strict no-all-zero gate).
+- Demo-profile epsilons (`0.0005`, `0.006`, `0.01`) produced a non-zero monotonic degradation trend under YOLO26.
 
 ## Presenter guidance
 
