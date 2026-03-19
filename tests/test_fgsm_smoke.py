@@ -93,6 +93,8 @@ class DiscoveryCliSmokeTests(unittest.TestCase):
         self.assertIn("Registered attack plugins", proc.stdout)
         self.assertIn("fgsm", proc.stdout)
         self.assertIn("deepfool", proc.stdout)
+        self.assertIn("pgd", proc.stdout)
+        self.assertIn("eot_pgd", proc.stdout)
 
 
 if __name__ == "__main__":

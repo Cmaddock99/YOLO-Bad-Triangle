@@ -2,6 +2,8 @@
 
 Last updated: 2026-03-15
 
+Operational status: framework-first. Legacy entrypoints remain temporarily for compatibility and are deprecated.
+
 This document captures the project as implemented in the repository today, including:
 - requirements (functional and non-functional),
 - system architecture and diagrams,
@@ -103,10 +105,18 @@ sequenceDiagram
 
 ### 3.1 Run entrypoints and execution modes
 
+Canonical:
+
+- `src/lab/runners/run_experiment.py`: framework-native runner (preferred).
+
 - `run_experiment.py`: one-command entrypoint that parses key=value overrides, resolves aliases, supports dry-run, then executes the runner.
 - `scripts/run_framework.py`: modular YAML runner for multi-experiment configs.
 - `run_experiment_api.py`: explicit-argument wrapper for programmatic integration.
 - metrics collection is integrated in `append_run_metrics(...)` during runner execution; no separate collector script is required.
+
+Compatibility:
+
+- `run_experiment.py`, `scripts/run_framework.py`, and `run_experiment_api.py` are retained as deprecated compatibility entrypoints during migration.
 
 ### 3.2 Config and resolution
 

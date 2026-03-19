@@ -51,39 +51,39 @@ Use the repo virtual environment to avoid missing package issues:
 - `./.venv/bin/python --version`
 - `./.venv/bin/pip install -r requirements.txt` (if needed)
 
-## Step 1: Verify configuration without heavy compute
+## Step 1: Verify framework configuration without heavy compute
 
 Dry run resolves config only:
 
-- `./.venv/bin/python run_experiment.py dry_run=true`
+- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml --dry-run`
 
 You should see a resolved summary and runner config.
 
-## Step 2: Run a small test experiment
+## Step 2: Run a small framework test experiment
 
-- `./.venv/bin/python run_experiment.py attack=blur conf=0.25`
+- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml --set attack.name=blur --set runner.max_images=12 --set validation.enabled=false`
 
 ## Step 3: Check outputs
 
 Look at:
-- output run folder under `outputs/<run_name>/...`
-- `metrics_summary.csv` in that output root
-- `val/metrics.json` if validation was enabled
+- output run folder under `outputs/framework_runs/<run_name>/...` (or configured output root)
+- `predictions.jsonl`, `metrics.json`, `run_summary.json`, `resolved_config.yaml`
+- validation fields inside `metrics.json.validation` when enabled
 
 That is enough to prove your environment and workflow are working.
 
 ## 4) Which command should I use?
 
-Use this table:
+Use this table (framework-first):
 
-- **I want the simplest command**  
-  Use: `run_experiment.py`
+- **I want the canonical framework command**  
+  Use: `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml`
 
-- **I want to run a predefined multi-experiment YAML**  
-  Use: `scripts/run_framework.py --config <yaml>`
+- **I want to run framework config with overrides**  
+  Use: `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config <yaml> --set key=value`
 
-- **I need explicit CLI args from another script/tool**  
-  Use: `run_experiment_api.py`
+- **I need legacy compatibility CLI for old scripts**  
+  Use: `run_experiment.py` or `run_experiment_api.py` (**deprecated compatibility only**)
 
 - **I already ran inference and only want to append metrics**  
   Use: this is automatic in `run_experiment.py`/`scripts/run_framework.py`; no separate collector step is required.
@@ -142,6 +142,27 @@ What this does:
 Current canonical fallback demo root:
 
 - `outputs/demo-reference`
+
+## F) Five diverse attack variants (new)
+
+These variants were added to diversify both attack strength and spatial behavior:
+
+- `fgsm_center_mask` (center-localized FGSM)
+  - `attack.epsilon=0.008 attack.radius_fraction=0.35`
+- `fgsm_edge_mask` (edge-localized FGSM)
+  - `attack.epsilon=0.008 attack.edge_threshold=40 attack.edge_dilate=1`
+- `blur_anisotropic` (directional blur)
+  - `attack.kernel_x=17 attack.kernel_y=3`
+- `noise_blockwise` (coarse spatially-varying noise)
+  - `attack.stddev=10.0 attack.block_size=32 attack.scale_jitter=0.5`
+- `deepfool_band_limited` (striped/band-limited iterative perturbation)
+  - `attack.epsilon=0.9 attack.steps=3 attack.stripe_period=32 attack.stripe_width=12 attack.blur_kernel=7`
+
+Quick examples:
+
+- `./.venv/bin/python run_experiment.py attack=fgsm_center_mask conf=0.25 validate=true`
+- `./.venv/bin/python run_experiment.py attack=blur_anisotropic attack.kernel_x=21 attack.kernel_y=3 conf=0.25 validate=true`
+- `./.venv/bin/python scripts/run_framework.py --config configs/five_attack_variants_matrix.yaml`
 
 ## 6) What happens inside one run?
 
