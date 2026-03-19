@@ -85,3 +85,25 @@ experiments:
 - Works with a tiny test run:
   - `source .venv/bin/activate`
   - `python run_experiment.py attack=blur conf=0.25`
+
+## 6) Current variant examples (strength + spatial behavior)
+
+- `fgsm_center_mask`
+  - Effect: medium-strength FGSM focused on central region.
+  - Params: `epsilon=0.008`, `radius_fraction=0.35`.
+- `fgsm_edge_mask`
+  - Effect: medium-strength FGSM focused on edges/textures.
+  - Params: `epsilon=0.008`, `edge_threshold=40`, `edge_dilate=1`.
+- `blur_anisotropic`
+  - Effect: directional blur (strong horizontal smear, weak vertical).
+  - Params: `kernel_x=17`, `kernel_y=3`, `sigma_x=0.0`, `sigma_y=0.0`.
+- `noise_blockwise`
+  - Effect: blockwise spatially-varying noise (medium-strong).
+  - Params: `stddev=10.0`, `block_size=32`, `scale_jitter=0.5`.
+- `deepfool_band_limited`
+  - Effect: structured stripe-limited iterative perturbation (strong).
+  - Params: `epsilon=0.9`, `steps=3`, `stripe_period=32`, `stripe_width=12`, `blur_kernel=7`.
+
+Example command:
+
+- `./.venv/bin/python run_experiment.py attack=fgsm_edge_mask attack.edge_threshold=35 conf=0.25 validate=true`

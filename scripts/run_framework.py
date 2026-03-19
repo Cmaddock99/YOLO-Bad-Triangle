@@ -11,5 +11,9 @@ from lab.runners.cli import main
 
 
 if __name__ == "__main__":
+    print(
+        "DEPRECATION NOTICE: 'scripts/run_framework.py' is a legacy batch compatibility wrapper. "
+        "Prefer framework runner: 'src/lab/runners/run_experiment.py'."
+    )
     main()
 

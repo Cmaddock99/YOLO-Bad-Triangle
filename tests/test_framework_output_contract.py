@@ -1,0 +1,481 @@
+from __future__ import annotations
+
+import csv
+import json
+import math
+import tempfile
+import unittest
+from pathlib import Path
+from typing import Any
+from unittest.mock import patch
+
+import cv2
+import numpy as np
+import yaml
+
+from lab.runners.run_experiment import UnifiedExperimentRunner, _assert_metrics_payload_contract
+
+
+class _DummyFrameworkModel:
+    def __init__(self, *, raise_on_validate: bool = False) -> None:
+        self._raise_on_validate = raise_on_validate
+
+    def load(self) -> None:
+        return
+
+    def predict(self, images: list[Path], **kwargs: Any) -> list[dict[str, Any]]:
+        del kwargs
+        rows: list[dict[str, Any]] = []
+        for image in images:
+            rows.append(
+                {
+                    "image_id": image.name,
+                    "boxes": [[0.1, 0.1, 0.5, 0.5]],
+                    "scores": [0.9],
+                    "class_ids": [0],
+                    "metadata": {},
+                }
+            )
+        return rows
+
+    def validate(self, dataset: str, **kwargs: Any) -> dict[str, Any]:
+        del dataset, kwargs
+        if self._raise_on_validate:
+            raise RuntimeError("validation intentionally failed in test")
+        return {"precision": 0.7, "recall": 0.6, "mAP50": 0.5, "mAP50-95": 0.4}
+
+
+class _DummyEmptyPredictionModel(_DummyFrameworkModel):
+    def predict(self, images: list[Path], **kwargs: Any) -> list[dict[str, Any]]:
+        del images, kwargs
+        return []
+
+
+class FrameworkOutputContractTests(unittest.TestCase):
+    def _write_image(self, path: Path) -> None:
+        image = np.full((40, 60, 3), 127, dtype=np.uint8)
+        ok = cv2.imwrite(str(path), image)
+        self.assertTrue(ok)
+
+    def _write_legacy_metrics_csv(self, path: Path, *, row: dict[str, Any]) -> None:
+        headers = [
+            "run_name",
+            "images_with_detections",
+            "total_detections",
+            "avg_conf",
+            "median_conf",
+            "precision",
+            "recall",
+            "mAP50",
+            "mAP50-95",
+        ]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=headers)
+            writer.writeheader()
+            writer.writerow({name: row.get(name, "") for name in headers})
+
+    def _write_framework_run_artifacts(
+        self,
+        run_dir: Path,
+        *,
+        model_name: str,
+        attack_name: str,
+        defense_name: str,
+        seed: int,
+        total_detections: int,
+        confidence_mean: float,
+    ) -> None:
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "run_summary.json").write_text(
+            json.dumps(
+                {
+                    "model": {"name": model_name, "params": {}},
+                    "attack": {"name": attack_name, "params": {}},
+                    "defense": {"name": defense_name, "params": {}},
+                    "seed": seed,
+                    "prediction_record_count": 1,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (run_dir / "metrics.json").write_text(
+            json.dumps(
+                {
+                    "predictions": {
+                        "image_count": 1,
+                        "images_with_detections": 1 if total_detections > 0 else 0,
+                        "total_detections": total_detections,
+                        "confidence": {"mean": confidence_mean},
+                    },
+                    "validation": {"status": "missing", "enabled": False, "error": None},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def test_framework_run_writes_required_artifacts_and_schema_keys(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+            self._write_image(source / "b.jpg")
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "contract_ok"},
+            }
+
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_dir = Path(summary["run_dir"])
+            predictions_path = run_dir / "predictions.jsonl"
+            metrics_path = run_dir / "metrics.json"
+            run_summary_path = run_dir / "run_summary.json"
+            resolved_config_path = run_dir / "resolved_config.yaml"
+
+            self.assertTrue(predictions_path.exists())
+            self.assertTrue(metrics_path.exists())
+            self.assertTrue(run_summary_path.exists())
+            self.assertTrue(resolved_config_path.exists())
+
+            lines = [line for line in predictions_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertGreater(len(lines), 0)
+
+            metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+            self.assertIn("predictions", metrics)
+            self.assertIn("validation", metrics)
+            self.assertIn("status", metrics["validation"])
+            self.assertIn(metrics["validation"]["status"], {"missing", "partial", "complete", "error"})
+            for key in ("image_count", "images_with_detections", "total_detections"):
+                self.assertIn(key, metrics["predictions"])
+            confidence_mean = metrics["predictions"]["confidence"]["mean"]
+            self.assertTrue(confidence_mean is None or math.isfinite(float(confidence_mean)))
+
+            run_summary = json.loads(run_summary_path.read_text(encoding="utf-8"))
+            for key in ("run_dir", "metrics_path", "processed_image_count", "prediction_record_count"):
+                self.assertIn(key, run_summary)
+
+            resolved = yaml.safe_load(resolved_config_path.read_text(encoding="utf-8"))
+            self.assertEqual(resolved["attack"]["name"], "none")
+            self.assertEqual(resolved["defense"]["name"], "none")
+
+    def test_validation_exception_sets_error_status_without_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": True, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 7, "output_root": str(root / "outputs"), "run_name": "contract_val_error"},
+            }
+
+            with patch(
+                "lab.runners.run_experiment.build_model",
+                return_value=_DummyFrameworkModel(raise_on_validate=True),
+            ):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            metrics_path = Path(summary["metrics_path"])
+            metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+            self.assertEqual(metrics["validation"]["status"], "error")
+            self.assertIsNotNone(metrics["validation"]["error"])
+
+    def test_runner_fails_fast_on_empty_prediction_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 11, "output_root": str(root / "outputs"), "run_name": "contract_empty_pred"},
+            }
+
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyEmptyPredictionModel()):
+                with self.assertRaises(RuntimeError):
+                    UnifiedExperimentRunner(config=config).run()
+
+    def test_runner_rejects_malformed_prediction_schema(self) -> None:
+        class _DummyMalformedModel(_DummyFrameworkModel):
+            def predict(self, images: list[Path], **kwargs: Any) -> list[dict[str, Any]]:
+                del images, kwargs
+                # Missing required class_ids key.
+                return [
+                    {
+                        "image_id": "bad.jpg",
+                        "boxes": [[0.1, 0.1, 0.5, 0.5]],
+                        "scores": [0.8],
+                        "metadata": {},
+                    }
+                ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 99, "output_root": str(root / "outputs"), "run_name": "contract_bad_schema"},
+            }
+
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyMalformedModel()):
+                with self.assertRaises(ValueError):
+                    UnifiedExperimentRunner(config=config).run()
+
+    def test_metrics_payload_contract_accepts_valid_payload(self) -> None:
+        payload = {
+            "predictions": {
+                "image_count": 1,
+                "images_with_detections": 1,
+                "total_detections": 1,
+            },
+            "validation": {"status": "missing", "enabled": False, "error": None},
+        }
+        _assert_metrics_payload_contract(payload)
+
+    def test_metrics_payload_contract_rejects_invalid_validation_status(self) -> None:
+        payload = {
+            "predictions": {
+                "image_count": 1,
+                "images_with_detections": 1,
+                "total_detections": 1,
+            },
+            "validation": {"status": "bogus", "enabled": False, "error": None},
+        }
+        with self.assertRaises(ValueError):
+            _assert_metrics_payload_contract(payload)
+
+    def test_metrics_payload_contract_rejects_missing_prediction_keys(self) -> None:
+        payload = {
+            "predictions": {"image_count": 1},
+            "validation": {"status": "missing", "enabled": False, "error": None},
+        }
+        with self.assertRaises(ValueError):
+            _assert_metrics_payload_contract(payload)
+
+    def test_parity_disabled_does_not_write_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 1, "output_root": str(root / "outputs"), "run_name": "parity_disabled"},
+            }
+
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_dir = Path(summary["run_dir"])
+            self.assertFalse((run_dir / "parity_report.json").exists())
+
+    def test_parity_enabled_writes_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            legacy_csv = root / "legacy" / "metrics_summary.csv"
+            self._write_legacy_metrics_csv(
+                legacy_csv,
+                row={
+                    "run_name": "legacy_ok",
+                    "images_with_detections": 1,
+                    "total_detections": 1,
+                    "avg_conf": 0.9,
+                    "median_conf": 0.9,
+                },
+            )
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "parity": {
+                    "enabled": True,
+                    "legacy_csv_path": str(legacy_csv),
+                    "fail_on_mismatch": False,
+                },
+                "runner": {"seed": 2, "output_root": str(root / "outputs"), "run_name": "parity_enabled"},
+            }
+
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_dir = Path(summary["run_dir"])
+            report_path = run_dir / "parity_report.json"
+            self.assertTrue(report_path.exists())
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertIn(report.get("overall_status"), {"PASS", "FAIL"})
+            self.assertIn("worst_metric_delta", report)
+
+    def test_parity_fail_on_mismatch_controls_failure_behavior(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            legacy_csv = root / "legacy" / "metrics_summary.csv"
+            self._write_legacy_metrics_csv(
+                legacy_csv,
+                row={
+                    "run_name": "legacy_mismatch",
+                    "images_with_detections": 999,
+                    "total_detections": 999,
+                    "avg_conf": 0.1,
+                    "median_conf": 0.1,
+                },
+            )
+
+            base_config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "parity": {
+                    "enabled": True,
+                    "legacy_csv_path": str(legacy_csv),
+                },
+            }
+
+            warn_only_config = dict(base_config)
+            warn_only_config["parity"] = {**base_config["parity"], "fail_on_mismatch": False}
+            warn_only_config["runner"] = {
+                "seed": 3,
+                "output_root": str(root / "outputs"),
+                "run_name": "parity_warn_only",
+            }
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+                summary = UnifiedExperimentRunner(config=warn_only_config).run()
+            warn_report = json.loads(
+                (Path(summary["run_dir"]) / "parity_report.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(warn_report["overall_status"], "FAIL")
+
+            hard_fail_config = dict(base_config)
+            hard_fail_config["parity"] = {**base_config["parity"], "fail_on_mismatch": True}
+            hard_fail_config["runner"] = {
+                "seed": 4,
+                "output_root": str(root / "outputs"),
+                "run_name": "parity_hard_fail",
+            }
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+                with self.assertRaises(RuntimeError):
+                    UnifiedExperimentRunner(config=hard_fail_config).run()
+
+    def test_summary_enabled_with_only_baseline_does_not_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "summary": {"enabled": True},
+                "runner": {"seed": 13, "output_root": str(root / "outputs"), "run_name": "summary_baseline"},
+            }
+
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+                summary = UnifiedExperimentRunner(config=config).run()
+            run_dir = Path(summary["run_dir"])
+            self.assertFalse((run_dir / "experiment_summary.json").exists())
+
+    def test_summary_enabled_with_baseline_and_attack_writes_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            outputs = root / "outputs"
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            self._write_framework_run_artifacts(
+                outputs / "baseline_existing",
+                model_name="yolo",
+                attack_name="none",
+                defense_name="none",
+                seed=17,
+                total_detections=10,
+                confidence_mean=0.9,
+            )
+            self._write_framework_run_artifacts(
+                outputs / "attack_existing",
+                model_name="yolo",
+                attack_name="fgsm",
+                defense_name="none",
+                seed=17,
+                total_detections=7,
+                confidence_mean=0.8,
+            )
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "summary": {"enabled": True},
+                "runner": {"seed": 17, "output_root": str(outputs), "run_name": "summary_observer"},
+            }
+
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+                summary = UnifiedExperimentRunner(config=config).run()
+            report_path = Path(summary["run_dir"]) / "experiment_summary.json"
+            self.assertTrue(report_path.exists())
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertIn("attack_effectiveness", report)
+            self.assertIn("defense_recovery", report)
+            self.assertIn("confidence_drop", report)
+            self.assertIn("interpretation", report)
+
+
+if __name__ == "__main__":
+    unittest.main()

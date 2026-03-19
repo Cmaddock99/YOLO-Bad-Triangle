@@ -1,0 +1,599 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import random
+import re
+import sys
+from copy import deepcopy
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, cast
+
+import cv2
+import numpy as np
+import yaml
+
+from lab.attacks.framework_registry import build_attack_plugin, list_available_attack_plugins
+from lab.attacks.utils import iter_images
+from lab.defenses.framework_registry import build_defense_plugin, list_available_defense_plugins
+from lab.eval.framework_metrics import (
+    sanitize_validation_metrics,
+    summarize_prediction_metrics,
+    validation_status,
+)
+from lab.eval import parity_checker as checker
+from lab.eval.prediction_io import write_predictions_jsonl
+from lab.eval.prediction_schema import PredictionRecord, validate_prediction_records
+from lab.models.registry import build_model, list_available_models
+from lab.reporting.experiment_summary import generate_summary
+
+
+def _normalized_config_for_output(config: dict[str, Any]) -> dict[str, Any]:
+    normalized = deepcopy(config)
+    for section in ("attack", "defense"):
+        value = normalized.get(section)
+        if value is None:
+            normalized[section] = {"name": "none", "params": {}}
+            continue
+        if not isinstance(value, dict):
+            continue
+        name = value.get("name")
+        if name is None or not str(name).strip():
+            value["name"] = "none"
+    return normalized
+
+
+def _load_yaml_mapping(config_path: Path) -> dict[str, Any]:
+    loaded = yaml.safe_load(config_path.read_text()) or {}
+    if not isinstance(loaded, dict):
+        raise ValueError(f"Expected mapping config in {config_path}")
+    return cast(dict[str, Any], loaded)
+
+
+def _parse_scalar(value: str) -> Any:
+    lowered = value.lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    if lowered in {"none", "null"}:
+        return None
+    try:
+        if re.fullmatch(r"[+-]?\d+", value):
+            return int(value)
+        if re.fullmatch(r"[+-]?\d+\.\d*", value):
+            return float(value)
+    except ValueError:
+        pass
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value
+
+
+def _apply_override(config: dict[str, Any], assignment: str) -> None:
+    if "=" not in assignment:
+        raise ValueError(f"Override must use key=value format, got: {assignment}")
+    key_path, raw_value = assignment.split("=", 1)
+    if not key_path.strip():
+        raise ValueError(f"Override key cannot be empty: {assignment}")
+
+    keys = [part for part in key_path.split(".") if part]
+    if not keys:
+        raise ValueError(f"Invalid override key path: {assignment}")
+
+    node: dict[str, Any] = config
+    for key in keys[:-1]:
+        existing = node.get(key)
+        if existing is None:
+            node[key] = {}
+            existing = node[key]
+        if not isinstance(existing, dict):
+            raise ValueError(f"Cannot set nested key under non-mapping path '{key_path}'.")
+        node = cast(dict[str, Any], existing)
+    node[keys[-1]] = _parse_scalar(raw_value)
+
+
+def _sanitize_segment(value: str, fallback: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "-", value.strip().lower()).strip("-")
+    return cleaned or fallback
+
+
+def _collect_images(source_dir: Path, max_images: int) -> list[Path]:
+    images = sorted(iter_images(source_dir))
+    if max_images > 0:
+        images = images[:max_images]
+    return images
+
+
+def _as_mapping(config: dict[str, Any], key: str) -> dict[str, Any]:
+    value = config.get(key, {})
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected mapping at '{key}'.")
+    return cast(dict[str, Any], value)
+
+
+def _assert_metrics_payload_contract(metrics_payload: dict[str, Any]) -> None:
+    required_top_level = ("predictions", "validation")
+    missing = [key for key in required_top_level if key not in metrics_payload]
+    if missing:
+        raise ValueError(f"metrics payload missing required top-level keys: {', '.join(missing)}")
+    predictions = metrics_payload["predictions"]
+    if not isinstance(predictions, dict):
+        raise ValueError("metrics payload predictions section must be a mapping.")
+    required_prediction_keys = ("image_count", "images_with_detections", "total_detections")
+    missing_prediction = [key for key in required_prediction_keys if key not in predictions]
+    if missing_prediction:
+        raise ValueError(
+            "metrics payload predictions section missing required keys: "
+            f"{', '.join(missing_prediction)}"
+        )
+    validation = metrics_payload["validation"]
+    if not isinstance(validation, dict):
+        raise ValueError("metrics payload validation section must be a mapping.")
+    if "status" not in validation:
+        raise ValueError("metrics payload validation section missing required 'status' key.")
+    allowed_status = {"missing", "partial", "complete", "error"}
+    status = validation["status"]
+    if status not in allowed_status:
+        raise ValueError(
+            f"metrics payload validation.status must be one of {sorted(allowed_status)}, got: {status}"
+        )
+
+
+def _read_json_mapping(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"WARNING: Failed to read JSON mapping at '{path}': {exc}")
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return cast(dict[str, Any], payload)
+
+
+def _is_none_name(name: str) -> bool:
+    return name.strip().lower() in {"", "none", "identity"}
+
+
+def _collect_summary_candidates(
+    *,
+    output_root: Path,
+    model_name: str,
+    seed: int,
+    current_run_dir: Path,
+    current_attack_name: str,
+    current_defense_name: str,
+    current_metrics: dict[str, Any],
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = [
+        {
+            "run_dir": current_run_dir,
+            "attack": current_attack_name,
+            "defense": current_defense_name,
+            "metrics": current_metrics,
+        }
+    ]
+    if not output_root.exists():
+        return candidates
+
+    for run_dir in sorted(path for path in output_root.iterdir() if path.is_dir()):
+        if run_dir.resolve() == current_run_dir.resolve():
+            continue
+        summary_payload = _read_json_mapping(run_dir / "run_summary.json")
+        metrics_payload = _read_json_mapping(run_dir / "metrics.json")
+        if not summary_payload or not metrics_payload:
+            continue
+
+        summary_model = str((summary_payload.get("model") or {}).get("name", "")).strip().lower()
+        if summary_model != model_name.strip().lower():
+            continue
+        try:
+            summary_seed = int(summary_payload.get("seed", 0))
+        except (TypeError, ValueError):
+            summary_seed = 0
+        if summary_seed != seed:
+            continue
+
+        candidates.append(
+            {
+                "run_dir": run_dir,
+                "attack": str((summary_payload.get("attack") or {}).get("name", "none")),
+                "defense": str((summary_payload.get("defense") or {}).get("name", "none")),
+                "metrics": metrics_payload,
+            }
+        )
+    return candidates
+
+
+def _select_related_summary_metrics(
+    candidates: list[dict[str, Any]],
+    *,
+    current_attack_name: str,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
+    baseline_candidate = next(
+        (
+            item
+            for item in candidates
+            if _is_none_name(str(item.get("attack", "none"))) and _is_none_name(str(item.get("defense", "none")))
+        ),
+        None,
+    )
+    if baseline_candidate is None:
+        return None, None, None
+
+    attack_name = current_attack_name.strip().lower()
+    if _is_none_name(attack_name):
+        inferred_attack_names = sorted(
+            {
+                str(item.get("attack", "")).strip().lower()
+                for item in candidates
+                if not _is_none_name(str(item.get("attack", "")))
+            }
+        )
+        if not inferred_attack_names:
+            return baseline_candidate.get("metrics"), None, None
+        attack_name = inferred_attack_names[0]
+
+    attack_candidate = next(
+        (
+            item
+            for item in candidates
+            if str(item.get("attack", "")).strip().lower() == attack_name
+            and _is_none_name(str(item.get("defense", "none")))
+        ),
+        None,
+    )
+    defense_candidate = next(
+        (
+            item
+            for item in candidates
+            if str(item.get("attack", "")).strip().lower() == attack_name
+            and not _is_none_name(str(item.get("defense", "none")))
+        ),
+        None,
+    )
+    baseline_metrics = cast(dict[str, Any], baseline_candidate.get("metrics"))
+    attack_metrics = cast(dict[str, Any] | None, attack_candidate.get("metrics") if attack_candidate else None)
+    defense_metrics = cast(dict[str, Any] | None, defense_candidate.get("metrics") if defense_candidate else None)
+    return baseline_metrics, attack_metrics, defense_metrics
+
+
+@dataclass
+class UnifiedExperimentRunner:
+    """Unified runner with structured outputs and metrics capture."""
+
+    config: dict[str, Any]
+    config_path: Path | None = None
+
+    @classmethod
+    def from_yaml(cls, config_path: Path) -> "UnifiedExperimentRunner":
+        return cls(config=_load_yaml_mapping(config_path), config_path=config_path)
+
+    def _resolve_run_dir(self) -> Path:
+        runner_cfg = _as_mapping(self.config, "runner")
+        output_root = Path(str(runner_cfg.get("output_root", "outputs/framework_runs")))
+        output_root = output_root.expanduser().resolve()
+        output_root.mkdir(parents=True, exist_ok=True)
+
+        model_name = str(_as_mapping(self.config, "model").get("name", "model"))
+        attack_name = str(_as_mapping(self.config, "attack").get("name", "none"))
+        defense_name = str(_as_mapping(self.config, "defense").get("name", "none"))
+
+        run_name = runner_cfg.get("run_name")
+        if run_name is None or not str(run_name).strip():
+            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            run_name = (
+                f"{ts}__{_sanitize_segment(model_name, 'model')}"
+                f"__{_sanitize_segment(attack_name, 'attack')}"
+                f"__{_sanitize_segment(defense_name, 'defense')}"
+            )
+        run_dir = output_root / str(run_name)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return run_dir
+
+    def run(self) -> dict[str, Any]:
+        model_cfg = _as_mapping(self.config, "model")
+        data_cfg = _as_mapping(self.config, "data")
+        attack_cfg = _as_mapping(self.config, "attack")
+        defense_cfg = _as_mapping(self.config, "defense")
+        runner_cfg = _as_mapping(self.config, "runner")
+        predict_cfg = _as_mapping(self.config, "predict")
+        validation_cfg = _as_mapping(self.config, "validation")
+        parity_cfg = _as_mapping(self.config, "parity")
+        summary_cfg = _as_mapping(self.config, "summary")
+
+        model_name = str(model_cfg.get("name", ""))
+        if not model_name:
+            raise ValueError("config.model.name is required")
+        source_dir_raw = data_cfg.get("source_dir")
+        if not source_dir_raw:
+            raise ValueError("config.data.source_dir is required")
+
+        seed = int(runner_cfg.get("seed", 42))
+        random.seed(seed)
+        np.random.seed(seed)
+
+        source_dir = Path(str(source_dir_raw)).expanduser().resolve()
+        if not source_dir.exists():
+            raise FileNotFoundError(f"source_dir not found: {source_dir}")
+
+        run_dir = self._resolve_run_dir()
+        prepared_dir = run_dir / "prepared_images"
+        prepared_dir.mkdir(parents=True, exist_ok=True)
+
+        max_images = int(runner_cfg.get("max_images", 0))
+        images = _collect_images(source_dir, max_images=max_images)
+        if not images:
+            raise ValueError(f"No images discovered under: {source_dir}")
+
+        model_params = dict(_as_mapping(model_cfg, "params"))
+        model = build_model(model_name, **model_params)
+        model.load()
+
+        attack_name = str(attack_cfg.get("name", "none")).strip().lower()
+        attack_params = dict(_as_mapping(attack_cfg, "params"))
+        attack = None
+        if attack_name not in {"", "none", "identity"}:
+            attack = build_attack_plugin(attack_name, **attack_params)
+
+        defense_name = str(defense_cfg.get("name", "none")).strip().lower()
+        defense_params = dict(_as_mapping(defense_cfg, "params"))
+        defense = build_defense_plugin(defense_name or "none", **defense_params)
+
+        prepared_paths: list[Path] = []
+        skipped_unreadable = 0
+        failed_writes = 0
+        for image_path in images:
+            image = cv2.imread(str(image_path))
+            if image is None:
+                skipped_unreadable += 1
+                continue
+            defended_image, _ = defense.preprocess(image)
+            transformed = defended_image
+            if attack is not None:
+                transformed, _ = attack.apply(defended_image, model=model)
+
+            target = prepared_dir / image_path.name
+            wrote = cv2.imwrite(str(target), transformed)
+            if not wrote:
+                failed_writes += 1
+                continue
+            prepared_paths.append(target)
+
+        if not prepared_paths:
+            raise ValueError(
+                "No images were prepared for inference. "
+                f"unreadable={skipped_unreadable}, failed_writes={failed_writes}, "
+                f"source_count={len(images)}"
+            )
+
+        predictions = model.predict(prepared_paths, **predict_cfg)
+        postprocessed: list[PredictionRecord] = []
+        for record in predictions:
+            records, _ = defense.postprocess([record])
+            postprocessed.extend(records)
+
+        if prepared_paths and not postprocessed:
+            raise RuntimeError(
+                "Model returned zero prediction records for non-empty prepared inputs. "
+                f"processed_image_count={len(prepared_paths)}"
+            )
+        validate_prediction_records(postprocessed)
+
+        predictions_file = run_dir / "predictions.jsonl"
+        write_predictions_jsonl(postprocessed, predictions_file)
+
+        prediction_metrics = summarize_prediction_metrics(postprocessed)
+
+        validation_enabled = bool(validation_cfg.get("enabled", False))
+        validation_dataset = validation_cfg.get("dataset")
+        validation_params = dict(_as_mapping(validation_cfg, "params"))
+        raw_validation_metrics: dict[str, Any] | None = None
+        validation_error: str | None = None
+        if validation_enabled:
+            if not validation_dataset:
+                raise ValueError(
+                    "validation.enabled=true requires config.validation.dataset "
+                    "(for example: configs/coco_subset500.yaml)."
+                )
+            try:
+                raw_validation_metrics = model.validate(str(validation_dataset), **validation_params)
+            except Exception as exc:  # pragma: no cover - runtime path
+                validation_error = str(exc)
+        cleaned_validation_metrics = sanitize_validation_metrics(raw_validation_metrics)
+        validation_state = validation_status(cleaned_validation_metrics)
+        if validation_error is not None:
+            validation_state = "error"
+
+        metrics_payload = {
+            "validation": {
+                **cleaned_validation_metrics,
+                "status": validation_state,
+                "enabled": validation_enabled,
+                "dataset": str(validation_dataset) if validation_dataset else None,
+                "error": validation_error,
+            },
+            "predictions": prediction_metrics,
+        }
+        _assert_metrics_payload_contract(metrics_payload)
+        metrics_file = run_dir / "metrics.json"
+        metrics_file.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
+
+        parity_enabled = bool(parity_cfg.get("enabled", False))
+        if parity_enabled:
+            print("Running parity check...")
+            legacy_csv_raw = parity_cfg.get("legacy_csv_path", "outputs/metrics_summary.csv")
+            if legacy_csv_raw is None or not str(legacy_csv_raw).strip():
+                raise ValueError("parity.enabled=true requires config.parity.legacy_csv_path.")
+
+            framework_run_dir_raw = parity_cfg.get("framework_run_dir")
+            framework_run_dir = run_dir
+            if framework_run_dir_raw is not None and str(framework_run_dir_raw).strip():
+                framework_run_dir = Path(str(framework_run_dir_raw)).expanduser().resolve()
+
+            parity_report = checker.compare(
+                legacy_csv=Path(str(legacy_csv_raw)).expanduser().resolve(),
+                framework_metrics_json=framework_run_dir / "metrics.json",
+                predictions_jsonl=framework_run_dir / "predictions.jsonl",
+            )
+            parity_report_file = run_dir / "parity_report.json"
+            parity_report_file.write_text(
+                json.dumps(parity_report, indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+
+            overall_status = str(parity_report.get("overall_status", "FAIL"))
+            worst_metric_delta = parity_report.get("worst_metric_delta") or {}
+            worst_metric_name = worst_metric_delta.get("metric", "n/a")
+            worst_metric_abs_delta = worst_metric_delta.get("absolute_delta")
+
+            print(f"Parity check status: {overall_status}")
+            print(f"Worst metric delta: {worst_metric_name}={worst_metric_abs_delta}")
+
+            fail_on_mismatch = bool(parity_cfg.get("fail_on_mismatch", False))
+            if overall_status == "FAIL":
+                failure_message = f"Parity check failed. See report: {parity_report_file}"
+                if fail_on_mismatch:
+                    raise RuntimeError(failure_message)
+                print(f"WARNING: {failure_message}")
+
+        summary_enabled = bool(summary_cfg.get("enabled", False))
+        if summary_enabled:
+            output_root = Path(str(runner_cfg.get("output_root", "outputs/framework_runs"))).expanduser().resolve()
+            candidates = _collect_summary_candidates(
+                output_root=output_root,
+                model_name=model_name,
+                seed=seed,
+                current_run_dir=run_dir,
+                current_attack_name=attack_name or "none",
+                current_defense_name=defense_name or "none",
+                current_metrics=metrics_payload,
+            )
+            baseline_metrics, attack_metrics, defense_metrics = _select_related_summary_metrics(
+                candidates,
+                current_attack_name=attack_name or "none",
+            )
+            if baseline_metrics is None or attack_metrics is None:
+                print(
+                    "WARNING: Summary generation skipped; related baseline/attack framework runs were not found."
+                )
+            else:
+                experiment_summary = generate_summary(
+                    baseline_metrics=baseline_metrics,
+                    attack_metrics=attack_metrics,
+                    defense_metrics=defense_metrics,
+                )
+                experiment_summary_file = run_dir / "experiment_summary.json"
+                experiment_summary_file.write_text(
+                    json.dumps(experiment_summary, indent=2, sort_keys=True),
+                    encoding="utf-8",
+                )
+                print(f"Experiment summary written: {experiment_summary_file}")
+
+        resolved_config_file = run_dir / "resolved_config.yaml"
+        resolved_config_file.write_text(
+            yaml.safe_dump(_normalized_config_for_output(self.config), sort_keys=False),
+            encoding="utf-8",
+        )
+
+        run_summary = {
+            "runner": "lab.runners.run_experiment.UnifiedExperimentRunner",
+            "run_dir": str(run_dir),
+            "source_dir": str(source_dir),
+            "input_image_count": len(images),
+            "processed_image_count": len(prepared_paths),
+            "skipped_unreadable_images": skipped_unreadable,
+            "failed_image_writes": failed_writes,
+            "prediction_record_count": len(postprocessed),
+            "model": {"name": model_name, "params": model_params},
+            "attack": {"name": attack_name or "none", "params": attack_params},
+            "defense": {"name": defense_name or "none", "params": defense_params},
+            "predict": predict_cfg,
+            "validation": metrics_payload["validation"],
+            "metrics_path": str(metrics_file),
+            "seed": seed,
+        }
+        summary_file = run_dir / "run_summary.json"
+        summary_file.write_text(json.dumps(run_summary, indent=2, sort_keys=True), encoding="utf-8")
+        return run_summary
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Unified framework runner.")
+    parser.add_argument(
+        "--config",
+        default="configs/lab_framework_phase5.yaml",
+        help="Path to framework config YAML.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve and print config without executing a run.",
+    )
+    parser.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Override config values using dot keys. Repeatable.",
+    )
+    parser.add_argument(
+        "--list-plugins",
+        action="store_true",
+        help="List registered framework model/attack/defense plugins and exit.",
+    )
+    return parser
+
+
+def main() -> None:
+    parser = _build_parser()
+    try:
+        args, unknown = parser.parse_known_args()
+
+        if args.list_plugins:
+            payload = {
+                "models": list_available_models(),
+                "attacks": ["none", *list_available_attack_plugins()],
+                "defenses": list_available_defense_plugins(),
+            }
+            print(json.dumps(payload, indent=2))
+            return
+
+        config_path = Path(args.config).expanduser().resolve()
+        runner = UnifiedExperimentRunner.from_yaml(config_path)
+
+        overrides = list(args.set)
+        overrides.extend(item for item in unknown if "=" in item)
+        if unknown and len(overrides) != len(unknown):
+            bad = [item for item in unknown if "=" not in item]
+            raise ValueError(f"Unknown arguments: {bad}. Use --set key=value for overrides.")
+        if overrides:
+            merged = deepcopy(runner.config)
+            for assignment in overrides:
+                _apply_override(merged, assignment)
+            runner.config = merged
+
+        if args.dry_run:
+            print("Unified framework runner (dry-run)")
+            print(json.dumps(runner.config, indent=2, sort_keys=True))
+            return
+        summary = runner.run()
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    except (ValueError, FileNotFoundError, RuntimeError, PermissionError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+    except Exception as exc:  # pragma: no cover - defensive guard
+        print(f"ERROR: unexpected failure: {type(exc).__name__}: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
+
+
+if __name__ == "__main__":
+    main()
