@@ -1,0 +1,22 @@
+{
+  "id": "legacy_compat_csv/v1",
+  "type": "csv",
+  "required_columns": [
+    "schema_version",
+    "run_name",
+    "MODEL",
+    "attack",
+    "defense",
+    "images_with_detections",
+    "total_detections",
+    "avg_conf",
+    "precision",
+    "recall",
+    "mAP50",
+    "mAP50-95"
+  ],
+  "schema_version_column": {
+    "name": "schema_version",
+    "const": "legacy_compat_csv/v1"
+  }
+}

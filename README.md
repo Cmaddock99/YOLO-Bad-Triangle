@@ -1,9 +1,9 @@
 # YOLO-Bad-Triangle
 
-Repository for adversarial robustness experimentation with two maintained execution paths:
+Repository for adversarial robustness experimentation with a framework-first execution path:
 
-- **Legacy path** for demo-critical week1/operator flows.
 - **Framework path** for modular runs, JSON artifacts, and reporting.
+- **Legacy runtime** is rollback-only and disabled by default (`USE_LEGACY_RUNTIME=false`).
 
 This guide is the primary onboarding entrypoint for running, validating, and reviewing the project safely.
 
@@ -31,13 +31,13 @@ Quick environment check:
 
 ## 2) Fast Start Commands
 
-### Legacy compatibility smoke
+### Framework compatibility smoke
 
 ```bash
 ./.venv/bin/python run_experiment.py --list-attacks
 ```
 
-### Framework one-run smoke
+### Framework one-run smoke (canonical)
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
@@ -55,8 +55,105 @@ PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
   --preset smoke \
   --attacks fgsm,pgd \
   --runs-root outputs/demo_ready_runs \
-  --report-root outputs/demo_ready_reports
+  --report-root outputs/demo_ready_reports \
+  --legacy-output-root outputs/demo_ready_compat
 ```
+
+### Unified wrapper surface (framework-first)
+
+```bash
+./.venv/bin/python scripts/run_unified.py sweep --attacks fgsm,pgd
+```
+
+### Required pre-merge shadow parity check
+
+```bash
+PYTHONPATH=src ./.venv/bin/python run_shadow_parity.py --config configs/parity_test.yaml
+```
+
+### Reproducible teammate defense matrix (`c_dog`)
+
+Use a consistent output layout and run naming convention so all teammate defense tests are comparable:
+
+- Output root: `outputs/defense_eval`
+- Run name format: `<model>__<attack>__<defense>`
+- Models:
+  - YOLOv8: `yolov8n.pt`
+  - YOLO26: `yolo26n.pt`
+
+Baseline vs `c_dog` (no attack):
+
+```bash
+PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
+  --config configs/lab_framework_phase5.yaml \
+  --set model.params.model=yolov8n.pt \
+  --set attack.name=none \
+  --set defense.name=none \
+  --set runner.output_root=outputs/defense_eval \
+  --set runner.run_name=yolov8n__none__none
+
+PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
+  --config configs/lab_framework_phase5.yaml \
+  --set model.params.model=yolov8n.pt \
+  --set attack.name=none \
+  --set defense.name=c_dog \
+  --set defense.params.checkpoint_path=/Users/lurch/Downloads/dpc_unet_final_golden.pt \
+  --set defense.params.timestep=50 \
+  --set defense.params.color_order=bgr \
+  --set defense.params.scaling=zero_one \
+  --set defense.params.normalize=true \
+  --set defense.params.device=cpu \
+  --set runner.output_root=outputs/defense_eval \
+  --set runner.run_name=yolov8n__none__c_dog
+
+PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
+  --config configs/lab_framework_phase5.yaml \
+  --set model.params.model=yolo26n.pt \
+  --set attack.name=none \
+  --set defense.name=none \
+  --set runner.output_root=outputs/defense_eval \
+  --set runner.run_name=yolo26n__none__none
+
+PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
+  --config configs/lab_framework_phase5.yaml \
+  --set model.params.model=yolo26n.pt \
+  --set attack.name=none \
+  --set defense.name=c_dog \
+  --set defense.params.checkpoint_path=/Users/lurch/Downloads/dpc_unet_final_golden.pt \
+  --set defense.params.timestep=50 \
+  --set defense.params.color_order=bgr \
+  --set defense.params.scaling=zero_one \
+  --set defense.params.normalize=true \
+  --set defense.params.device=cpu \
+  --set runner.output_root=outputs/defense_eval \
+  --set runner.run_name=yolo26n__none__c_dog
+```
+
+Optional attack extension (repeat per model):
+
+```bash
+PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
+  --config configs/lab_framework_phase5.yaml \
+  --set model.params.model=yolo26n.pt \
+  --set attack.name=fgsm \
+  --set defense.name=c_dog \
+  --set defense.params.checkpoint_path=/Users/lurch/Downloads/dpc_unet_final_golden.pt \
+  --set defense.params.timestep=50 \
+  --set defense.params.color_order=bgr \
+  --set defense.params.scaling=zero_one \
+  --set defense.params.normalize=true \
+  --set defense.params.device=cpu \
+  --set runner.output_root=outputs/defense_eval \
+  --set runner.run_name=yolo26n__fgsm__c_dog
+```
+
+Interpretation checklist for teammate defense modules:
+
+- `Clean impact`: compare `<model>__none__none` vs `<model>__none__<defense>`; reject if clean detection quality drops materially.
+- `Attack recovery`: compare `<model>__<attack>__none` vs `<model>__<attack>__<defense>`; require measurable recovery in detections/confidence.
+- `Cross-model consistency`: require directionally similar behavior on YOLOv8 and YOLO26 before broader rollout.
+- `Stability`: confirm no non-finite outputs, shape changes, or run-time errors in `metrics.json` and `run_summary.json`.
+- `Decision rule`: mark defense `GO` only if clean degradation is acceptable and attack recovery is consistent on both model families.
 
 ## 3) Output Contracts
 
@@ -81,6 +178,9 @@ PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
 - `framework_run_report.md`
 - `team_summary.json`
 - `team_summary.md`
+- optional strict legacy-compatible views from framework runs:
+  - `metrics_summary.csv`
+  - `experiment_table.md`
 
 ## 4) Validation and Quality Gates
 
@@ -94,6 +194,47 @@ Recommended demo preflight:
 
 ```bash
 bash scripts/demo/run_demo_package.sh fast --profile week1-demo
+```
+
+Framework-first migration gates (CI-ready):
+
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/ci/run_migration_gates.py \
+  --parity-config configs/parity_test.yaml \
+  --demo-profile week1-demo \
+  --demo-output-root outputs/demo-gate-ci \
+  --allow-missing-baseline
+```
+
+Required global health gate:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python run_system_health_check.py \
+  --parity-config configs/parity_test.yaml
+```
+
+Individual gates:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/ci/check_contract_ownership.py
+PYTHONPATH=src ./.venv/bin/python scripts/ci/check_parity_gate.py --config configs/parity_test.yaml
+PYTHONPATH=src ./.venv/bin/python scripts/ci/check_demo_gate.py --profile week1-demo --output-root outputs/demo-gate-ci
+PYTHONPATH=src ./.venv/bin/python scripts/ci/check_artifact_gate.py --output-root outputs/demo-gate-ci
+PYTHONPATH=src ./.venv/bin/python scripts/ci/validate_output_schemas.py \
+  --framework-run-dir outputs/shadow_parity/<run_id>/framework/<framework_run_name> \
+  --legacy-compat-csv outputs/demo-gate-ci/metrics_summary.csv
+PYTHONPATH=src ./.venv/bin/python scripts/ci/check_system_health_gate.py \
+  --parity-config configs/parity_test.yaml \
+  --demo-profile week1-demo \
+  --demo-output-root outputs/demo-gate-ci
+```
+
+Maturity automation:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/ops/run_nightly_shadow_job.py
+PYTHONPATH=src ./.venv/bin/python scripts/ops/generate_stability_dashboard.py
+PYTHONPATH=src ./.venv/bin/python scripts/ops/report_wrapper_cleanup_candidates.py
 ```
 
 ## 5) Overnight Stress Run
@@ -120,11 +261,21 @@ python -m json.tool outputs/overnight_stress_reports/overnight_status.json
 - Readiness result snapshot: `READINESS_REPORT.md`
 - Demo script package usage: `scripts/demo/README.md`
 - Hygiene review checklist and findings: `docs/REPO_HYGIENE_CHECKLIST.md`, `docs/REPO_HYGIENE_REVIEW.md`
+- Migration contract + rollout docs: `docs/LEGACY_MIGRATION_CONTRACT_MATRIX.md`, `docs/MIGRATION_SHADOW_VALIDATION.md`, `docs/LEGACY_RETIREMENT_ROLLBACK.md`
+- Incident playbooks: `docs/incidents/parity_failed.md`, `docs/incidents/demo_failed.md`
+- Contracts + SLOs: `contracts/migration_contracts.yaml`
+- Versioned schemas: `schemas/v1/`
+- Runtime policy + cycle tracker: `configs/migration_runtime.yaml`, `outputs/migration_state/migration_cycle_tracker.json`
+- Ops automation: `scripts/ops/run_nightly_shadow_job.py`, `scripts/ops/generate_stability_dashboard.py`, `scripts/ops/report_wrapper_cleanup_candidates.py`
 - Additional reports and runbooks: `docs/`
 
 ## 7) Recommended Operator Path
 
-- Use **legacy scripts** for week1 demo-critical rehearsals.
+- Use **framework-first wrappers** for new runs and migration surfaces.
+- Canonical primary path: `scripts/run_unified.py`.
+- Fallback for demo rehearsals: `scripts/demo/run_demo_package.sh`.
+- Keep **legacy scripts** available as rollback path during migration window.
+- Migration status dashboard: `./.venv/bin/python scripts/migration_status.py`.
 - Use **framework runner + sweep/report scripts** for modular robustness analysis.
 - Keep changes additive and avoid modifying legacy behavior unless explicitly intended.
 

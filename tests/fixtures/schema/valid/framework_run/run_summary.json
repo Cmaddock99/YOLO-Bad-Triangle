@@ -1,0 +1,15 @@
+{
+  "schema_version": "framework_run_summary/v1",
+  "run_dir": "tests/fixtures/schema/valid/framework_run",
+  "metrics_path": "tests/fixtures/schema/valid/framework_run/metrics.json",
+  "model": {
+    "name": "yolo11n"
+  },
+  "attack": {
+    "name": "fgsm"
+  },
+  "defense": {
+    "name": "none"
+  },
+  "seed": 42
+}

@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 import random
-import re
 import sys
 from copy import deepcopy
 from dataclasses import dataclass
@@ -16,6 +15,10 @@ import cv2
 import numpy as np
 import yaml
 
+from lab.config.contracts import (
+    FRAMEWORK_METRICS_SCHEMA_VERSION,
+    FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
+)
 from lab.attacks.framework_registry import build_attack_plugin, list_available_attack_plugins
 from lab.attacks.utils import iter_images
 from lab.defenses.framework_registry import build_defense_plugin, list_available_defense_plugins
@@ -24,11 +27,12 @@ from lab.eval.framework_metrics import (
     summarize_prediction_metrics,
     validation_status,
 )
-from lab.eval import parity_checker as checker
+from lab.migration import compare_legacy_csv_to_framework_artifacts
 from lab.eval.prediction_io import write_predictions_jsonl
 from lab.eval.prediction_schema import PredictionRecord, validate_prediction_records
 from lab.models.registry import build_model, list_available_models
 from lab.reporting.experiment_summary import generate_summary
+from lab.runners.cli_utils import apply_override, as_mapping, load_yaml_mapping, sanitize_segment
 
 
 def _normalized_config_for_output(config: dict[str, Any]) -> dict[str, Any]:
@@ -46,62 +50,6 @@ def _normalized_config_for_output(config: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def _load_yaml_mapping(config_path: Path) -> dict[str, Any]:
-    loaded = yaml.safe_load(config_path.read_text()) or {}
-    if not isinstance(loaded, dict):
-        raise ValueError(f"Expected mapping config in {config_path}")
-    return cast(dict[str, Any], loaded)
-
-
-def _parse_scalar(value: str) -> Any:
-    lowered = value.lower()
-    if lowered == "true":
-        return True
-    if lowered == "false":
-        return False
-    if lowered in {"none", "null"}:
-        return None
-    try:
-        if re.fullmatch(r"[+-]?\d+", value):
-            return int(value)
-        if re.fullmatch(r"[+-]?\d+\.\d*", value):
-            return float(value)
-    except ValueError:
-        pass
-    try:
-        return json.loads(value)
-    except json.JSONDecodeError:
-        return value
-
-
-def _apply_override(config: dict[str, Any], assignment: str) -> None:
-    if "=" not in assignment:
-        raise ValueError(f"Override must use key=value format, got: {assignment}")
-    key_path, raw_value = assignment.split("=", 1)
-    if not key_path.strip():
-        raise ValueError(f"Override key cannot be empty: {assignment}")
-
-    keys = [part for part in key_path.split(".") if part]
-    if not keys:
-        raise ValueError(f"Invalid override key path: {assignment}")
-
-    node: dict[str, Any] = config
-    for key in keys[:-1]:
-        existing = node.get(key)
-        if existing is None:
-            node[key] = {}
-            existing = node[key]
-        if not isinstance(existing, dict):
-            raise ValueError(f"Cannot set nested key under non-mapping path '{key_path}'.")
-        node = cast(dict[str, Any], existing)
-    node[keys[-1]] = _parse_scalar(raw_value)
-
-
-def _sanitize_segment(value: str, fallback: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "-", value.strip().lower()).strip("-")
-    return cleaned or fallback
-
-
 def _collect_images(source_dir: Path, max_images: int) -> list[Path]:
     images = sorted(iter_images(source_dir))
     if max_images > 0:
@@ -109,20 +57,15 @@ def _collect_images(source_dir: Path, max_images: int) -> list[Path]:
     return images
 
 
-def _as_mapping(config: dict[str, Any], key: str) -> dict[str, Any]:
-    value = config.get(key, {})
-    if value is None:
-        return {}
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected mapping at '{key}'.")
-    return cast(dict[str, Any], value)
-
-
 def _assert_metrics_payload_contract(metrics_payload: dict[str, Any]) -> None:
-    required_top_level = ("predictions", "validation")
+    required_top_level = ("schema_version", "predictions", "validation")
     missing = [key for key in required_top_level if key not in metrics_payload]
     if missing:
         raise ValueError(f"metrics payload missing required top-level keys: {', '.join(missing)}")
+    if metrics_payload.get("schema_version") != FRAMEWORK_METRICS_SCHEMA_VERSION:
+        raise ValueError(
+            f"metrics payload schema_version must be '{FRAMEWORK_METRICS_SCHEMA_VERSION}'."
+        )
     predictions = metrics_payload["predictions"]
     if not isinstance(predictions, dict):
         raise ValueError("metrics payload predictions section must be a mapping.")
@@ -275,40 +218,40 @@ class UnifiedExperimentRunner:
 
     @classmethod
     def from_yaml(cls, config_path: Path) -> "UnifiedExperimentRunner":
-        return cls(config=_load_yaml_mapping(config_path), config_path=config_path)
+        return cls(config=load_yaml_mapping(config_path), config_path=config_path)
 
     def _resolve_run_dir(self) -> Path:
-        runner_cfg = _as_mapping(self.config, "runner")
+        runner_cfg = as_mapping(self.config, "runner")
         output_root = Path(str(runner_cfg.get("output_root", "outputs/framework_runs")))
         output_root = output_root.expanduser().resolve()
         output_root.mkdir(parents=True, exist_ok=True)
 
-        model_name = str(_as_mapping(self.config, "model").get("name", "model"))
-        attack_name = str(_as_mapping(self.config, "attack").get("name", "none"))
-        defense_name = str(_as_mapping(self.config, "defense").get("name", "none"))
+        model_name = str(as_mapping(self.config, "model").get("name", "model"))
+        attack_name = str(as_mapping(self.config, "attack").get("name", "none"))
+        defense_name = str(as_mapping(self.config, "defense").get("name", "none"))
 
         run_name = runner_cfg.get("run_name")
         if run_name is None or not str(run_name).strip():
             ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             run_name = (
-                f"{ts}__{_sanitize_segment(model_name, 'model')}"
-                f"__{_sanitize_segment(attack_name, 'attack')}"
-                f"__{_sanitize_segment(defense_name, 'defense')}"
+                f"{ts}__{sanitize_segment(model_name, 'model')}"
+                f"__{sanitize_segment(attack_name, 'attack')}"
+                f"__{sanitize_segment(defense_name, 'defense')}"
             )
         run_dir = output_root / str(run_name)
         run_dir.mkdir(parents=True, exist_ok=True)
         return run_dir
 
     def run(self) -> dict[str, Any]:
-        model_cfg = _as_mapping(self.config, "model")
-        data_cfg = _as_mapping(self.config, "data")
-        attack_cfg = _as_mapping(self.config, "attack")
-        defense_cfg = _as_mapping(self.config, "defense")
-        runner_cfg = _as_mapping(self.config, "runner")
-        predict_cfg = _as_mapping(self.config, "predict")
-        validation_cfg = _as_mapping(self.config, "validation")
-        parity_cfg = _as_mapping(self.config, "parity")
-        summary_cfg = _as_mapping(self.config, "summary")
+        model_cfg = as_mapping(self.config, "model")
+        data_cfg = as_mapping(self.config, "data")
+        attack_cfg = as_mapping(self.config, "attack")
+        defense_cfg = as_mapping(self.config, "defense")
+        runner_cfg = as_mapping(self.config, "runner")
+        predict_cfg = as_mapping(self.config, "predict")
+        validation_cfg = as_mapping(self.config, "validation")
+        parity_cfg = as_mapping(self.config, "parity")
+        summary_cfg = as_mapping(self.config, "summary")
 
         model_name = str(model_cfg.get("name", ""))
         if not model_name:
@@ -334,18 +277,18 @@ class UnifiedExperimentRunner:
         if not images:
             raise ValueError(f"No images discovered under: {source_dir}")
 
-        model_params = dict(_as_mapping(model_cfg, "params"))
+        model_params = dict(as_mapping(model_cfg, "params"))
         model = build_model(model_name, **model_params)
         model.load()
 
         attack_name = str(attack_cfg.get("name", "none")).strip().lower()
-        attack_params = dict(_as_mapping(attack_cfg, "params"))
+        attack_params = dict(as_mapping(attack_cfg, "params"))
         attack = None
         if attack_name not in {"", "none", "identity"}:
             attack = build_attack_plugin(attack_name, **attack_params)
 
         defense_name = str(defense_cfg.get("name", "none")).strip().lower()
-        defense_params = dict(_as_mapping(defense_cfg, "params"))
+        defense_params = dict(as_mapping(defense_cfg, "params"))
         defense = build_defense_plugin(defense_name or "none", **defense_params)
 
         prepared_paths: list[Path] = []
@@ -395,7 +338,7 @@ class UnifiedExperimentRunner:
 
         validation_enabled = bool(validation_cfg.get("enabled", False))
         validation_dataset = validation_cfg.get("dataset")
-        validation_params = dict(_as_mapping(validation_cfg, "params"))
+        validation_params = dict(as_mapping(validation_cfg, "params"))
         raw_validation_metrics: dict[str, Any] | None = None
         validation_error: str | None = None
         if validation_enabled:
@@ -414,6 +357,7 @@ class UnifiedExperimentRunner:
             validation_state = "error"
 
         metrics_payload = {
+            "schema_version": FRAMEWORK_METRICS_SCHEMA_VERSION,
             "validation": {
                 **cleaned_validation_metrics,
                 "status": validation_state,
@@ -439,7 +383,7 @@ class UnifiedExperimentRunner:
             if framework_run_dir_raw is not None and str(framework_run_dir_raw).strip():
                 framework_run_dir = Path(str(framework_run_dir_raw)).expanduser().resolve()
 
-            parity_report = checker.compare(
+            parity_report = compare_legacy_csv_to_framework_artifacts(
                 legacy_csv=Path(str(legacy_csv_raw)).expanduser().resolve(),
                 framework_metrics_json=framework_run_dir / "metrics.json",
                 predictions_jsonl=framework_run_dir / "predictions.jsonl",
@@ -505,6 +449,7 @@ class UnifiedExperimentRunner:
         )
 
         run_summary = {
+            "schema_version": FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
             "runner": "lab.runners.run_experiment.UnifiedExperimentRunner",
             "run_dir": str(run_dir),
             "source_dir": str(source_dir),
@@ -578,7 +523,7 @@ def main() -> None:
         if overrides:
             merged = deepcopy(runner.config)
             for assignment in overrides:
-                _apply_override(merged, assignment)
+                apply_override(merged, assignment)
             runner.config = merged
 
         if args.dry_run:

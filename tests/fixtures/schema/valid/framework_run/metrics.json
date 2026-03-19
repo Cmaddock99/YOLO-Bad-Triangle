@@ -1,0 +1,16 @@
+{
+  "schema_version": "framework_metrics/v1",
+  "predictions": {
+    "image_count": 1,
+    "images_with_detections": 1,
+    "total_detections": 2
+  },
+  "validation": {
+    "status": "complete",
+    "enabled": true,
+    "precision": 0.5,
+    "recall": 0.5,
+    "mAP50": 0.5,
+    "mAP50-95": 0.5
+  }
+}

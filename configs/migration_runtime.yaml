@@ -1,0 +1,5 @@
+migration:
+  use_legacy_runtime: false
+  tracker_state_path: outputs/migration_state/migration_cycle_tracker.json
+  required_consecutive_passes: 2
+  deprecate_legacy_after_passes: true

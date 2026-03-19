@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from lab.eval.adapter_metadata import adapter_stage_metadata
 from lab.eval.prediction_schema import PredictionRecord
 from .base_defense import BaseDefense
 from .dpc_unet_wrapper import (
@@ -18,7 +19,7 @@ from .plugin_registry import register_defense_plugin
 
 
 @dataclass
-@register_defense_plugin("preprocess_dpc_unet", "dpc_unet_wrapper")
+@register_defense_plugin("preprocess_dpc_unet", "dpc_unet_wrapper", "c_dog")
 class PreprocessDPCUNetDefenseAdapter(BaseDefense):
     """Provisional wrapper-based preprocessing defense with strict safety checks."""
 
@@ -28,7 +29,7 @@ class PreprocessDPCUNetDefenseAdapter(BaseDefense):
     scaling: str = "zero_one"
     normalize: bool = True
     device: str = "cpu"
-    name: str = "preprocess_dpc_unet_adapter"
+    name: str = "c_dog"
     _model: DPCUNet = field(init=False, repr=False)
     _cfg: WrapperInputConfig = field(init=False, repr=False)
     _loaded: bool = field(default=False, init=False, repr=False)
@@ -70,20 +71,20 @@ class PreprocessDPCUNetDefenseAdapter(BaseDefense):
             raise RuntimeError(
                 f"DPC-UNet defense changed image shape: input={image.shape} output={output.shape}"
             )
-        return output, {
-            "defense": "preprocess_dpc_unet",
-            "stage": "preprocess",
-            "checkpoint_path": str(Path(self.checkpoint_path).expanduser()),
-            "timestep": float(self.timestep),
-            "color_order": self._cfg.color_order,
-            "scaling": self._cfg.scaling,
-            "normalize": self._cfg.normalize,
-            "finite": bool(stats["finite"]),
-            "tensor_min": float(stats["tensor_min"]),
-            "tensor_max": float(stats["tensor_max"]),
-            "tensor_mean": float(stats["tensor_mean"]),
-            "tensor_std": float(stats["tensor_std"]),
-        }
+        return output, adapter_stage_metadata(
+            "preprocess_dpc_unet",
+            "preprocess",
+            checkpoint_path=str(Path(self.checkpoint_path).expanduser()),
+            timestep=float(self.timestep),
+            color_order=self._cfg.color_order,
+            scaling=self._cfg.scaling,
+            normalize=self._cfg.normalize,
+            finite=bool(stats["finite"]),
+            tensor_min=float(stats["tensor_min"]),
+            tensor_max=float(stats["tensor_max"]),
+            tensor_mean=float(stats["tensor_mean"]),
+            tensor_std=float(stats["tensor_std"]),
+        )
 
     def postprocess(
         self,
@@ -91,8 +92,8 @@ class PreprocessDPCUNetDefenseAdapter(BaseDefense):
         **kwargs: Any,
     ) -> tuple[list[PredictionRecord], dict[str, Any]]:
         del kwargs
-        return predictions, {
-            "defense": "preprocess_dpc_unet",
-            "stage": "postprocess",
-            "note": "identity_postprocess",
-        }
+        return predictions, adapter_stage_metadata(
+            "preprocess_dpc_unet",
+            "postprocess",
+            note="identity_postprocess",
+        )

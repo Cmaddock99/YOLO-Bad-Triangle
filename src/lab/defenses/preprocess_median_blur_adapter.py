@@ -6,6 +6,7 @@ from typing import Any
 import cv2
 import numpy as np
 
+from lab.eval.adapter_metadata import adapter_stage_metadata
 from lab.eval.prediction_schema import PredictionRecord
 from .base_defense import BaseDefense
 from .plugin_registry import register_defense_plugin
@@ -28,11 +29,11 @@ class PreprocessMedianBlurDefenseAdapter(BaseDefense):
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:
         del kwargs
         processed = cv2.medianBlur(image, self.kernel_size)
-        return processed, {
-            "defense": "preprocess_median_blur",
-            "stage": "preprocess",
-            "kernel_size": self.kernel_size,
-        }
+        return processed, adapter_stage_metadata(
+            "preprocess_median_blur",
+            "preprocess",
+            kernel_size=self.kernel_size,
+        )
 
     def postprocess(
         self,
@@ -40,8 +41,8 @@ class PreprocessMedianBlurDefenseAdapter(BaseDefense):
         **kwargs: Any,
     ) -> tuple[list[PredictionRecord], dict[str, Any]]:
         del kwargs
-        return predictions, {
-            "defense": "preprocess_median_blur",
-            "stage": "postprocess",
-            "note": "identity_postprocess",
-        }
+        return predictions, adapter_stage_metadata(
+            "preprocess_median_blur",
+            "postprocess",
+            note="identity_postprocess",
+        )
