@@ -1,0 +1,29 @@
+shared:
+  model_path: yolo26n.pt
+  model_label: yolo26n
+  framework_model_name: yolo
+  source_dir: coco/val2017_subset500/images
+  validation_dataset: configs/coco_subset500.yaml
+  seed: 42
+  conf: 0.25
+  iou: 0.7
+  imgsz: 640
+  max_images: 8
+  attack_name: fgsm
+  attack_params: {}
+  defense_name: none
+  defense_params: {}
+  validation_enabled: true
+
+shadow:
+  output_root: outputs/shadow_parity
+  # Optional; if omitted, a UTC timestamp run_id is generated.
+  run_id: ""
+  require_validation_for_attacks:
+    - fgsm
+    - ifgsm
+    - pgd
+    - bim
+    - deepfool
+  max_detection_relative_delta_pct: 5.0
+  max_conf_relative_delta_pct: 5.0

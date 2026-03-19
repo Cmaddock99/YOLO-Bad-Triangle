@@ -1,0 +1,29 @@
+{
+  "id": "framework_metrics/v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "predictions",
+    "validation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "framework_metrics/v1"
+    },
+    "predictions": {
+      "type": "object",
+      "required": [
+        "image_count",
+        "images_with_detections",
+        "total_detections"
+      ]
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "status",
+        "enabled"
+      ]
+    }
+  }
+}

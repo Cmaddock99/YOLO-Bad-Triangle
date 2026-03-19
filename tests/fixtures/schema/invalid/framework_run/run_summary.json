@@ -1,0 +1,13 @@
+{
+  "schema_version": "framework_run_summary/v1",
+  "run_dir": "tests/fixtures/schema/invalid/framework_run",
+  "metrics_path": "tests/fixtures/schema/invalid/framework_run/metrics.json",
+  "model": {},
+  "attack": {
+    "name": "fgsm"
+  },
+  "defense": {
+    "name": "none"
+  },
+  "seed": 42
+}

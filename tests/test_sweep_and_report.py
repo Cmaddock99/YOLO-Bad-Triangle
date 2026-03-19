@@ -46,6 +46,17 @@ class SweepAndReportScriptTest(unittest.TestCase):
             (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
             self.assertTrue(sweep_and_report._metrics_exists(run_dir))
 
+    def test_generate_legacy_compat_command(self) -> None:
+        command = sweep_and_report._generate_legacy_compat_command(
+            python_bin="./.venv/bin/python",
+            runs_root=Path("outputs/framework_runs/sweep_x"),
+            output_root=Path("outputs/week1_test"),
+        )
+        rendered = " ".join(command)
+        self.assertIn("scripts/generate_legacy_compat_artifacts.py", rendered)
+        self.assertIn("outputs/framework_runs/sweep_x", rendered)
+        self.assertIn("outputs/week1_test", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

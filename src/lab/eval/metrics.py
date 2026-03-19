@@ -8,6 +8,7 @@ from pathlib import Path
 from statistics import mean, median
 from typing import Any
 
+from lab.migration.runtime_policy import allow_legacy_runtime
 from .experiment_table import generate_experiment_table
 
 
@@ -156,6 +157,12 @@ def append_run_metrics(
     seed: int,
     extra_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    # Hard guard: this CSV producer is legacy-runtime only.
+    if not allow_legacy_runtime(context="lab.eval.metrics.append_run_metrics"):
+        raise RuntimeError(
+            "Legacy artifact producer blocked: append_run_metrics may run only in legacy runtime mode. "
+            "Use migration adapter flow (lab.migration.legacy_compat) for framework-derived artifacts."
+        )
     commit, branch = _git_metadata()
     detection_stats = _parse_detection_stats(run_dir)
     val_metrics = _read_val_metrics(run_dir)

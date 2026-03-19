@@ -8,23 +8,34 @@
 
 ## CURRENT RUNNER
 
-### Legacy/mainline runners (actively used by week1/demo scripts)
+### Legacy/mainline runners (compatibility wrappers retained)
 
-- `run_experiment.py` (key=value one-command UX)
+- `run_experiment.py` (compat wrapper; framework mode forwards to `scripts/run_unified.py run-one`)
 - `run_experiment_api.py` (argparse one-run wrapper)
-- `scripts/run_framework.py` -> `src/lab/runners/cli.py` (matrix YAML runner)
+- `scripts/run_framework.py` -> `scripts/run_unified.py sweep` (framework-first path; `--legacy` keeps rollback path)
 - Core execution engine: `src/lab/runners/experiment_runner.py` (`ExperimentRunner.run()`)
 
-### New framework runners (additive path, not yet replacing legacy scripts)
+### Framework-first canonical runner path
 
+- `scripts/run_unified.py` (canonical entrypoint)
 - `src/lab/runners/run_experiment.py` (`UnifiedExperimentRunner`)
-- `src/lab/runners/phase3_compat_runner.py` (parity scaffold)
 
 ### Runner overlap assessment
 
-- There are multiple valid entrypoints with partially overlapping purpose.
-- Week1 operator path currently resolves to legacy `ExperimentRunner`, not unified runner.
-- Unified runner is functional for framework artifacts, but not yet the single canonical operator path.
+- Compatibility wrappers remain, but canonical framework-first path is now `scripts/run_unified.py`.
+- Legacy `ExperimentRunner` remains available for rollback workflows only.
+- Legacy entrypoints (`run_experiment.py --legacy`, `scripts/run_framework.py --legacy`, `src/lab/runners/cli.py`)
+  are emergency-only and policy-gated via `allow_legacy_runtime(...)`.
+
+### Runtime/config constants source of truth
+
+- `src/lab/config/contracts.py` centralizes:
+  - schema IDs (`framework_metrics/v1`, `framework_run_summary/v1`, `legacy_compat_csv/v1`)
+  - parity threshold defaults/keys
+  - legacy inference defaults (`conf`, `iou`, `imgsz`)
+  - canonical runtime path identifiers and compatibility wrapper entrypoint list
+  - runtime toggle key paths (`validation.enabled`, `parity.enabled`, `parity.fail_on_mismatch`, `summary.enabled`, `migration.use_legacy_runtime`)
+- Existing compatibility constant names remain exported for current callers.
 
 ## CURRENT ATTACKS
 
@@ -178,6 +189,7 @@ Unified runner emits:
 - `configs/lab_framework_phase5.yaml` (currently aligned with unified runner)
 - `configs/lab_framework_phase3_compat.yaml` (compat config, partially stale)
 - `configs/lab_framework_skeleton.yaml` (phase scaffold)
+- Canonical runtime path for framework family: `scripts/run_unified.py` (`run-one`/`sweep`)
 
 ## DUPLICATED LOGIC / TIGHT COUPLING / FRAGILE AREAS
 
@@ -209,10 +221,10 @@ Unified runner emits:
 - `./.venv/bin/python run_experiment.py --list-attacks`
 - `./.venv/bin/python run_experiment.py dry_run=true`
 
-### Legacy matrix
+### Framework sweep matrix
 
-- `./.venv/bin/python scripts/run_framework.py --config configs/modular_experiments.yaml`
-- `./.venv/bin/python scripts/run_framework.py --config configs/modular_experiments.yaml --confs 0.25,0.5 --output_root outputs/custom`
+- `./.venv/bin/python scripts/run_unified.py sweep --config configs/lab_framework_phase5.yaml --attacks fgsm,pgd`
+- `./.venv/bin/python scripts/run_unified.py sweep --config configs/lab_framework_phase5.yaml --attacks fgsm,pgd --runs-root outputs/custom/framework_runs --report-root outputs/custom/framework_reports`
 
 ### Week1/demo operational
 
@@ -236,5 +248,5 @@ Unified runner emits:
 
 ### Uncertain / requires runtime confirmation for full certainty
 
-- Exact production preference between `run_experiment.py` vs `scripts/run_framework.py` outside week1/demo workflows.
+- Legacy wrappers are rollback-only; production operator path remains `scripts/run_unified.py` and framework-mode `run_experiment.py`.
 - Whether all framework scaffold configs (`lab_framework_skeleton.yaml`, `lab_framework_phase3_compat.yaml`) are still intended for direct execution.
