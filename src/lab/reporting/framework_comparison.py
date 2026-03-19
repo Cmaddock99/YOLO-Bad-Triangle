@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .name_normalization import is_none_like, normalize_name
+
 
 @dataclass
 class FrameworkRunRecord:
@@ -29,7 +31,7 @@ class FrameworkRunRecord:
 def _read_json(path: Path) -> dict[str, Any]:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, json.JSONDecodeError):
         return {}
 
 
@@ -132,9 +134,9 @@ def build_comparison_rows(records: list[FrameworkRunRecord]) -> list[dict[str, A
 
     rows: list[dict[str, Any]] = []
     for (model, defense, seed), runs in grouped.items():
-        baseline = next((run for run in runs if run.attack == "none"), None)
+        baseline = next((run for run in runs if is_none_like(run.attack)), None)
         for run in runs:
-            if run.attack == "none":
+            if is_none_like(run.attack):
                 continue
             row = {
                 "model": model,
@@ -142,7 +144,7 @@ def build_comparison_rows(records: list[FrameworkRunRecord]) -> list[dict[str, A
                 "seed": seed,
                 "baseline_run": baseline.run_name if baseline else "",
                 "attack_run": run.run_name,
-                "attack": run.attack,
+                "attack": normalize_name(run.attack),
                 "baseline_mAP50": baseline.map50 if baseline else None,
                 "attack_mAP50": run.map50,
                 "mAP50_drop": (

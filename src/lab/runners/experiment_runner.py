@@ -48,6 +48,7 @@ class ExperimentRunner:
     output_root: Path
     metrics_csv: str
     default_run_validation: bool
+    clean_existing_runs: bool
     experiments: list[ExperimentSpec]
 
     @classmethod
@@ -92,6 +93,7 @@ class ExperimentRunner:
             output_root=output_root_path,
             metrics_csv=runner_cfg.get("metrics_csv", "metrics_summary.csv"),
             default_run_validation=bool(runner_cfg.get("run_validation", True)),
+            clean_existing_runs=bool(runner_cfg.get("clean_existing_runs", True)),
             experiments=experiments,
         )
 
@@ -129,6 +131,16 @@ class ExperimentRunner:
         raw = Path(self.metrics_csv).expanduser()
         candidate = raw if raw.is_absolute() else (self.output_root / raw)
         return self._assert_within_output_root(candidate, context="metrics_csv")
+
+    def _reset_dir(self, path: Path, *, context: str) -> None:
+        if not path.exists():
+            return
+        if not self.clean_existing_runs:
+            raise FileExistsError(
+                f"{context} already exists at '{path}'. "
+                "Set runner.clean_existing_runs=true to allow overwrite."
+            )
+        shutil.rmtree(path)
 
     def _run_name_for(self, spec: ExperimentSpec, conf: float) -> str:
         context = {
@@ -212,8 +224,10 @@ class ExperimentRunner:
             val_dataset_root,
             context=f"validation dataset root for run '{run_name}'",
         )
-        if val_dataset_root.exists():
-            shutil.rmtree(val_dataset_root)
+        self._reset_dir(
+            val_dataset_root,
+            context=f"validation dataset root for run '{run_name}'",
+        )
         val_dataset_root.mkdir(parents=True, exist_ok=True)
 
         images_link = val_dataset_root / "images"
@@ -311,8 +325,10 @@ class ExperimentRunner:
             intermediate_root,
             context=f"attack/defense intermediate root for run '{run_name}'",
         )
-        if intermediate_root.exists():
-            shutil.rmtree(intermediate_root)
+        self._reset_dir(
+            intermediate_root,
+            context=f"attack/defense intermediate root for run '{run_name}'",
+        )
         intermediate_root.mkdir(parents=True, exist_ok=True)
 
         attack = build_attack(spec.attack, spec.attack_params)
@@ -360,8 +376,7 @@ class ExperimentRunner:
                     self.output_root / run_name,
                     context=f"run directory for run '{run_name}'",
                 )
-                if run_dir.exists():
-                    shutil.rmtree(run_dir)
+                self._reset_dir(run_dir, context=f"run directory for run '{run_name}'")
                 should_validate = (
                     spec.run_validation
                     if spec.run_validation is not None
