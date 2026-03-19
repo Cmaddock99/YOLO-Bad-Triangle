@@ -21,13 +21,14 @@ class DPCUNetDefenseAdapterTests(unittest.TestCase):
         names = list_available_defense_plugins()
         self.assertIn("preprocess_dpc_unet", names)
         self.assertIn("dpc_unet_wrapper", names)
+        self.assertIn("c_dog", names)
 
     def test_preprocess_runs_with_valid_checkpoint(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ckpt = Path(tmp) / "dpc.pt"
             self._write_checkpoint(ckpt)
             defense = build_defense_plugin(
-                "preprocess_dpc_unet",
+                "c_dog",
                 checkpoint_path=str(ckpt),
                 timestep=50,
                 color_order="bgr",

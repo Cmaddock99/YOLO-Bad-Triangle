@@ -4,53 +4,11 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Any
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from lab.attacks.registry import list_available_attacks
-from lab.defenses.registry import list_available_defenses
-from lab.runners import ExperimentRunner
-from lab.runners.experiment_registry import ExperimentRegistry
-
-
-def _print_list(title: str, values: list[str]) -> None:
-    print(f"{title}:")
-    if not values:
-        print("  (none)")
-        return
-    for value in values:
-        print(f"  - {value}")
-
-
-def _parse_scalar(raw: str) -> Any:
-    lowered = raw.lower()
-    if lowered in {"true", "false"}:
-        return lowered == "true"
-    if lowered in {"none", "null"}:
-        return None
-    try:
-        return int(raw)
-    except ValueError:
-        pass
-    try:
-        return float(raw)
-    except ValueError:
-        return raw
-
-
-def _parse_param_tokens(tokens: list[str]) -> dict[str, Any]:
-    parsed: dict[str, Any] = {}
-    for token in tokens:
-        if "=" not in token:
-            raise ValueError(f"Invalid parameter '{token}'. Expected key=value.")
-        key, value = token.split("=", 1)
-        key = key.strip()
-        if not key:
-            raise ValueError(f"Invalid parameter '{token}'. Key cannot be empty.")
-        parsed[key] = _parse_scalar(value.strip())
-    return parsed
+from lab.runners.cli_utils import parse_key_value_tokens, run_repo_python_script
 
 
 def main() -> None:
@@ -162,22 +120,21 @@ def main() -> None:
     args = parser.parse_args()
     print(
         "DEPRECATION NOTICE: 'run_experiment_api.py' is a legacy compatibility entrypoint. "
-        "Use 'src/lab/runners/run_experiment.py' for framework-first operation."
+        "Use 'run_experiment.py' or 'scripts/run_unified.py run-one --config configs/lab_framework_phase5.yaml --set ...' "
+        "for framework-first operation."
     )
 
     if args.list_attacks or args.list_defenses or args.list_models or args.list_datasets:
-        registry = ExperimentRegistry.from_yaml(ROOT / args.config)
+        delegated_args: list[str] = []
         if args.list_attacks:
-            _print_list("Configured attack aliases", registry.available_attack_aliases())
-            _print_list("Registered attack plugins", list_available_attacks())
+            delegated_args.append("--list-attacks")
         if args.list_defenses:
-            _print_list("Configured defense aliases", registry.available_defense_aliases())
-            _print_list("Registered defense plugins", list_available_defenses())
+            delegated_args.append("--list-defenses")
         if args.list_models:
-            _print_list("Configured models", registry.available_models())
+            delegated_args.append("--list-models")
         if args.list_datasets:
-            _print_list("Configured datasets", registry.available_datasets())
-        return
+            delegated_args.append("--list-datasets")
+        raise SystemExit(run_repo_python_script(ROOT, "run_experiment.py", delegated_args))
 
     required_missing: list[str] = []
     if not args.run_name:
@@ -194,63 +151,45 @@ def main() -> None:
     output_root = args.output_root_dash or args.output_root
 
     try:
-        attack_params = _parse_param_tokens(list(args.attack_param))
-        defense_params = _parse_param_tokens(list(args.defense_param))
+        attack_params = parse_key_value_tokens(list(args.attack_param))
+        defense_params = parse_key_value_tokens(list(args.defense_param))
     except ValueError as exc:
         parser.error(str(exc))
 
     attack_name = str(args.attack)
-    attack_label = str(args.attack)
     if args.attacks_dir:
         attack_name = "none"
-        source_override = args.attacks_dir
+        source_dir_override = args.attacks_dir
     elif args.source_override:
-        source_override = args.source_override
+        source_dir_override = args.source_override
     else:
-        source_override = None
+        source_dir_override = args.image_dir
 
     if args.attack == "blur" and "kernel_size" not in attack_params:
         attack_params["kernel_size"] = args.blur_kernel
     if args.attack == "gaussian_noise" and "stddev" not in attack_params:
         attack_params["stddev"] = 12.0
 
-    run_validation = bool(args.validate)
+    delegated_args = [
+        f"run_name={args.run_name}",
+        f"attack={attack_name}",
+        f"defense={args.defense}",
+        f"model={args.model}",
+        f"conf={args.conf}",
+        f"iou={args.iou}",
+        f"imgsz={args.imgsz}",
+        f"seed={args.seed}",
+        f"output_root={output_root}",
+        f"validate={str(bool(args.validate)).lower()}",
+        f"data.source_dir={source_dir_override}",
+        f"validation.dataset={args.data_yaml}",
+    ]
+    for key, value in attack_params.items():
+        delegated_args.extend(["--set", f"attack.params.{key}={value}"])
+    for key, value in defense_params.items():
+        delegated_args.extend(["--set", f"defense.params.{key}={value}"])
 
-    runner = ExperimentRunner.from_dict(
-        {
-            "model": {"path": args.model},
-            "data": {
-                "data_yaml": args.data_yaml,
-                "image_dir": args.image_dir,
-            },
-            "runner": {
-                "confs": [args.conf],
-                "iou": args.iou,
-                "imgsz": args.imgsz,
-                "seed": args.seed,
-                "output_root": output_root,
-                "metrics_csv": "metrics_summary.csv",
-            },
-            "experiments": [
-                {
-                    "name": args.run_name,
-                    "run_name_template": args.run_name,
-                    "attack": attack_name,
-                    "attack_label": attack_label,
-                    "attack_params": attack_params,
-                    "source_override": source_override,
-                    "defense": args.defense,
-                    "defense_label": args.defense,
-                    "defense_params": defense_params,
-                    "run_validation": run_validation,
-                }
-            ],
-        }
-    )
-    rows = runner.run()
-    run_names = ", ".join(str(row.get("run_name")) for row in rows)
-    print(f"\nExperiment(s) {run_names} completed successfully.")
-    print(f"Outputs saved under: {output_root}/\n")
+    raise SystemExit(run_repo_python_script(ROOT, "run_experiment.py", delegated_args))
 
 
 if __name__ == "__main__":

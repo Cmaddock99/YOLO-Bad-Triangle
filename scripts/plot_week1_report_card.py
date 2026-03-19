@@ -59,9 +59,14 @@ def _prepare_data(csv_path: Path) -> tuple[pd.Series, pd.DataFrame, pd.Series, d
         fgsm_rows["epsilon"] = pd.NA
     else:
         fgsm_rows["epsilon"] = fgsm_rows["attack_params_json"].fillna("").map(_extract_epsilon)
-    fgsm_rows = fgsm_rows.dropna(subset=["epsilon"]).sort_values("epsilon")
-    if fgsm_rows.empty:
-        raise ValueError("No FGSM rows with parseable epsilon found in attack_params_json.")
+    if fgsm_rows["epsilon"].dropna().empty:
+        fgsm_rows = fgsm_rows.copy()
+        fgsm_rows["epsilon"] = pd.Series(range(1, len(fgsm_rows) + 1), index=fgsm_rows.index, dtype="float64")
+        print(
+            "WARNING: No FGSM rows with parseable epsilon found in attack_params_json; "
+            "using FGSM row order index for report card rendering."
+        )
+    fgsm_rows = fgsm_rows.sort_values("epsilon")
 
     worst_fgsm = fgsm_rows.iloc[-1]
     fgsm_metric_frame = fgsm_rows[METRICS].apply(pd.to_numeric, errors="coerce")

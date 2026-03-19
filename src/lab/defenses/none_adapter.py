@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 
+from lab.eval.adapter_metadata import adapter_stage_metadata
 from lab.eval.prediction_schema import PredictionRecord
 from .base_defense import BaseDefense
 from .plugin_registry import register_defense_plugin
@@ -19,7 +20,7 @@ class NoDefenseAdapter(BaseDefense):
 
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:
         del kwargs
-        return image, {"defense": "none", "stage": "preprocess"}
+        return image, adapter_stage_metadata("none", "preprocess")
 
     def postprocess(
         self,
@@ -27,4 +28,4 @@ class NoDefenseAdapter(BaseDefense):
         **kwargs: Any,
     ) -> tuple[list[PredictionRecord], dict[str, Any]]:
         del kwargs
-        return predictions, {"defense": "none", "stage": "postprocess"}
+        return predictions, adapter_stage_metadata("none", "postprocess")

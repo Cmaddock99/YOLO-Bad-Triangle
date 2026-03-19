@@ -5,6 +5,8 @@ from typing import Any
 
 import numpy as np
 
+from lab.eval.adapter_metadata import adapter_stage_metadata
+from lab.eval.prediction_filters import filter_predictions_by_confidence
 from lab.eval.prediction_schema import PredictionRecord
 from .base_defense import BaseDefense
 from .plugin_registry import register_defense_plugin
@@ -26,11 +28,11 @@ class ConfidenceFilterDefenseAdapter(BaseDefense):
 
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:
         del kwargs
-        return image, {
-            "defense": "confidence_filter",
-            "stage": "preprocess",
-            "note": "identity_preprocess",
-        }
+        return image, adapter_stage_metadata(
+            "confidence_filter",
+            "preprocess",
+            note="identity_preprocess",
+        )
 
     def postprocess(
         self,
@@ -38,26 +40,9 @@ class ConfidenceFilterDefenseAdapter(BaseDefense):
         **kwargs: Any,
     ) -> tuple[list[PredictionRecord], dict[str, Any]]:
         del kwargs
-        filtered: list[PredictionRecord] = []
-        removed_total = 0
-        for record in predictions:
-            scores = list(record.get("scores", []))
-            keep_indices = [idx for idx, score in enumerate(scores) if float(score) >= self.threshold]
-            removed_total += max(0, len(scores) - len(keep_indices))
+        filtered, summary = filter_predictions_by_confidence(
+            predictions,
+            threshold=self.threshold,
+        )
 
-            filtered.append(
-                {
-                    "image_id": record["image_id"],
-                    "boxes": [record["boxes"][idx] for idx in keep_indices],
-                    "scores": [record["scores"][idx] for idx in keep_indices],
-                    "class_ids": [record["class_ids"][idx] for idx in keep_indices],
-                    "metadata": dict(record.get("metadata", {})),
-                }
-            )
-
-        return filtered, {
-            "defense": "confidence_filter",
-            "stage": "postprocess",
-            "threshold": self.threshold,
-            "removed_detections": removed_total,
-        }
+        return filtered, adapter_stage_metadata("confidence_filter", "postprocess", **summary)

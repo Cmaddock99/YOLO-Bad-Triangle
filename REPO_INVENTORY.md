@@ -7,10 +7,11 @@ No code execution behavior was changed while producing this file.
 
 ## Cleaned Directory Structure (Audit-Focused)
 
-- `run_experiment.py` - one-command key=value CLI entrypoint (legacy path).
-- `run_experiment_api.py` - argparse CLI wrapper for explicit single-run invocation (legacy path).
+- `run_experiment.py` - compatibility CLI wrapper (legacy path; framework mode forwards to unified runtime).
+- `run_experiment_api.py` - argparse compatibility wrapper for explicit single-run invocation.
 - `scripts/`
-  - `run_framework.py` - YAML matrix launcher (legacy path).
+  - `run_unified.py` - canonical runtime entrypoint (`run-one`, `sweep`).
+  - `run_framework.py` - compatibility matrix wrapper (legacy path, forwards to unified sweep unless `--legacy`).
   - `run_week1_stabilization.sh` - preflight + matrix + integrity + plotting orchestration.
   - `demo/run_demo_package.sh` - demo action router (`preflight`, `live-demo`, `fast`, `full-demo`, etc.).
   - `check_environment.py` - environment preflight validation.
@@ -32,7 +33,7 @@ No code execution behavior was changed while producing this file.
 - `tests/`
   - Runner, attack, FGSM/PGD/EOT, and metrics integrity tests.
 - `docs/`
-  - Team/operator docs and runbooks; aligns with legacy week1/demo workflows.
+  - Team/operator docs and runbooks; week1/demo legacy workflows retained with unified-runtime-first guidance.
 
 ## Python Files By Role
 
@@ -40,12 +41,12 @@ No code execution behavior was changed while producing this file.
 
 - `run_experiment.py`
 - `run_experiment_api.py`
+- `scripts/run_unified.py`
 - `scripts/run_framework.py`
 - `src/lab/runners/cli.py`
 - `src/lab/runners/experiment_runner.py`
 - `src/lab/runners/experiment_registry.py`
 - `src/lab/runners/run_experiment.py`
-- `src/lab/runners/phase3_compat_runner.py`
 
 ## Model Loading / Inference
 
@@ -134,6 +135,7 @@ No code execution behavior was changed while producing this file.
 
 ## Confirmed executable entrypoints
 
+- `scripts/run_unified.py` (`run-one`, `sweep`; canonical runtime entrypoint)
 - `run_experiment.py` (`main()` + `if __name__ == "__main__":`)
 - `run_experiment_api.py` (`main()` + `if __name__ == "__main__":`)
 - `scripts/run_framework.py` (wrapper to `lab.runners.cli.main`)
@@ -164,7 +166,10 @@ Two active config schemas coexist:
 
 2. **Unified framework schema**
    - `configs/lab_framework_phase5.yaml` (current runnable framework config)
-   - Runtime consumer: `src/lab/runners/run_experiment.py`
+   - Runtime consumers: `scripts/run_unified.py`, `src/lab/runners/run_experiment.py`
+
+Canonical constants source:
+- `src/lab/config/contracts.py` centralizes schema IDs, parity thresholds/defaults, runtime toggle keys, and canonical runtime path identifiers.
 
 Known mismatch risk:
 - `configs/lab_framework_phase3_compat.yaml` and `configs/lab_framework_skeleton.yaml` are framework-era configs but not aligned with current unified runner expectations for all fields.

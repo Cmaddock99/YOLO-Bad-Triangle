@@ -58,9 +58,16 @@ def _prepare_rows(csv_path: Path) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame
     if "attack_params_json" not in fgsm_rows.columns:
         raise ValueError("CSV missing 'attack_params_json'; cannot infer FGSM epsilon.")
     fgsm_rows["epsilon"] = fgsm_rows["attack_params_json"].fillna("").map(_extract_epsilon)
-    fgsm_rows = fgsm_rows.dropna(subset=["epsilon"]).sort_values("epsilon")
-    if fgsm_rows.empty:
-        raise ValueError("No FGSM rows with parseable epsilon found in 'attack_params_json'.")
+    if fgsm_rows["epsilon"].dropna().empty:
+        # Demo/gate runs may contain FGSM rows without explicit epsilon in attack_params_json.
+        # Keep snapshot generation resilient by plotting rows in deterministic order.
+        fgsm_rows = fgsm_rows.copy()
+        fgsm_rows["epsilon"] = pd.Series(range(1, len(fgsm_rows) + 1), index=fgsm_rows.index, dtype="float64")
+        print(
+            "WARNING: No FGSM rows with parseable epsilon found in 'attack_params_json'; "
+            "using FGSM row order index for snapshot plotting."
+        )
+    fgsm_rows = fgsm_rows.sort_values("epsilon")
     return df, baseline, fgsm_rows
 
 
