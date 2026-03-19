@@ -1,0 +1,36 @@
+{
+  "id": "framework_run_summary/v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_dir",
+    "metrics_path",
+    "model",
+    "attack",
+    "defense",
+    "seed"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "framework_run_summary/v1"
+    },
+    "model": {
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "attack": {
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "defense": {
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    }
+  }
+}

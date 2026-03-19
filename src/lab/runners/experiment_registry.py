@@ -7,23 +7,7 @@ from typing import Any
 
 import yaml
 from lab.models.model_utils import model_label_from_path, normalize_model_path
-
-
-def _parse_scalar(value: str) -> Any:
-    lowered = value.lower()
-    if lowered in {"true", "false"}:
-        return lowered == "true"
-    if lowered in {"none", "null"}:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        pass
-    try:
-        return float(value)
-    except ValueError:
-        pass
-    return value
+from lab.runners.cli_utils import parse_scalar
 
 
 def parse_key_value_overrides(tokens: list[str]) -> dict[str, Any]:
@@ -53,9 +37,9 @@ def parse_key_value_overrides(tokens: list[str]) -> dict[str, Any]:
         if key in force_string_keys:
             parsed_value = raw_value.strip()
         elif len(parts) > 1:
-            parsed_value = [_parse_scalar(part) for part in parts if part]
+            parsed_value = [parse_scalar(part) for part in parts if part]
         else:
-            parsed_value = _parse_scalar(raw_value.strip())
+            parsed_value = parse_scalar(raw_value.strip())
         overrides[key] = parsed_value
     return overrides
 

@@ -1,0 +1,25 @@
+{
+  "id": "system_health_summary/v1",
+  "schema_id": "system_health_summary/v1",
+  "required": [
+    "schema_version",
+    "generated_at_utc",
+    "overall_pass",
+    "system_health_score",
+    "debug_confidence_score",
+    "results",
+    "regression",
+    "auto_fix_actions",
+    "auto_fix_blocked_actions",
+    "status",
+    "stage",
+    "issues",
+    "commands",
+    "timestamp_utc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "system_health_summary/v1"
+    }
+  }
+}

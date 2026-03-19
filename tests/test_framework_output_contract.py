@@ -252,6 +252,7 @@ class FrameworkOutputContractTests(unittest.TestCase):
 
     def test_metrics_payload_contract_accepts_valid_payload(self) -> None:
         payload = {
+            "schema_version": "framework_metrics/v1",
             "predictions": {
                 "image_count": 1,
                 "images_with_detections": 1,
@@ -263,6 +264,7 @@ class FrameworkOutputContractTests(unittest.TestCase):
 
     def test_metrics_payload_contract_rejects_invalid_validation_status(self) -> None:
         payload = {
+            "schema_version": "framework_metrics/v1",
             "predictions": {
                 "image_count": 1,
                 "images_with_detections": 1,
@@ -275,6 +277,7 @@ class FrameworkOutputContractTests(unittest.TestCase):
 
     def test_metrics_payload_contract_rejects_missing_prediction_keys(self) -> None:
         payload = {
+            "schema_version": "framework_metrics/v1",
             "predictions": {"image_count": 1},
             "validation": {"status": "missing", "enabled": False, "error": None},
         }

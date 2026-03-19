@@ -7,7 +7,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from lab.config.contracts import (
+    DEFAULT_CONF,
+    DEFAULT_IMGSZ,
+    DEFAULT_IOU,
+    LEGACY_COMPAT_CSV_SCHEMA_VERSION,
+)
 from lab.eval.experiment_table import generate_experiment_table
+from lab.migration.metric_semantics import (
+    legacy_row_status,
+    prediction_confidence_quantiles,
+    to_optional_float,
+)
 from lab.reporting import discover_framework_runs
 
 
@@ -19,6 +30,7 @@ class LegacyCompatResult:
 
 
 _FIELDNAMES = [
+    "schema_version",
     "date",
     "commit",
     "branch",
@@ -64,56 +76,13 @@ def _read_json_mapping(path: Path) -> dict[str, Any]:
         return {}
 
 
-def _read_prediction_quantiles(run_dir: Path) -> tuple[float | None, float | None, float | None]:
-    metrics = _read_json_mapping(run_dir / "metrics.json")
-    confidence = metrics.get("predictions", {}).get("confidence", {})
-    return (
-        _to_optional_float(confidence.get("median")),
-        _to_optional_float(confidence.get("p25")),
-        _to_optional_float(confidence.get("p75")),
-    )
-
-
-def _to_optional_float(value: Any) -> float | None:
-    if value in ("", None):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _row_status(
-    *,
-    precision: float | None,
-    recall: float | None,
-    map50: float | None,
-    map50_95: float | None,
-    validation_status: str,
-) -> tuple[str, str]:
-    missing = []
-    if precision is None:
-        missing.append("precision")
-    if recall is None:
-        missing.append("recall")
-    if map50 is None:
-        missing.append("mAP50")
-    if map50_95 is None:
-        missing.append("mAP50-95")
-    if missing:
-        return "partial", ",".join(missing)
-    if validation_status.lower() not in {"ok", "enabled"}:
-        return "partial", ""
-    return "ok", ""
-
-
 def write_legacy_compat_artifacts(
     *,
     runs_root: Path,
     output_root: Path,
-    conf_default: float = 0.25,
-    iou_default: float = 0.7,
-    imgsz_default: int = 640,
+    conf_default: float = DEFAULT_CONF,
+    iou_default: float = DEFAULT_IOU,
+    imgsz_default: int = DEFAULT_IMGSZ,
 ) -> LegacyCompatResult:
     records = discover_framework_runs(runs_root)
     metrics_csv = output_root / "metrics_summary.csv"
@@ -124,22 +93,26 @@ def write_legacy_compat_artifacts(
     rows: list[dict[str, Any]] = []
     for record in records:
         run_summary = _read_json_mapping(record.run_dir / "run_summary.json")
+        run_metrics = _read_json_mapping(record.run_dir / "metrics.json")
         run_meta = run_summary.get("run", {})
         validation_meta = run_summary.get("validation", {})
         attack_meta = run_summary.get("attack", {})
         defense_meta = run_summary.get("defense", {})
         model_meta = run_summary.get("model", {})
-        med_conf, p25_conf, p75_conf = _read_prediction_quantiles(record.run_dir)
-        status, missing_metric_fields = _row_status(
-            precision=record.precision,
-            recall=record.recall,
-            map50=record.map50,
-            map50_95=record.map50_95,
+        med_conf, p25_conf, p75_conf = prediction_confidence_quantiles(run_metrics)
+        status, missing_metric_fields = legacy_row_status(
             validation_status=record.validation_status,
+            metric_values={
+                "precision": record.precision,
+                "recall": record.recall,
+                "mAP50": record.map50,
+                "mAP50-95": record.map50_95,
+            },
         )
 
         rows.append(
             {
+                "schema_version": LEGACY_COMPAT_CSV_SCHEMA_VERSION,
                 "date": now_iso,
                 "commit": "",
                 "branch": "",
@@ -147,8 +120,8 @@ def write_legacy_compat_artifacts(
                 "MODEL": record.model or str(model_meta.get("name", "")),
                 "attack": record.attack,
                 "defense": record.defense,
-                "conf": _to_optional_float(run_meta.get("conf", conf_default)) or conf_default,
-                "iou": _to_optional_float(run_meta.get("iou", iou_default)) or iou_default,
+                "conf": to_optional_float(run_meta.get("conf", conf_default)) or conf_default,
+                "iou": to_optional_float(run_meta.get("iou", iou_default)) or iou_default,
                 "imgsz": int(run_meta.get("imgsz", imgsz_default) or imgsz_default),
                 "seed": record.seed,
                 "images_with_detections": record.images_with_detections,

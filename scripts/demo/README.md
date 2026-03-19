@@ -2,6 +2,10 @@
 
 This folder bundles the full week1 demo workflow into one command surface.
 
+Canonical runtime entrypoints remain framework-first:
+- `./.venv/bin/python scripts/run_unified.py run-one --config configs/lab_framework_phase5.yaml`
+- `./.venv/bin/python run_experiment.py attack=fgsm conf=0.25`
+
 ## Document metadata
 
 - `validated_at_utc`: `2026-03-19T17:55:15Z`
@@ -35,7 +39,7 @@ This runs:
 ## Usage
 
 - `bash scripts/demo/run_demo_package.sh help`
-- `bash scripts/demo/run_demo_package.sh <action> [--profile <name>] [--output-root <dir>] [--config <yaml>] [--sanity-attack <name>]`
+- `bash scripts/demo/run_demo_package.sh <action> [--profile <name>] [--output-root <dir>] [--config <yaml>] [--sanity-attack <name>] [--framework-runs-root <dir>]`
 
 Defaults:
 
@@ -43,6 +47,7 @@ Defaults:
 - `--output-root`: `outputs/demo-reference`
 - `--config`: profile-derived unless explicitly provided
 - `--sanity-attack`: profile-derived (`fgsm` by default)
+- `--framework-runs-root`: optional source for framework runs used to auto-build legacy-compatible CSV if `metrics_summary.csv` is missing
 
 ## Profile guidance
 
@@ -61,6 +66,9 @@ Defaults:
 `fast` and `artifacts` actions assume expected attack rows exist in the selected CSV.  
 If you use `--profile custom` with a non-FGSM dataset, snapshot/report-card generation can fail due to missing baseline/FGSM rows.  
 Use `--profile week1-demo` unless you intentionally prepared a custom-compatible CSV.
+
+When running against framework-only outputs, the package now tries to build `metrics_summary.csv` from framework run folders automatically.  
+Use `--framework-runs-root` if your framework runs are not under `<output-root>/framework_runs`.
 
 ## Interpretation helper directly
 

@@ -1,0 +1,10 @@
+{
+  "schema_version": "framework_metrics/v1",
+  "predictions": {
+    "image_count": 1,
+    "images_with_detections": 1
+  },
+  "validation": {
+    "enabled": true
+  }
+}

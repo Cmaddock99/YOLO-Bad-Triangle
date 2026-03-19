@@ -1,84 +1,104 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
-from typing import Any
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from lab.attacks.registry import list_available_attacks
-from lab.defenses.registry import list_available_defenses
+from lab.migration import allow_legacy_runtime, legacy_runtime_warning
+from lab.runners.cli_utils import run_repo_python_script
 from lab.runners.experiment_registry import ExperimentRegistry, parse_key_value_overrides
 
 
 USAGE = """\
-[DEPRECATED COMPAT ENTRYPOINT] one-command experiment lab
+[FRAMEWORK-FIRST ENTRYPOINT] one-command experiment lab
 
-Preferred framework runner:
-  PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml
+Framework-first usage:
+  python run_experiment.py --config configs/lab_framework_phase5.yaml --set attack.name=fgsm
+  python run_experiment.py attack=fgsm defense=none model=yolo26n conf=0.25
 
-Usage:
-  python run_experiment.py attack=blur model=yolo11 defense=median
-  python run_experiment.py attack=blur model=yolo11 defense=none conf=0.5 imgsz=640
+Legacy rollback mode:
+  python run_experiment.py --legacy attack=blur model=yolo11 defense=median
 
-Key arguments:
+Shorthand arguments (framework mode):
   attack=none|blur|gaussian_noise|fgsm|deepfool
   defense=none|median|median_blur|denoise
   model=yolo26|yolo26n|yolo26s|yolo11|yolo11n|yolo11s|yolo8|<weights-path>
-  conf=0.5               # single threshold
-  conf=0.25,0.5,0.75     # multiple thresholds
+  conf=0.5
   imgsz=640
-
-Discovery flags:
-  --list-attacks
-  --list-defenses
-  --list-models
-  --list-datasets
-
-Additional optional overrides:
-  config=configs/experiment_lab.yaml
-  iou=0.7 imgsz=640 seed=42
-  run_name=my_run run_id=20260311
-  attack.kernel_size=11 defense.h=12
-  output_root=outputs
-  validate=true dry_run=true
 """
 
-DEPRECATION_NOTICE = (
-    "DEPRECATION NOTICE: 'run_experiment.py' is a legacy compatibility entrypoint. "
-    "Use 'src/lab/runners/run_experiment.py' for framework-first operation."
+ENTRY_NOTICE = (
+    "FRAMEWORK-FIRST: 'run_experiment.py' now dispatches to "
+    "'scripts/run_unified.py run-one' by default. "
+    "Use '--legacy' for rollback compatibility mode."
 )
 
 
-def _print_readable_summary(summary: dict[str, Any], resolved_runner: dict[str, Any]) -> None:
-    confs = resolved_runner.get("runner", {}).get("confs", [])
-    conf_text = ",".join(str(conf) for conf in confs) if confs else "default"
-    imgsz = resolved_runner.get("runner", {}).get("imgsz")
-    print("Running experiment")
-    print(f"Model: {summary.get('model_label', summary.get('model', 'unknown'))}")
-    print(f"Attack: {summary.get('attack', 'none')}")
-    print(f"Defense: {summary.get('defense', 'none')}")
-    print(f"Conf: {conf_text}")
-    print(f"Image size: {imgsz}")
-    print()
+def _dispatch_framework_passthrough(argv: list[str]) -> None:
+    code = run_repo_python_script(ROOT, "scripts/run_unified.py", ["run-one", *argv])
+    raise SystemExit(code)
 
 
-def _print_list(title: str, values: list[str]) -> None:
-    print(f"{title}:")
-    if not values:
-        print("  (none)")
-        return
-    for value in values:
-        print(f"  - {value}")
+def _legacy_to_framework_args(argv: list[str]) -> list[str]:
+    mapped: list[str] = []
+    key_map = {
+        "attack": "attack.name",
+        "defense": "defense.name",
+        "model": "model.params.model",
+        "conf": "predict.conf",
+        "iou": "predict.iou",
+        "imgsz": "predict.imgsz",
+        "seed": "runner.seed",
+        "output_root": "runner.output_root",
+        "run_name": "runner.run_name",
+        "validate": "validation.enabled",
+        "dry_run": "--dry-run",
+        "config": "--config",
+    }
+    for item in argv:
+        if item in {"--framework"}:
+            continue
+        if item in {"--help", "-h", "help"}:
+            mapped.append(item)
+            continue
+        if item == "--list-attacks" or item == "--list-defenses" or item == "--list-models":
+            mapped.append("--list-plugins")
+            continue
+        if item == "--list-datasets":
+            # Framework runner does not maintain legacy dataset catalog.
+            mapped.append("--list-plugins")
+            continue
+        if "=" not in item:
+            mapped.append(item)
+            continue
+        key, value = item.split("=", 1)
+        mapped_key = key_map.get(key, key)
+        if mapped_key == "--dry-run":
+            truthy = value.strip().lower() in {"1", "true", "yes", "on"}
+            if truthy:
+                mapped.append("--dry-run")
+            continue
+        if mapped_key == "--config":
+            mapped.extend(["--config", value])
+            continue
+        mapped.extend(["--set", f"{mapped_key}={value}"])
+    if "--config" not in mapped:
+        mapped.extend(["--config", "configs/lab_framework_phase5.yaml"])
+    return mapped
 
 
-def main() -> None:
-    print(DEPRECATION_NOTICE)
+def _run_legacy_mode(argv: list[str]) -> None:
+    if not allow_legacy_runtime(context="run_experiment.py --legacy"):
+        raise RuntimeError(
+            "Legacy runtime is disabled by policy (USE_LEGACY_RUNTIME=false). "
+            "Set USE_LEGACY_RUNTIME=true for emergency rollback only."
+        )
+    legacy_args = [part for part in argv if part != "--legacy"]
     try:
-        overrides = parse_key_value_overrides(sys.argv[1:])
+        overrides = parse_key_value_overrides(legacy_args)
     except ValueError as exc:
         print(f"Error: {exc}")
         print()
@@ -91,57 +111,34 @@ def main() -> None:
 
     config_path = Path(str(overrides.pop("config", "configs/experiment_lab.yaml")))
     dry_run = bool(overrides.pop("dry_run", False))
-
     registry = ExperimentRegistry.from_yaml(ROOT / config_path)
-    requested_lists = {
-        "attacks": bool(overrides.pop("list_attacks", False)),
-        "defenses": bool(overrides.pop("list_defenses", False)),
-        "models": bool(overrides.pop("list_models", False)),
-        "datasets": bool(overrides.pop("list_datasets", False)),
-    }
-    wants_list_output = any(requested_lists.values())
-    if wants_list_output:
-        if requested_lists["attacks"]:
-            config_attacks = registry.available_attack_aliases()
-            registered_attacks = list_available_attacks()
-            _print_list("Configured attack aliases", config_attacks)
-            _print_list("Registered attack plugins", registered_attacks)
-        if requested_lists["defenses"]:
-            config_defenses = registry.available_defense_aliases()
-            registered_defenses = list_available_defenses()
-            _print_list("Configured defense aliases", config_defenses)
-            _print_list("Registered defense plugins", registered_defenses)
-        if requested_lists["models"]:
-            _print_list("Configured models", registry.available_models())
-        if requested_lists["datasets"]:
-            _print_list("Configured datasets", registry.available_datasets())
-        return
-
     resolved = registry.resolve(overrides)
-    _print_readable_summary(resolved.summary, resolved.runner_config)
-
     if dry_run:
-        print("Resolved experiment summary:")
-        print(json.dumps(resolved.summary, indent=2))
-        print("\nResolved runner config:")
-        print(json.dumps(resolved.runner_config, indent=2))
+        print("Legacy compatibility mode (dry-run).")
+        print(resolved.summary)
         return
-
     from lab.runners import ExperimentRunner
-
     runner = ExperimentRunner.from_dict(resolved.runner_config)
     rows = runner.run()
-    print(f"\nCompleted {len(rows)} run(s).")
-    output_root = Path(str(resolved.summary["output_root"])).resolve()
-    if len(rows) == 1 and rows[0].get("run_name"):
-        run_dir = output_root / str(rows[0]["run_name"])
-        print(f"Output folder: {run_dir}")
-    else:
-        print(f"Output folder: {output_root}")
-        for row in rows:
-            run_name = row.get("run_name")
-            if run_name:
-                print(f"  - {output_root / str(run_name)}")
+    print(f"Legacy rollback run complete: {len(rows)} run(s).")
+
+
+def main() -> None:
+    argv = sys.argv[1:]
+    if "--help" in argv or "-h" in argv:
+        print(USAGE)
+        return
+    print(ENTRY_NOTICE)
+    if "--legacy" in argv:
+        print(legacy_runtime_warning(operator_context="run_experiment.py"))
+        try:
+            _run_legacy_mode(argv)
+        except (ValueError, RuntimeError, FileNotFoundError, PermissionError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            raise SystemExit(2) from exc
+        return
+    framework_args = _legacy_to_framework_args(argv)
+    _dispatch_framework_passthrough(framework_args)
 
 
 if __name__ == "__main__":
