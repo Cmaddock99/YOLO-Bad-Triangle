@@ -38,3 +38,28 @@ Compatibility entrypoints (`run_experiment.py`, `run_experiment_api.py`, `script
 ## Decision
 
 Stage 2 cleanup status: **PASS**
+
+## Soak Batch Update
+
+Framework-only soak runs executed under `outputs/soak_framework`:
+
+- `soak_baseline` (`attack=none`, `defense=none`)
+- `soak_pgd` (`attack=pgd`, `defense=none`)
+- `soak_deepfool_preprocess_median` (`attack=deepfool`, `defense=preprocess_median_blur`)
+- Existing soak run retained: `soak_fgsm_conf_filter` (`attack=fgsm`, `defense=confidence_filter`)
+
+Observed invariants for the three new runs:
+
+- `input_image_count=12` and `processed_image_count=12`
+- `failed_image_writes=0`
+- `skipped_unreadable_images=0`
+- Required framework artifacts present for each run:
+  - `predictions.jsonl`
+  - `metrics.json`
+  - `run_summary.json`
+  - `resolved_config.yaml`
+
+Generated soak report artifacts:
+
+- `outputs/soak_framework/report/framework_run_summary.csv`
+- `outputs/soak_framework/report/framework_run_report.md`
