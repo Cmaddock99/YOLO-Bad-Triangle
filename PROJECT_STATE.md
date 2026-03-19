@@ -1,5 +1,11 @@
 # PROJECT_STATE.md
 
+## DOCUMENT METADATA
+
+- `validated_at_utc`: `2026-03-19T17:55:15Z`
+- `validated_against_commit`: `4a11a17`
+- `scope_note`: operational state map; keep synced with tests and plugin/runner changes
+
 ## CURRENT RUNNER
 
 ### Legacy/mainline runners (actively used by week1/demo scripts)
@@ -47,8 +53,10 @@ Primary files:
 
 ### Framework attack plugins (`BaseAttack` single-image)
 
-- Registered currently in framework registry:
-  - `blur`, `gaussian_blur` via `src/lab/attacks/blur_adapter.py`
+- Registry coverage can evolve; validate live plugin availability with:
+  - `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --list-plugins`
+- Regression coverage reference:
+  - `tests/test_framework_attack_plugins.py`
 
 Primary files:
 - `src/lab/attacks/base_attack.py`
@@ -72,7 +80,10 @@ Primary files:
 
 ### Framework defense plugins (`BaseDefense` preprocess/postprocess)
 
-- `none`, `identity` via `src/lab/defenses/none_adapter.py`
+- Registry coverage can evolve; validate live plugin availability with:
+  - `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --list-plugins`
+- Regression coverage reference:
+  - `tests/test_framework_defense_plugins.py`
 
 Primary files:
 - `src/lab/defenses/base_defense.py`

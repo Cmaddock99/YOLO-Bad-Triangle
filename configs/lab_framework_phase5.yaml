@@ -24,6 +24,14 @@ validation:
   dataset: configs/coco_subset500.yaml
   params: {}
 
+parity:
+  enabled: false
+  legacy_csv_path: outputs/metrics_summary.csv
+  fail_on_mismatch: false
+
+summary:
+  enabled: false
+
 runner:
   seed: 42
   max_images: 8

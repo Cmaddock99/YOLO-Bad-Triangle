@@ -43,6 +43,7 @@ class RunnerValidationDatasetTests(unittest.TestCase):
                 output_root=output_root,
                 metrics_csv="metrics_summary.csv",
                 default_run_validation=True,
+                clean_existing_runs=True,
                 experiments=[],
             )
 
@@ -87,6 +88,7 @@ class RunnerValidationDatasetTests(unittest.TestCase):
                 output_root=root / "outputs",
                 metrics_csv="metrics_summary.csv",
                 default_run_validation=True,
+                clean_existing_runs=True,
                 experiments=[],
             )
 
@@ -122,6 +124,7 @@ class RunnerValidationDatasetTests(unittest.TestCase):
         }
         runner = ExperimentRunner.from_dict(config)
         self.assertFalse(runner.default_run_validation)
+        self.assertTrue(runner.clean_existing_runs)
 
     def test_run_name_safety_blocks_traversal_patterns(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -138,6 +141,7 @@ class RunnerValidationDatasetTests(unittest.TestCase):
                 output_root=root / "outputs",
                 metrics_csv="metrics_summary.csv",
                 default_run_validation=True,
+                clean_existing_runs=True,
                 experiments=[],
             )
             with self.assertRaises(ValueError):
@@ -160,10 +164,57 @@ class RunnerValidationDatasetTests(unittest.TestCase):
                 output_root=root / "outputs",
                 metrics_csv="../outside.csv",
                 default_run_validation=True,
+                clean_existing_runs=True,
                 experiments=[],
             )
             with self.assertRaises(ValueError):
                 runner._metrics_csv_path()
+
+    def test_reset_dir_blocks_overwrite_when_clean_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runner = ExperimentRunner(
+                model_path="yolov8n.pt",
+                model_label="yolo8",
+                data_yaml=str(root / "data.yaml"),
+                image_dir=root / "images",
+                confs=[0.25],
+                iou=0.7,
+                imgsz=640,
+                seed=42,
+                output_root=root / "outputs",
+                metrics_csv="metrics_summary.csv",
+                default_run_validation=True,
+                clean_existing_runs=False,
+                experiments=[],
+            )
+            target = root / "outputs" / "existing"
+            target.mkdir(parents=True, exist_ok=True)
+            with self.assertRaises(FileExistsError):
+                runner._reset_dir(target, context="existing test dir")
+
+    def test_from_dict_respects_clean_existing_runs_flag(self) -> None:
+        config = {
+            "model": {"path": "yolov8n.pt", "label": "yolo8"},
+            "data": {
+                "data_yaml": "configs/coco_subset500.yaml",
+                "image_dir": "coco/val2017_subset500/images",
+            },
+            "runner": {
+                "run_validation": False,
+                "clean_existing_runs": False,
+            },
+            "experiments": [
+                {
+                    "name": "baseline",
+                    "attack": "none",
+                    "defense": "none",
+                    "run_name_template": "baseline_conf{conf_token}",
+                }
+            ],
+        }
+        runner = ExperimentRunner.from_dict(config)
+        self.assertFalse(runner.clean_existing_runs)
 
 
 if __name__ == "__main__":

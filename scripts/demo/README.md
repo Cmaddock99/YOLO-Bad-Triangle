@@ -2,12 +2,17 @@
 
 This folder bundles the full week1 demo workflow into one command surface.
 
+## Document metadata
+
+- `validated_at_utc`: `2026-03-19T17:55:15Z`
+- `validated_against_commit`: `4a11a17`
+
 ## Quick start (recommended)
 
 From repo root:
 
 - `bash scripts/demo/set_demo_reference.sh`
-- `bash scripts/demo/run_demo_package.sh fast --output-root outputs/demo-reference`
+- `bash scripts/demo/run_demo_package.sh fast --profile week1-demo --output-root outputs/demo-reference`
 
 This runs:
 
@@ -30,12 +35,32 @@ This runs:
 ## Usage
 
 - `bash scripts/demo/run_demo_package.sh help`
-- `bash scripts/demo/run_demo_package.sh <action> [--output-root <dir>] [--config <yaml>]`
+- `bash scripts/demo/run_demo_package.sh <action> [--profile <name>] [--output-root <dir>] [--config <yaml>] [--sanity-attack <name>]`
 
 Defaults:
 
+- `--profile`: `week1-demo`
 - `--output-root`: `outputs/demo-reference`
-- `--config`: `configs/week1_stabilization_demo_matrix.yaml`
+- `--config`: profile-derived unless explicitly provided
+- `--sanity-attack`: profile-derived (`fgsm` by default)
+
+## Profile guidance
+
+- `week1-demo`:
+  - Recommended default for demo rehearsals and presentation flows.
+  - Uses `configs/week1_stabilization_demo_matrix.yaml`.
+- `week1-stress`:
+  - Higher-stress profile with stricter expectations.
+  - Uses `configs/week1_stabilization_matrix.yaml`.
+- `custom`:
+  - Use when manually supplying config/attack choices.
+  - Ensure selected `--sanity-attack` exists in the metrics CSV used by gates.
+
+## Common pitfall
+
+`fast` and `artifacts` actions assume expected attack rows exist in the selected CSV.  
+If you use `--profile custom` with a non-FGSM dataset, snapshot/report-card generation can fail due to missing baseline/FGSM rows.  
+Use `--profile week1-demo` unless you intentionally prepared a custom-compatible CSV.
 
 ## Interpretation helper directly
 
