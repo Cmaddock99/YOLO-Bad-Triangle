@@ -25,29 +25,11 @@ CANONICAL_RUNTIME_ENTRYPOINT = "scripts/run_unified.py"
 CANONICAL_RUNTIME_COMMANDS = ("run-one", "sweep")
 COMPAT_WRAPPER_ENTRYPOINTS = (
     "run_experiment.py",
-    "scripts/run_framework.py",
 )
 
-# Toggle paths in run configs. These dotted keys are documentation/runtime anchors.
+# Toggle dotted keys used in run configs.
 TOGGLE_VALIDATION_ENABLED = "validation.enabled"
-TOGGLE_PARITY_ENABLED = "parity.enabled"
-TOGGLE_PARITY_FAIL_ON_MISMATCH = "parity.fail_on_mismatch"
 TOGGLE_SUMMARY_ENABLED = "summary.enabled"
-TOGGLE_USE_LEGACY_RUNTIME = "migration.use_legacy_runtime"
-
-# Shared threshold defaults/keys used across migration and parity checks.
-PARITY_THRESHOLD_KEY_DETECTION = "max_detection_relative_delta_pct"
-PARITY_THRESHOLD_KEY_CONFIDENCE = "max_conf_relative_delta_pct"
-PARITY_THRESHOLD_KEYS = (
-    PARITY_THRESHOLD_KEY_DETECTION,
-    PARITY_THRESHOLD_KEY_CONFIDENCE,
-)
-PARITY_MAX_DETECTION_DELTA_PCT_DEFAULT = 5.0
-PARITY_MAX_CONFIDENCE_DELTA_PCT_DEFAULT = 5.0
-
-# Backward-compatible names used by existing callers.
-DEFAULT_MAX_DETECTION_DELTA_PCT = PARITY_MAX_DETECTION_DELTA_PCT_DEFAULT
-DEFAULT_MAX_CONFIDENCE_DELTA_PCT = PARITY_MAX_CONFIDENCE_DELTA_PCT_DEFAULT
 
 # Global governance guardrails.
 MAX_FIX_LOOP = 5
@@ -56,9 +38,9 @@ MAX_FIX_LOOP = 5
 PIXEL_MAX: float = 255.0
 
 # Legacy-compat inference defaults.
-# These apply ONLY to the legacy compat path (run_experiment.py --legacy and
-# ExperimentRunner). The framework path (UnifiedExperimentRunner) reads conf/iou/imgsz
-# from the YAML config's `predict:` section (default: conf=0.5 in lab_framework_phase5.yaml).
+# These apply ONLY to the legacy compat path (ExperimentRunner).
+# The framework path (UnifiedExperimentRunner) reads conf/iou/imgsz
+# from the YAML config's `predict:` section (default: conf=0.5 in configs/default.yaml).
 LEGACY_CONF_DEFAULT = 0.25
 LEGACY_IOU_DEFAULT = 0.7
 LEGACY_IMGSZ_DEFAULT = 640

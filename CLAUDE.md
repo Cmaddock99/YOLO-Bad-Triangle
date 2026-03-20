@@ -21,7 +21,7 @@ Always use `./.venv/bin/python` and set `PYTHONPATH=src` when running framework 
 
 ### Run a single experiment (canonical)
 ```bash
-PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one --config configs/lab_framework_phase5.yaml
+PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one --config configs/default.yaml
 ```
 
 ### Run a sweep
@@ -32,7 +32,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py sweep --attacks fgsm,pg
 ### Quick framework smoke test (8 images, no validation)
 ```bash
 PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
-  --config configs/lab_framework_phase5.yaml \
+  --config configs/default.yaml \
   --set runner.run_name=framework_smoke \
   --set attack.name=blur \
   --set validation.enabled=false \

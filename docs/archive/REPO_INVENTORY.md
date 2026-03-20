@@ -165,7 +165,7 @@ Two active config schemas coexist:
    - Runtime consumers: `run_experiment.py`, `run_experiment_api.py`, `scripts/run_framework.py`, `src/lab/runners/experiment_runner.py`
 
 2. **Unified framework schema**
-   - `configs/lab_framework_phase5.yaml` (current runnable framework config)
+   - `configs/default.yaml` (current runnable framework config)
    - Runtime consumers: `scripts/run_unified.py`, `src/lab/runners/run_experiment.py`
 
 Canonical constants source:

@@ -16,7 +16,7 @@ from .dpc_unet_wrapper import (
     load_checkpoint_state_dict,
     run_wrapper_on_bgr_image,
 )
-from .plugin_registry import register_defense_plugin
+from .framework_registry import register_defense_plugin
 
 
 @dataclass

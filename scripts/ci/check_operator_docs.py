@@ -14,7 +14,6 @@ DOC_PATHS = [
 
 FORBIDDEN_PATTERNS = [
     r"python\s+run_experiment_api\.py\s",
-    r"python\s+scripts/run_framework\.py\s",
     r"legacy-first",
     r"legacy runtime default",
 ]

@@ -41,7 +41,7 @@ Quick environment check:
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
-  --config configs/lab_framework_phase5.yaml \
+  --config configs/default.yaml \
   --set runner.run_name=framework_smoke \
   --set attack.name=blur \
   --set validation.enabled=false \
@@ -83,7 +83,7 @@ Baseline vs `c_dog` (no attack):
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
-  --config configs/lab_framework_phase5.yaml \
+  --config configs/default.yaml \
   --set model.params.model=yolov8n.pt \
   --set attack.name=none \
   --set defense.name=none \
@@ -91,7 +91,7 @@ PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
   --set runner.run_name=yolov8n__none__none
 
 PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
-  --config configs/lab_framework_phase5.yaml \
+  --config configs/default.yaml \
   --set model.params.model=yolov8n.pt \
   --set attack.name=none \
   --set defense.name=c_dog \
@@ -105,7 +105,7 @@ PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
   --set runner.run_name=yolov8n__none__c_dog
 
 PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
-  --config configs/lab_framework_phase5.yaml \
+  --config configs/default.yaml \
   --set model.params.model=yolo26n.pt \
   --set attack.name=none \
   --set defense.name=none \
@@ -113,7 +113,7 @@ PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
   --set runner.run_name=yolo26n__none__none
 
 PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
-  --config configs/lab_framework_phase5.yaml \
+  --config configs/default.yaml \
   --set model.params.model=yolo26n.pt \
   --set attack.name=none \
   --set defense.name=c_dog \
@@ -131,7 +131,7 @@ Optional attack extension (repeat per model):
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
-  --config configs/lab_framework_phase5.yaml \
+  --config configs/default.yaml \
   --set model.params.model=yolo26n.pt \
   --set attack.name=fgsm \
   --set defense.name=c_dog \

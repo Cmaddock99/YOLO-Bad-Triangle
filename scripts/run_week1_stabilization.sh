@@ -129,9 +129,11 @@ REQUIRED_ATTACK_ROWS="$(required_attack_rows_for_profile)"
   --attack "${SANITY_ATTACK}" \
   --required-attack-rows "${REQUIRED_ATTACK_ROWS}"
 
-"${PYTHON_BIN}" "${ROOT_DIR}/scripts/run_framework.py" \
+PYTHONPATH=src "${PYTHON_BIN}" "${ROOT_DIR}/scripts/run_unified.py" sweep \
   --config "${CONFIG_PATH}" \
-  --output_root "${OUTPUT_ROOT}"
+  --runs-root "${OUTPUT_ROOT}/framework_runs" \
+  --report-root "${OUTPUT_ROOT}/framework_reports" \
+  --legacy-output-root "${OUTPUT_ROOT}"
 
 "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_metrics_integrity.py" \
   --csv "${METRICS_CSV}" \

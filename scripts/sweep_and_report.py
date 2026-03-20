@@ -142,7 +142,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run baseline + attack sweep and generate framework reports."
     )
-    parser.add_argument("--config", default="configs/lab_framework_phase5.yaml")
+    parser.add_argument("--config", default="configs/default.yaml")
     parser.add_argument("--python-bin", default="./.venv/bin/python")
     parser.add_argument("--runs-root", help="Optional output root for framework runs.")
     parser.add_argument("--report-root", help="Optional output root for report artifacts.")

@@ -11,7 +11,7 @@ from lab.config.contracts import PIXEL_MAX
 
 from .base_attack import BaseAttack
 from .fgsm import FGSMAttack
-from .plugin_registry import register_attack_plugin
+from .framework_registry import register_attack_plugin
 
 
 @dataclass

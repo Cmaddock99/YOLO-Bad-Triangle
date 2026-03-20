@@ -3,7 +3,7 @@
 This folder bundles the full week1 demo workflow into one command surface.
 
 Canonical runtime entrypoints remain framework-first:
-- `./.venv/bin/python scripts/run_unified.py run-one --config configs/lab_framework_phase5.yaml`
+- `./.venv/bin/python scripts/run_unified.py run-one --config configs/default.yaml`
 - `./.venv/bin/python run_experiment.py attack=fgsm conf=0.25`
 
 ## Document metadata
@@ -53,10 +53,10 @@ Defaults:
 
 - `demo` (alias: `week1-demo`):
   - Recommended default for demo rehearsals and presentation flows.
-  - Uses `configs/lab_framework_phase5.yaml`.
+  - Uses `configs/default.yaml`.
 - `strict` (aliases: `week1-stress`, `custom`):
   - Higher-stress profile with stricter expectations.
-  - Uses `configs/lab_framework_phase5.yaml`.
+  - Uses `configs/default.yaml`.
 - `fast-demo`:
   - Uses demo matrix defaults with warning-tolerant gate semantics.
   - Intended for rapid package checks where compute reruns are skipped.

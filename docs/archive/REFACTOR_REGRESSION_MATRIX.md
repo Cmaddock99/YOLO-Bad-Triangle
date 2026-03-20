@@ -5,9 +5,9 @@ This matrix defines the minimum behavior checks to run before/after structural r
 ## Canonical Runtime Paths
 
 1. Unified single run dry-check
-   - `python scripts/run_unified.py run-one --config configs/lab_framework_phase5.yaml --set runner.max_images=1 --set runner.run_name=regression_smoke --set summary.enabled=false --set parity.enabled=false --set validation.enabled=false`
+   - `python scripts/run_unified.py run-one --config configs/default.yaml --set runner.max_images=1 --set runner.run_name=regression_smoke --set summary.enabled=false --set parity.enabled=false --set validation.enabled=false`
 2. Unified sweep dry-check
-   - `python scripts/run_unified.py sweep --config configs/lab_framework_phase5.yaml --attacks fgsm --no-legacy-compat`
+   - `python scripts/run_unified.py sweep --config configs/default.yaml --attacks fgsm --no-legacy-compat`
 3. Root wrapper forwards to framework path
    - `python run_experiment.py --dry-run`
 4. Framework batch wrapper forwards to unified/sweep path
