@@ -1,28 +1,29 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import cv2
 import numpy as np
 
 from .base_attack import BaseAttack
-from .deepfool import DeepFoolAttack
 from .framework_registry import register_attack_plugin
 
 
 @dataclass
 @register_attack_plugin("deepfool")
 class DeepFoolAttackAdapter(BaseAttack):
-    """Framework adapter that reuses legacy DeepFool-style transform."""
+    """Framework DeepFool-style plugin."""
 
     epsilon: float = 0.8
     steps: int = 3
     name: str = "deepfool_adapter"
-    _legacy: DeepFoolAttack = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self._legacy = DeepFoolAttack(epsilon=self.epsilon, steps=self.steps)
+        if self.steps < 1:
+            raise ValueError("DeepFool steps must be >= 1.")
+        if self.epsilon <= 0:
+            raise ValueError("DeepFool epsilon must be > 0.")
 
     def apply(
         self,
@@ -36,7 +37,7 @@ class DeepFoolAttackAdapter(BaseAttack):
         rng = np.random.default_rng(seed)
 
         adv = image.astype(np.float32).copy()
-        for _ in range(self._legacy.steps):
+        for _ in range(self.steps):
             gray = cv2.cvtColor(np.clip(adv, 0, 255).astype(np.uint8), cv2.COLOR_BGR2GRAY)
             grad_x = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
             grad_y = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
@@ -47,13 +48,13 @@ class DeepFoolAttackAdapter(BaseAttack):
             perturb[..., 1] = grad_dir[..., 1]
             perturb[..., 2] = -grad_dir[..., 0]
             jitter = rng.normal(0.0, 0.15, size=adv.shape).astype(np.float32)
-            adv = adv + (self._legacy.epsilon * perturb) + jitter
+            adv = adv + (self.epsilon * perturb) + jitter
 
         attacked = np.clip(adv, 0, 255).astype(np.uint8)
         return attacked, {
             "attack": "deepfool",
-            "epsilon": self._legacy.epsilon,
-            "steps": self._legacy.steps,
+            "epsilon": self.epsilon,
+            "steps": self.steps,
             "limitations": (
                 "This implementation is a lightweight DeepFool-style approximation "
                 "and does not optimize exact detector decision boundaries."

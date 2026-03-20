@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
 import torch
 
-from .base import register_attack
-from .fgsm import FGSMAttack
+from .fgsm_adapter import FGSMAttack
 
 
-@register_attack("fgsm_edge_mask", "fgsm_edges")
 class FGSMSobelEdgeMaskAttack(FGSMAttack):
     """FGSM variant that applies perturbation mainly on high-gradient edges."""
 
@@ -51,20 +48,3 @@ class FGSMSobelEdgeMaskAttack(FGSMAttack):
         adv = super()._apply_to_tensor(image=image, model=model, target=target)
         mask = self._edge_mask(base.to(adv.device))
         return torch.clamp(mask * adv + (1.0 - mask) * base.to(adv.device), 0.0, 1.0)
-
-    def apply(
-        self,
-        source_dir: Path | torch.Tensor,
-        output_dir: Path | Any | None = None,
-        *,
-        seed: int | None = None,
-        model: Any | None = None,
-        target: torch.Tensor | None = None,
-    ) -> Path | torch.Tensor:
-        return super().apply(
-            source_dir=source_dir,
-            output_dir=output_dir,
-            seed=seed,
-            model=model,
-            target=target,
-        )

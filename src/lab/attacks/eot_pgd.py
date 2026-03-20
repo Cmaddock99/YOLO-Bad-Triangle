@@ -1,23 +1,17 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
-import cv2
-import numpy as np
 import torch
 import torch.nn.functional as F
 
-from .base import register_attack
-from .pgd import PGDAttack, _validate_finite_range, _validate_positive_int
-from .utils import iter_images
+from .pgd_adapter import PGDAttack, _validate_finite_range, _validate_positive_int
 
 
 LOGGER = logging.getLogger(__name__)
 
 
-@register_attack("eot_pgd", "pgd_eot")
 class EOTPGDAttack(PGDAttack):
     """PGD attack that averages gradients over random image transformations."""
 
@@ -208,55 +202,3 @@ class EOTPGDAttack(PGDAttack):
         if pad_h or pad_w:
             best_adv = best_adv[:, :, :orig_h, :orig_w]
         return best_adv.detach()
-
-    def apply(
-        self,
-        source_dir: Path | torch.Tensor,
-        output_dir: Path | Any | None = None,
-        *,
-        seed: int | None = None,
-        model: Any | None = None,
-        target: torch.Tensor | None = None,
-    ) -> Path | torch.Tensor:
-        if isinstance(source_dir, torch.Tensor):
-            image = source_dir
-            model_for_tensor = model if model is not None else output_dir
-            if model_for_tensor is None:
-                raise ValueError("EOTPGDAttack tensor mode requires a model argument.")
-            return self._apply_to_tensor(image, model=model_for_tensor, target=target, seed=seed)
-
-        if output_dir is None:
-            raise ValueError("EOTPGDAttack requires output_dir in pipeline mode.")
-        if model is None:
-            raise ValueError("EOTPGDAttack requires model in pipeline mode.")
-        source_path = Path(source_dir)
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        LOGGER.info(
-            "Running EOT-PGD attack on '%s' (epsilon=%s alpha=%s steps=%s random_start=%s "
-            "restarts=%s eot_samples=%s)",
-            source_path,
-            self.epsilon,
-            self.alpha,
-            self.steps,
-            self.random_start,
-            self.restarts,
-            self.eot_samples,
-        )
-
-        for image_path in iter_images(source_path):
-            image_bgr = cv2.imread(str(image_path))
-            if image_bgr is None:
-                continue
-            image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-            image_tensor = (
-                torch.from_numpy(image_rgb).float().permute(2, 0, 1).unsqueeze(0) / 255.0
-            )
-            adv_tensor = self._apply_to_tensor(image_tensor, model=model, target=target, seed=seed)
-            adv_rgb = self._tensor_to_uint8_rgb(adv_tensor)
-            adv_bgr = cv2.cvtColor(adv_rgb, cv2.COLOR_RGB2BGR)
-            relative = image_path.relative_to(source_path)
-            out_file = output_path / relative
-            out_file.parent.mkdir(parents=True, exist_ok=True)
-            cv2.imwrite(str(out_file), adv_bgr)
-        return output_path
