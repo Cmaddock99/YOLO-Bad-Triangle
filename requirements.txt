@@ -1,4 +1,6 @@
-# Core YOLO framework and experiment utilities (supports Python 3.9+)
+# Core YOLO framework and experiment utilities
+# Requires Python 3.9+. To install: python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+# For a reproducible install, use: pip freeze > requirements-lock.txt after installing.
 
 # Ultralytics YOLO implementation and training/inference tooling (YOLO26-ready floor)
 ultralytics>=8.4.23,<9.0.0

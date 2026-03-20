@@ -40,13 +40,17 @@ Quick environment check:
 ### Framework one-run smoke (canonical)
 
 ```bash
-PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
+PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
   --config configs/lab_framework_phase5.yaml \
   --set runner.run_name=framework_smoke \
   --set attack.name=blur \
   --set validation.enabled=false \
   --set runner.max_images=8
 ```
+
+> **Advanced / low-level:** You can also invoke the runner directly via
+> `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config ...`
+> but `scripts/run_unified.py run-one` is the preferred entry for all new work.
 
 ### Framework sweep + reporting smoke
 
@@ -212,6 +216,19 @@ Required global health gate:
 PYTHONPATH=src ./.venv/bin/python run_system_health_check.py \
   --parity-config configs/parity_test.yaml
 ```
+
+### Demo Profile Behavior
+
+Runtime gate behavior is profile-driven via `configs/runtime_profiles.yaml`.
+
+- `strict` (and alias `week1-stress`) is fail-fast:
+  - incomplete FGSM sweep fails,
+  - baseline metrics equal to FGSM metrics fails.
+- `demo` / `fast-demo` (and alias `week1-demo`) are warning-tolerant:
+  - incomplete FGSM sweep emits a warning and continues,
+  - baseline equals FGSM emits a warning and continues.
+
+These warning paths are acceptable in demo mode because demo/package workflows prioritize observability and artifact continuity during rehearsals, while strict profiles remain the enforcement path for CI-grade integrity checks.
 
 Individual gates:
 

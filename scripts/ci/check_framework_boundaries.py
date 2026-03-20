@@ -15,6 +15,19 @@ FORBIDDEN_MIGRATION_PATTERNS = [
 ]
 
 
+def _strip_comments(text: str) -> str:
+    """Remove full-line comments and inline comments from Python source."""
+    lines = []
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            continue
+        if "#" in line:
+            line = line[:line.index("#")]
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def _iter_python_files(root: Path) -> list[Path]:
     files: list[Path] = []
     for path in root.rglob("*.py"):
@@ -37,8 +50,9 @@ def main() -> None:
         rel = path.relative_to(repo_root)
         in_migration = str(path).startswith(str(MIGRATION_DIR))
         if in_migration:
+            stripped = _strip_comments(text)
             for pattern in FORBIDDEN_MIGRATION_PATTERNS:
-                if pattern in text:
+                if pattern in stripped:
                     violations.append(f"{rel}: adapters must not contain framework attack/metric logic '{pattern}'")
 
     if violations:

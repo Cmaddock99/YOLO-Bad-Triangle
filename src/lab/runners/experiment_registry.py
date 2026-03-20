@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from lab.config.contracts import LEGACY_SWEEP_CONF_DEFAULT
 from lab.models.model_utils import model_label_from_path, normalize_model_path
 from lab.runners.cli_utils import parse_scalar
 
@@ -211,7 +212,7 @@ class ExperimentRegistry:
         elif "conf" in overrides:
             confs = _coerce_float_list(overrides["conf"])
         else:
-            confs = _coerce_float_list(runner_cfg.get("confs", [0.5]))
+            confs = _coerce_float_list(runner_cfg.get("confs", [LEGACY_SWEEP_CONF_DEFAULT]))
 
         run_validation = bool(overrides.get("validate", runner_cfg.get("run_validation", False)))
         default_run_name = (

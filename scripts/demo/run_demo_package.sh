@@ -14,19 +14,23 @@ shift || true
 
 OUTPUT_ROOT="${ROOT_DIR}/outputs/demo-reference"
 OUTPUT_ROOT_EXPLICIT="false"
-PROFILE="week1-demo"
+PROFILE="demo"
 CONFIG_PATH=""
 SANITY_ATTACK=""
 FRAMEWORK_RUNS_ROOT=""
 
 apply_profile_defaults() {
   case "${PROFILE}" in
-    week1-demo)
+    demo|week1-demo)
       CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_demo_matrix.yaml"
       SANITY_ATTACK="fgsm"
       ;;
-    week1-stress)
+    strict|week1-stress)
       CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_matrix.yaml"
+      SANITY_ATTACK="fgsm"
+      ;;
+    fast-demo)
+      CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_demo_matrix.yaml"
       SANITY_ATTACK="fgsm"
       ;;
     custom)
@@ -35,7 +39,7 @@ apply_profile_defaults() {
       fi
       ;;
     *)
-      echo "ERROR: --profile must be one of: week1-demo, week1-stress, custom"
+      echo "ERROR: --profile must be one of: strict, demo, fast-demo, week1-demo, week1-stress, custom"
       exit 1
       ;;
   esac
@@ -85,6 +89,17 @@ resolve_framework_runs_root() {
     return
   fi
   FRAMEWORK_RUNS_ROOT="${OUTPUT_ROOT}"
+}
+
+required_attack_rows_for_profile() {
+  case "${PROFILE}" in
+    strict|week1-stress|custom)
+      echo "2"
+      ;;
+    *)
+      echo "1"
+      ;;
+  esac
 }
 
 ensure_legacy_csv_from_framework_if_needed() {
@@ -140,6 +155,22 @@ EOF
 run_preflight() {
   echo "== Preflight =="
   "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_environment.py"
+  local required_rows
+  required_rows="$(required_attack_rows_for_profile)"
+  if [[ -f "${METRICS_CSV}" ]]; then
+    "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_profile_preflight.py" \
+      --profile "${PROFILE}" \
+      --config "${CONFIG_PATH}" \
+      --attack "${SANITY_ATTACK}" \
+      --required-attack-rows "${required_rows}" \
+      --csv "${METRICS_CSV}"
+  else
+    "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_profile_preflight.py" \
+      --profile "${PROFILE}" \
+      --config "${CONFIG_PATH}" \
+      --attack "${SANITY_ATTACK}" \
+      --required-attack-rows "${required_rows}"
+  fi
 }
 
 run_live_demo() {
@@ -176,7 +207,8 @@ run_gates() {
   ensure_legacy_csv_from_framework_if_needed
   "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_metrics_integrity.py" \
     --csv "${METRICS_CSV}" \
-    --attack "${SANITY_ATTACK}"
+    --attack "${SANITY_ATTACK}" \
+    --profile "${PROFILE}"
 
   "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_fgsm_sanity.py" \
     --csv "${METRICS_CSV}" \

@@ -28,6 +28,7 @@ from .regression import (
     latest_session_id,
     load_csv_rows,
     metric_tuple,
+    resolve_runtime_profile,
     run_fgsm_sanity_checks,
     run_metrics_integrity_checks,
     parity_delta_values,
@@ -46,6 +47,7 @@ from .schema import (
     validate_framework_json_file,
     validate_legacy_csv_file,
 )
+from .preflight import load_config_preflight_stats, load_csv_preflight_stats, validate_profile_expectations
 
 __all__ = [
     "CheckFailure",
@@ -68,12 +70,16 @@ __all__ = [
     "validate_output_bundle",
     "validate_framework_json_file",
     "validate_legacy_csv_file",
+    "load_config_preflight_stats",
+    "load_csv_preflight_stats",
+    "validate_profile_expectations",
     "REQUIRED_COLUMNS",
     "METRIC_KEYS",
     "PROFILE_DEFAULT_ATTACK",
     "to_float",
     "metric_tuple",
     "load_csv_rows",
+    "resolve_runtime_profile",
     "latest_rows_by_run",
     "latest_session_id",
     "choose_attack_name",

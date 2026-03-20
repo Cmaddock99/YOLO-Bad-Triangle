@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def main() -> None:
     parser = argparse.ArgumentParser(description="CI system health gate wrapper.")
     parser.add_argument("--parity-config", default="configs/parity_test.yaml")
-    parser.add_argument("--demo-profile", default="week1-demo")
+    parser.add_argument("--demo-profile", default="demo")
     parser.add_argument("--demo-output-root", default="outputs/demo-gate-ci")
     parser.add_argument("--health-output-root", default="outputs/system_health")
     parser.add_argument("--allow-missing-baseline", action="store_true")

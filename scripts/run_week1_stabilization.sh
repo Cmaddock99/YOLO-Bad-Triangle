@@ -10,7 +10,7 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
 fi
 
 MODE="demo"
-PROFILE="week1-demo"
+PROFILE="demo"
 CONFIG_PATH=""
 OUTPUT_ROOT=""
 INCLUDE_PRESENTATION_PLOTS="true"
@@ -18,14 +18,19 @@ SANITY_ATTACK=""
 
 apply_profile_defaults() {
   case "${PROFILE}" in
-    week1-demo)
+    demo|week1-demo)
       MODE="demo"
       CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_demo_matrix.yaml"
       SANITY_ATTACK="fgsm"
       ;;
-    week1-stress)
+    strict|week1-stress)
       MODE="strict"
       CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_matrix.yaml"
+      SANITY_ATTACK="fgsm"
+      ;;
+    fast-demo)
+      MODE="demo"
+      CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_demo_matrix.yaml"
       SANITY_ATTACK="fgsm"
       ;;
     custom)
@@ -34,7 +39,7 @@ apply_profile_defaults() {
       fi
       ;;
     *)
-      echo "ERROR: --profile must be one of: week1-demo, week1-stress, custom"
+      echo "ERROR: --profile must be one of: strict, demo, fast-demo, week1-demo, week1-stress, custom"
       exit 1
       ;;
   esac
@@ -70,7 +75,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 [--profile week1-demo|week1-stress|custom] [--mode demo|strict] [--config <yaml>] [--sanity-attack <name>] [--output-root <dir>] [--skip-presentation-plots]"
+      echo "Usage: $0 [--profile strict|demo|fast-demo|week1-demo|week1-stress|custom] [--mode demo|strict] [--config <yaml>] [--sanity-attack <name>] [--output-root <dir>] [--skip-presentation-plots]"
       exit 1
       ;;
   esac
@@ -99,6 +104,17 @@ fi
 METRICS_CSV="${OUTPUT_ROOT}/metrics_summary.csv"
 TABLE_MD="${OUTPUT_ROOT}/experiment_table.md"
 
+required_attack_rows_for_profile() {
+  case "${PROFILE}" in
+    strict|week1-stress|custom)
+      echo "2"
+      ;;
+    *)
+      echo "1"
+      ;;
+  esac
+}
+
 echo "Running week1 stabilization matrix (${MODE} mode)"
 echo "Profile: ${PROFILE}"
 echo "Config: ${CONFIG_PATH}"
@@ -106,6 +122,12 @@ echo "Sanity attack target: ${SANITY_ATTACK}"
 echo "Output root: ${OUTPUT_ROOT}"
 echo "Preflight: checking local environment and assets"
 "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_environment.py"
+REQUIRED_ATTACK_ROWS="$(required_attack_rows_for_profile)"
+"${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_profile_preflight.py" \
+  --profile "${PROFILE}" \
+  --config "${CONFIG_PATH}" \
+  --attack "${SANITY_ATTACK}" \
+  --required-attack-rows "${REQUIRED_ATTACK_ROWS}"
 
 "${PYTHON_BIN}" "${ROOT_DIR}/scripts/run_framework.py" \
   --config "${CONFIG_PATH}" \
@@ -113,7 +135,8 @@ echo "Preflight: checking local environment and assets"
 
 "${PYTHON_BIN}" "${ROOT_DIR}/scripts/check_metrics_integrity.py" \
   --csv "${METRICS_CSV}" \
-  --attack "${SANITY_ATTACK}"
+  --attack "${SANITY_ATTACK}" \
+  --profile "${PROFILE}"
 
 "${PYTHON_BIN}" "${ROOT_DIR}/scripts/generate_experiment_table.py" \
   --input_csv "${METRICS_CSV}" \

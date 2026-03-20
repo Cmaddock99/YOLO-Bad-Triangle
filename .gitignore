@@ -32,6 +32,9 @@ Thumbs.db
 .env.*
 .vscode/
 .mplconfig/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 
 # Keep example configs and scripts tracked
 !configs/examples/

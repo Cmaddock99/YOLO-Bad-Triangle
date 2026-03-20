@@ -59,11 +59,10 @@ def main() -> None:
     run_dir = resolve_latest_shadow_run_dir(shadow_root)
     parity_report_path = run_dir / "parity_report.json"
     report = read_json_file(parity_report_path)
-    if "parity_pass" not in report:
-        raise RuntimeError(
-            "Parity gate failed: parity report missing 'parity_pass' key from "
-            "lab.migration.shadow_parity comparator."
-        )
+    required_keys = {"parity_pass", "worst_metric_delta"}
+    missing = required_keys - report.keys()
+    if missing:
+        raise RuntimeError(f"Parity report missing required keys: {missing}")
     detection_abs, confidence_abs = parity_delta_values(report)
 
     failures = parity_threshold_failures(

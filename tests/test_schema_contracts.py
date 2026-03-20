@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -40,14 +39,6 @@ class SchemaContractsTest(unittest.TestCase):
                 framework_run_dir=framework_run,
                 legacy_compat_csv=legacy_csv,
             )
-
-    def test_schema_change_guard_fails_without_context(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "schemas/v1").mkdir(parents=True)
-            (root / "docs").mkdir(parents=True)
-            # sanity check only to ensure tempfile support path works in tests
-            self.assertTrue((root / "schemas/v1").is_dir())
 
 
 if __name__ == "__main__":
