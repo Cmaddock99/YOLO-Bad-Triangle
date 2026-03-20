@@ -54,6 +54,9 @@ DEFAULT_MAX_CONFIDENCE_DELTA_PCT = PARITY_MAX_CONFIDENCE_DELTA_PCT_DEFAULT
 MAX_FIX_LOOP = 5
 
 # Legacy-compat inference defaults.
+# These apply ONLY to the legacy compat path (run_experiment.py --legacy and
+# ExperimentRunner). The framework path (UnifiedExperimentRunner) reads conf/iou/imgsz
+# from the YAML config's `predict:` section (default: conf=0.5 in lab_framework_phase5.yaml).
 LEGACY_CONF_DEFAULT = 0.25
 LEGACY_IOU_DEFAULT = 0.7
 LEGACY_IMGSZ_DEFAULT = 640

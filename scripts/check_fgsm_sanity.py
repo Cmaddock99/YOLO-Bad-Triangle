@@ -18,6 +18,7 @@ from lab.health_checks import (
     latest_rows_by_run,
     load_csv_rows,
     log_event,
+    resolve_runtime_profile,
     run_fgsm_sanity_checks,
 )
 
@@ -28,7 +29,7 @@ def main() -> None:
     parser.add_argument("--csv", default="outputs/metrics_summary.csv", help="Path to metrics CSV.")
     parser.add_argument(
         "--profile",
-        default="week1-demo",
+        default="strict",
         help="Run profile name used to determine default attack check target.",
     )
     parser.add_argument("--attack", default=None, help="Attack name to check (overrides profile default).")
@@ -70,7 +71,8 @@ def main() -> None:
     if not rows:
         raise ValueError(f"No rows found in metrics CSV: {csv_path}")
 
-    attack_name = choose_attack_name(profile=args.profile, attack=args.attack)
+    profile_policy = resolve_runtime_profile(args.profile)
+    attack_name = choose_attack_name(profile=profile_policy["name"], attack=args.attack)
 
     session_id = args.run_session_id
     if args.use_latest_session and not session_id:
@@ -80,7 +82,7 @@ def main() -> None:
     scoped_rows = filter_rows_by_session(latest_rows, session_id=session_id)
     if not scoped_rows:
         raise ValueError("No rows left after applying run-session filter.")
-    allow_incomplete = bool(args.allow_incomplete_sweep or args.profile == "week1-demo")
+    allow_incomplete = bool(args.allow_incomplete_sweep or profile_policy["allow_sparse_fgsm"])
 
     try:
         scoped_rows = run_fgsm_sanity_checks(
@@ -102,11 +104,13 @@ def main() -> None:
         try:
             assert_baseline_differs(scoped_rows, attack_name=attack_name)
         except ValueError as baseline_exc:
+            if not profile_policy["allow_baseline_equals_attack"]:
+                raise
             log_event(
                 component="fgsm-sanity",
                 severity="WARNING",
                 message=(
-                    f"Baseline-vs-{attack_name} equivalence accepted for profile={args.profile}: "
+                    f"Baseline-vs-{attack_name} equivalence accepted for profile={profile_policy['name']}: "
                     f"{baseline_exc}"
                 ),
             )
@@ -120,7 +124,7 @@ def main() -> None:
             component="fgsm-sanity",
             severity="WARNING",
             message=(
-                f"Incomplete {attack_name} sweep accepted for profile={args.profile}: {message}"
+                f"Incomplete {attack_name} sweep accepted for profile={profile_policy['name']}: {message}"
             ),
         )
 
@@ -133,7 +137,8 @@ def main() -> None:
                 "rows_latest_by_run": len(latest_rows),
                 "rows_checked": len(scoped_rows),
                 "attack_checked": attack_name,
-                "profile": args.profile,
+                "profile": profile_policy["name"],
+                "profile_requested": profile_policy["requested"],
                 "run_session_id": session_id or "",
             },
             indent=2,

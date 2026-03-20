@@ -24,7 +24,7 @@ from lab.migration import update_migration_cycle_tracker
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run all framework-first migration CI gates.")
     parser.add_argument("--parity-config", default="configs/parity_test.yaml")
-    parser.add_argument("--demo-profile", default="week1-demo")
+    parser.add_argument("--demo-profile", default="demo")
     parser.add_argument("--demo-output-root", default="outputs/demo-gate-ci")
     parser.add_argument("--schema-framework-runs-root", default="")
     parser.add_argument("--schema-legacy-csv", default="")

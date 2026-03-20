@@ -1,0 +1,33 @@
+---
+description: Framework-first architecture guardrails and migration constraints
+alwaysApply: true
+---
+
+# Framework-First Architecture Guardrails
+
+This repository is framework-first. Prefer extending existing framework/migration modules over introducing parallel systems.
+
+- Canonical entrypoint is `scripts/run_unified.py`.
+- Legacy runtime is rollback-only and must be explicitly policy-gated.
+- Keep parity logic centralized in `src/lab/migration/shadow_parity.py` (do not duplicate comparators elsewhere).
+- Framework-derived legacy artifacts must flow through `src/lab/migration/legacy_compat.py`.
+- Runtime policy decisions must route through `src/lab/migration/runtime_policy.py`.
+
+## Hard Constraints
+
+1. Do not add new registry systems if a registry already exists (`src/lab/runners/experiment_registry.py`, model/plugin registries).
+2. Do not create new ad-hoc entrypoints that bypass policy gates or contracts.
+3. Do not duplicate schema/contract definitions outside `schemas/v1/` and `src/lab/config/contracts.py`.
+4. Keep CI gate ordering and observability behavior aligned with `scripts/ci/run_migration_gates.py`.
+5. Maintain framework/legacy boundary checks and explicit rollback semantics.
+
+## Preferred Change Pattern
+
+- Reuse existing modules first, then refactor for extension points.
+- If behavior differs between legacy/framework, fix semantics at the shared migration layer.
+- Add/adjust tests and gates for every architectural rule change.
+
+## Quick Example
+
+- Bad: add `src/lab/eval/new_parity_checker.py` with duplicate delta logic.
+- Good: extend `src/lab/migration/shadow_parity.py` and keep `src/lab/eval/parity_checker.py` as a shim.

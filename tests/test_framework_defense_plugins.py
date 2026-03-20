@@ -8,6 +8,10 @@ from lab.defenses.framework_registry import build_defense_plugin, list_available
 
 
 class FrameworkDefensePluginTest(unittest.TestCase):
+    def test_plugin_list_is_non_empty(self) -> None:
+        available = list_available_defense_plugins()
+        self.assertGreater(len(available), 0, "At least one defense adapter plugin must be loaded")
+
     def test_registry_contains_new_plugins(self) -> None:
         available = set(list_available_defense_plugins())
         self.assertIn("preprocess_median_blur", available)

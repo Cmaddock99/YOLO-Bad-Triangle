@@ -597,7 +597,7 @@ def _confidence_level(critical: int, major: int, parity_pass: bool, health_pass:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Orchestrate Builder/Audit/Optimizer validation pipeline.")
     parser.add_argument("--parity-config", default="configs/parity_test.yaml")
-    parser.add_argument("--demo-profile", default="week1-demo")
+    parser.add_argument("--demo-profile", default="demo")
     parser.add_argument("--demo-output-root", default="outputs/demo-gate-ci")
     parser.add_argument("--health-output-root", default="outputs/system_health")
     parser.add_argument("--allow-missing-baseline", action="store_true")

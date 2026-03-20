@@ -19,7 +19,7 @@ from .plugin_registry import register_defense_plugin
 
 
 @dataclass
-@register_defense_plugin("preprocess_dpc_unet", "dpc_unet_wrapper", "c_dog")
+@register_defense_plugin("preprocess_dpc_unet", "c_dog")
 class PreprocessDPCUNetDefenseAdapter(BaseDefense):
     """Provisional wrapper-based preprocessing defense with strict safety checks."""
 

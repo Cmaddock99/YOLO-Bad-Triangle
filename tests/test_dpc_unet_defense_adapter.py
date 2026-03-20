@@ -20,7 +20,6 @@ class DPCUNetDefenseAdapterTests(unittest.TestCase):
     def test_plugin_registered(self) -> None:
         names = list_available_defense_plugins()
         self.assertIn("preprocess_dpc_unet", names)
-        self.assertIn("dpc_unet_wrapper", names)
         self.assertIn("c_dog", names)
 
     def test_preprocess_runs_with_valid_checkpoint(self) -> None:

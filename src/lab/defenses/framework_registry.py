@@ -14,10 +14,17 @@ def _load_builtin_defense_plugins() -> None:
     if _PLUGINS_LOADED:
         return
     package = import_module("lab.defenses")
+    loaded = []
     for module in iter_modules(package.__path__):
         if not module.name.endswith("_adapter"):
             continue
         import_module(f"{package.__name__}.{module.name}")
+        loaded.append(module.name)
+    if not loaded:
+        raise RuntimeError(
+            "No defense adapter plugins were loaded. "
+            "Check that plugin files follow the *_adapter.py naming convention."
+        )
     _PLUGINS_LOADED = True
 
 

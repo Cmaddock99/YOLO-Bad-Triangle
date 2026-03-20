@@ -2,17 +2,21 @@ from __future__ import annotations
 
 import csv
 import json
+from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 
 METRIC_KEYS = ("precision", "recall", "mAP50", "mAP50-95")
 PROFILE_DEFAULT_ATTACK = {
-    "week1-demo": "fgsm",
-    "week1-stress": "fgsm",
-    "custom": "fgsm",
+    "strict": "fgsm",
+    "demo": "fgsm",
+    "fast-demo": "fgsm",
 }
+RUNTIME_PROFILE_CONFIG = Path("configs/runtime_profiles.yaml")
 
 REQUIRED_COLUMNS = {
     "run_name",
@@ -27,6 +31,52 @@ REQUIRED_COLUMNS = {
     "config_fingerprint",
     "attack_params_json",
 }
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+@lru_cache(maxsize=1)
+def _runtime_profiles_payload() -> dict[str, Any]:
+    profile_path = _repo_root() / RUNTIME_PROFILE_CONFIG
+    if not profile_path.is_file():
+        return {}
+    loaded = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        return {}
+    return loaded
+
+
+def resolve_runtime_profile(profile: str) -> dict[str, Any]:
+    requested = str(profile or "").strip() or "strict"
+    payload = _runtime_profiles_payload()
+    profiles = payload.get("profiles", {}) if isinstance(payload, dict) else {}
+    if not isinstance(profiles, dict):
+        profiles = {}
+
+    alias_to_name: dict[str, str] = {}
+    for name, value in profiles.items():
+        if not isinstance(name, str) or not isinstance(value, dict):
+            continue
+        canonical = name.strip()
+        if not canonical:
+            continue
+        alias_to_name[canonical] = canonical
+        for alias in value.get("aliases", []):
+            if isinstance(alias, str) and alias.strip():
+                alias_to_name[alias.strip()] = canonical
+
+    canonical = alias_to_name.get(requested, requested)
+    config = profiles.get(canonical, {}) if isinstance(profiles.get(canonical), dict) else {}
+    default_attack = str(config.get("default_attack") or PROFILE_DEFAULT_ATTACK.get(canonical, "fgsm"))
+    return {
+        "requested": requested,
+        "name": canonical,
+        "default_attack": default_attack,
+        "allow_sparse_fgsm": bool(config.get("allow_sparse_fgsm", False)),
+        "allow_baseline_equals_attack": bool(config.get("allow_baseline_equals_attack", False)),
+    }
 
 
 def to_float(value: Any) -> float | None:
@@ -78,7 +128,10 @@ def latest_session_id(rows: list[dict[str, str]]) -> str | None:
 
 
 def choose_attack_name(*, profile: str, attack: str | None) -> str:
-    return attack or PROFILE_DEFAULT_ATTACK.get(profile, "fgsm")
+    if attack:
+        return attack
+    resolved = resolve_runtime_profile(profile)
+    return str(resolved.get("default_attack", "fgsm"))
 
 
 def filter_rows_by_session(rows: list[dict[str, str]], *, session_id: str | None) -> list[dict[str, str]]:
@@ -103,10 +156,19 @@ def assert_no_fingerprint_collision(rows: list[dict[str, str]]) -> None:
         )
 
 
-def assert_attack_sweeps_not_flat(rows: list[dict[str, str]], *, attack_name: str) -> None:
+def assert_attack_sweeps_not_flat(
+    rows: list[dict[str, str]],
+    *,
+    attack_name: str,
+    allow_sparse_fgsm: bool,
+) -> None:
     attack_rows = [row for row in rows if row.get("attack") == attack_name]
     if len(attack_rows) < 2:
-        return
+        if allow_sparse_fgsm:
+            return
+        raise ValueError(
+            f"Need at least two '{attack_name}' rows to check sweep trend, found {len(attack_rows)}."
+        )
 
     groups: dict[tuple[str, str, str], list[dict[str, str]]] = {}
     for row in attack_rows:
@@ -121,7 +183,11 @@ def assert_attack_sweeps_not_flat(rows: list[dict[str, str]], *, attack_name: st
             if row.get("attack_params_json")
         }
         if len(attack_param_variants) < 2:
-            continue
+            if allow_sparse_fgsm:
+                continue
+            raise ValueError(
+                f"Need multiple attack param variants for '{attack_name}' sweep, found {len(attack_param_variants)}."
+            )
         metrics = {metric_tuple(row) for row in group}
         if len(metrics) == 1:
             metric = next(iter(metrics))
@@ -210,10 +276,19 @@ def assert_not_all_zero_attack(
         )
 
 
-def run_metrics_integrity_checks(*, rows: list[dict[str, str]], attack_name: str) -> None:
+def run_metrics_integrity_checks(
+    *,
+    rows: list[dict[str, str]],
+    attack_name: str,
+    allow_sparse_fgsm: bool,
+) -> None:
     latest_rows = latest_rows_by_run(rows)
     assert_no_fingerprint_collision(latest_rows)
-    assert_attack_sweeps_not_flat(latest_rows, attack_name=attack_name)
+    assert_attack_sweeps_not_flat(
+        latest_rows,
+        attack_name=attack_name,
+        allow_sparse_fgsm=allow_sparse_fgsm,
+    )
 
 
 def run_fgsm_sanity_checks(

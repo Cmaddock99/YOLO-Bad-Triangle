@@ -355,6 +355,11 @@ class UnifiedExperimentRunner:
         validation_state = validation_status(cleaned_validation_metrics)
         if validation_error is not None:
             validation_state = "error"
+        if validation_state == "partial":
+            print(
+                "WARNING: validation metrics are partial — some metrics could not be computed. "
+                "Check that a validation dataset was provided and is accessible."
+            )
 
         metrics_payload = {
             "schema_version": FRAMEWORK_METRICS_SCHEMA_VERSION,
