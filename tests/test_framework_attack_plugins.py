@@ -18,6 +18,10 @@ class FrameworkAttackPluginTest(unittest.TestCase):
     def setUp(self) -> None:
         self.image = np.full((64, 64, 3), 127, dtype=np.uint8)
 
+    def test_plugin_list_is_non_empty(self) -> None:
+        available = list_available_attack_plugins()
+        self.assertGreater(len(available), 0, "At least one attack adapter plugin must be loaded")
+
     def test_plugin_registry_contains_phase7_attacks(self) -> None:
         available = set(list_available_attack_plugins())
         self.assertIn("fgsm", available)

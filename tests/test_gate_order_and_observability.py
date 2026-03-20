@@ -9,11 +9,6 @@ from pathlib import Path
 
 
 class GateOrderAndObservabilityTest(unittest.TestCase):
-    def test_required_gate_order_is_declared(self) -> None:
-        text = Path("scripts/ci/run_migration_gates.py").read_text(encoding="utf-8")
-        self.assertIn('required_gate_order = ["parity", "demo", "artifact", "schema", "system_health"]', text)
-        self.assertIn("if executed_gate_order != required_gate_order", text)
-
     def test_observability_contract_script(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:

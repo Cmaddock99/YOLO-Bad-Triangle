@@ -1,0 +1,24 @@
+profiles:
+  strict:
+    aliases:
+      - strict
+      - week1-stress
+      - custom
+    default_attack: fgsm
+    allow_sparse_fgsm: false
+    allow_baseline_equals_attack: false
+
+  demo:
+    aliases:
+      - demo
+      - week1-demo
+    default_attack: fgsm
+    allow_sparse_fgsm: true
+    allow_baseline_equals_attack: true
+
+  fast-demo:
+    aliases:
+      - fast-demo
+    default_attack: fgsm
+    allow_sparse_fgsm: true
+    allow_baseline_equals_attack: true

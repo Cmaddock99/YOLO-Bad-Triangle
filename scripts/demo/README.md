@@ -43,7 +43,7 @@ This runs:
 
 Defaults:
 
-- `--profile`: `week1-demo`
+- `--profile`: `demo`
 - `--output-root`: `outputs/demo-reference`
 - `--config`: profile-derived unless explicitly provided
 - `--sanity-attack`: profile-derived (`fgsm` by default)
@@ -51,15 +51,24 @@ Defaults:
 
 ## Profile guidance
 
-- `week1-demo`:
+- `demo` (alias: `week1-demo`):
   - Recommended default for demo rehearsals and presentation flows.
   - Uses `configs/week1_stabilization_demo_matrix.yaml`.
-- `week1-stress`:
+- `strict` (aliases: `week1-stress`, `custom`):
   - Higher-stress profile with stricter expectations.
   - Uses `configs/week1_stabilization_matrix.yaml`.
-- `custom`:
-  - Use when manually supplying config/attack choices.
-  - Ensure selected `--sanity-attack` exists in the metrics CSV used by gates.
+- `fast-demo`:
+  - Uses demo matrix defaults with warning-tolerant gate semantics.
+  - Intended for rapid package checks where compute reruns are skipped.
+
+### Demo Profile Behavior
+
+`run_demo_package.sh` gate behavior is controlled by `configs/runtime_profiles.yaml`.
+
+- In `strict`, incomplete FGSM sweeps and baseline==FGSM results are failures.
+- In `demo` / `fast-demo`, the same conditions are emitted as warnings and the package continues.
+
+These warnings are acceptable in demo mode because the primary objective is preserving observability (artifacts + summary continuity) during rehearsal and handoff flows; strict mode remains the enforcement path for reliability-sensitive runs.
 
 ## Common pitfall
 

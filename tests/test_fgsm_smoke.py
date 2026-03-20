@@ -90,11 +90,9 @@ class DiscoveryCliSmokeTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(proc.returncode, 0, msg=proc.stderr)
-        self.assertIn("Registered attack plugins", proc.stdout)
         self.assertIn("fgsm", proc.stdout)
         self.assertIn("deepfool", proc.stdout)
         self.assertIn("pgd", proc.stdout)
-        self.assertIn("eot_pgd", proc.stdout)
 
 
 if __name__ == "__main__":

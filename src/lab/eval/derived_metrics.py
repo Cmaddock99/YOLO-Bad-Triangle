@@ -1,5 +1,21 @@
 from __future__ import annotations
 
+import math
+from typing import Any
+
+
+def to_finite_float(value: Any) -> float | None:
+    """Convert value to float, returning None for non-numeric or non-finite inputs."""
+    if value is None or value == "":
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(parsed):
+        return None
+    return parsed
+
 
 def _safe_ratio(numerator: float | int | None, denominator: float | int | None) -> float | None:
     if numerator is None or denominator is None:

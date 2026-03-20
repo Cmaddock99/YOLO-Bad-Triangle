@@ -8,6 +8,16 @@ import unittest
 from pathlib import Path
 
 
+class ParityGateRegressionTest(unittest.TestCase):
+    def test_parity_gate_uses_double_dash_config_arg(self) -> None:
+        """Regression guard: ensure 'config' positional arg bug does not recur."""
+        repo_root = Path(__file__).resolve().parents[1]
+        gate_path = repo_root / "scripts" / "ci" / "check_parity_gate.py"
+        text = gate_path.read_text(encoding="utf-8")
+        # The command list must contain "--config" (with dashes), not bare "config"
+        self.assertIn('"--config"', text, "check_parity_gate.py must pass '--config' (with dashes) to shadow parity runner")
+
+
 class CiEnforcementScriptsTest(unittest.TestCase):
     def test_legacy_policy_guard_blocks_protected_branch_enablement(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]

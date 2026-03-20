@@ -135,6 +135,20 @@ Primary files:
 Integrity support:
 - `scripts/check_metrics_integrity.py`
 - `scripts/check_fgsm_sanity.py`
+- profile policy source: `configs/runtime_profiles.yaml`
+
+### Demo Profile Behavior
+
+Gate semantics for FGSM sanity/metrics integrity are profile-driven.
+
+- `strict` profile:
+  - hard-fails sparse/incomplete FGSM sweeps,
+  - hard-fails baseline-equals-FGSM equivalence.
+- `demo` and `fast-demo` profiles:
+  - downgrade incomplete FGSM sweep to warning,
+  - downgrade baseline-equals-FGSM equivalence to warning.
+
+The demo downgrade is intentional for rehearsal/demo operability so artifact and summary generation can continue, while strict mode preserves framework-first enforcement behavior for reliability gates.
 
 ### Framework metrics path (per-run JSON)
 

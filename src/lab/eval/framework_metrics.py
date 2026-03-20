@@ -1,29 +1,17 @@
 from __future__ import annotations
 
-import math
 from statistics import median
 from typing import Any
 
+from .derived_metrics import to_finite_float
 from .prediction_schema import PredictionRecord
 
 _VALIDATION_KEYS = ("precision", "recall", "mAP50", "mAP50-95")
 
 
-def _to_finite_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError):
-        return None
-    if not math.isfinite(parsed):
-        return None
-    return parsed
-
-
 def sanitize_validation_metrics(raw: dict[str, Any] | None) -> dict[str, float | None]:
     payload = raw or {}
-    return {key: _to_finite_float(payload.get(key)) for key in _VALIDATION_KEYS}
+    return {key: to_finite_float(payload.get(key)) for key in _VALIDATION_KEYS}
 
 
 def validation_status(metrics: dict[str, float | None]) -> str:
@@ -45,7 +33,7 @@ def summarize_prediction_metrics(records: list[PredictionRecord]) -> dict[str, A
     scores: list[float] = []
     for record in records:
         for raw_score in record.get("scores", []):
-            score = _to_finite_float(raw_score)
+            score = to_finite_float(raw_score)
             if score is not None:
                 scores.append(score)
 

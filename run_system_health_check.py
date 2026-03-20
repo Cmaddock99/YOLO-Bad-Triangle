@@ -19,7 +19,9 @@ from lab.migration import diagnose_failure, write_health_failure_report
 from lab.health_checks import (
     append_rolling_baseline_history,
     baseline_freshness_check,
+    load_config_preflight_stats,
     load_rolling_baseline,
+    validate_profile_expectations,
     validate_system_health_summary_payload,
 )
 
@@ -395,6 +397,7 @@ def _auto_fix(
     issue_stage: str,
     demo_output_root: Path,
     parity_config: Path,
+    demo_profile: str,
 ) -> tuple[list[str], list[str]]:
     performed: list[str] = []
     blocked: list[str] = []
@@ -409,7 +412,7 @@ def _auto_fix(
                 str(ROOT / "scripts/demo/run_demo_package.sh"),
                 "fast",
                 "--profile",
-                "week1-demo",
+                demo_profile,
                 "--output-root",
                 str(demo_output_root),
             ],
@@ -433,7 +436,7 @@ def _auto_fix(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Global system health check for framework-first migration.")
     parser.add_argument("--parity-config", default="configs/parity_test.yaml")
-    parser.add_argument("--demo-profile", default="week1-demo")
+    parser.add_argument("--demo-profile", default="demo")
     parser.add_argument("--demo-output-root", default="outputs/health_demo")
     parser.add_argument("--health-output-root", default="outputs/system_health")
     parser.add_argument("--shadow-root", default="outputs/shadow_parity")
@@ -474,6 +477,20 @@ def main() -> None:
     regression_summary: dict[str, Any] = {"regression_detected": False, "regression_summary": "not_run"}
 
     try:
+        # Profile/data preflight before any expensive execution commands.
+        preflight_stats = load_config_preflight_stats(
+            config_path=ROOT / "configs/lab_framework_phase5.yaml",
+            attack_name="fgsm",
+        )
+        preflight_stats.update(
+            {
+                "expected_attack_rows": 1,
+                "fgsm_present": True,
+                "fgsm_required": True,
+            }
+        )
+        validate_profile_expectations(args.demo_profile, preflight_stats)
+
         # A. Execution health
         if not args.skip_execution:
             _run(
@@ -550,6 +567,7 @@ def main() -> None:
                     issue_stage="artifacts",
                     demo_output_root=demo_output_root,
                     parity_config=parity_config,
+                    demo_profile=args.demo_profile,
                 )
                 auto_fix_actions.extend(performed)
                 auto_fix_blocked_actions.extend(blocked)
@@ -577,6 +595,7 @@ def main() -> None:
                     issue_stage="data_consistency",
                     demo_output_root=demo_output_root,
                     parity_config=parity_config,
+                    demo_profile=args.demo_profile,
                 )
                 auto_fix_actions.extend(performed)
                 auto_fix_blocked_actions.extend(blocked)

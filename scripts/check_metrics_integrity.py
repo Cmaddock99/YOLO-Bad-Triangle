@@ -11,6 +11,7 @@ from lab.health_checks import (
     latest_rows_by_run,
     load_csv_rows,
     log_event,
+    resolve_runtime_profile,
     run_metrics_integrity_checks,
 )
 
@@ -29,6 +30,11 @@ def main() -> None:
         default="fgsm",
         help="Attack name to sanity-check for non-flat sweep behavior.",
     )
+    parser.add_argument(
+        "--profile",
+        default="strict",
+        help="Runtime profile controlling sparse-sweep tolerance.",
+    )
     args = parser.parse_args()
 
     csv_path = Path(args.csv)
@@ -39,7 +45,12 @@ def main() -> None:
     if not rows:
         raise ValueError(f"No rows found in metrics CSV: {csv_path}")
 
-    run_metrics_integrity_checks(rows=rows, attack_name=args.attack)
+    profile_policy = resolve_runtime_profile(args.profile)
+    run_metrics_integrity_checks(
+        rows=rows,
+        attack_name=args.attack,
+        allow_sparse_fgsm=bool(profile_policy["allow_sparse_fgsm"]),
+    )
     latest_rows = latest_rows_by_run(rows)
 
     payload = {
@@ -48,6 +59,7 @@ def main() -> None:
         "rows_total": len(rows),
         "rows_latest_by_run": len(latest_rows),
         "attack_checked": args.attack,
+        "profile": profile_policy["name"],
     }
     print(
         json.dumps(

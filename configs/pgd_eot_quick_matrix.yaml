@@ -1,3 +1,4 @@
+# DEPRECATED: This phase-specific config is kept for historical reference and is no longer actively used.
 model:
   path: yolo26n.pt
 

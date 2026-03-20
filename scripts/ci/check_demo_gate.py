@@ -14,7 +14,7 @@ from lab.health_checks import assert_required_artifacts, log_event, run_and_requ
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="CI demo gate for framework-first migration.")
-    parser.add_argument("--profile", default="week1-demo")
+    parser.add_argument("--profile", default="demo")
     parser.add_argument("--output-root", default="outputs/demo-gate-ci")
     args = parser.parse_args()
 

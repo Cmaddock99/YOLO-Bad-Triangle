@@ -7,6 +7,8 @@ import cv2
 import numpy as np
 import torch
 
+from lab.config.contracts import PIXEL_MAX
+
 from .base_attack import BaseAttack
 from .pgd import PGDAttack
 from .plugin_registry import register_attack_plugin
@@ -45,12 +47,12 @@ class PGDAttackAdapter(BaseAttack):
     @staticmethod
     def _image_to_tensor(image: np.ndarray) -> torch.Tensor:
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        return torch.from_numpy(rgb).float().permute(2, 0, 1).unsqueeze(0) / 255.0
+        return torch.from_numpy(rgb).float().permute(2, 0, 1).unsqueeze(0) / PIXEL_MAX
 
     @staticmethod
     def _tensor_to_image(tensor: torch.Tensor) -> np.ndarray:
         rgb = np.rint(
-            tensor.squeeze(0).permute(1, 2, 0).cpu().numpy() * 255.0
+            tensor.squeeze(0).permute(1, 2, 0).cpu().numpy() * PIXEL_MAX
         ).clip(0, 255).astype(np.uint8)
         return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 

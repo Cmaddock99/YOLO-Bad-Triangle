@@ -6,16 +6,8 @@ from lab.eval.derived_metrics import (
     compute_confidence_drop,
     compute_defense_recovery,
     compute_detection_drop,
+    to_finite_float,
 )
-
-
-def _as_optional_float(value: Any) -> float | None:
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
 
 
 def _extract_total_detections(metrics: dict[str, Any] | None) -> float | None:
@@ -24,7 +16,7 @@ def _extract_total_detections(metrics: dict[str, Any] | None) -> float | None:
     predictions = metrics.get("predictions", {})
     if not isinstance(predictions, dict):
         return None
-    return _as_optional_float(predictions.get("total_detections"))
+    return to_finite_float(predictions.get("total_detections"))
 
 
 def _extract_avg_confidence(metrics: dict[str, Any] | None) -> float | None:
@@ -36,7 +28,7 @@ def _extract_avg_confidence(metrics: dict[str, Any] | None) -> float | None:
     confidence = predictions.get("confidence", {})
     if not isinstance(confidence, dict):
         return None
-    return _as_optional_float(confidence.get("mean"))
+    return to_finite_float(confidence.get("mean"))
 
 
 def _interpretation(detection_drop: float | None, defense_recovery: float | None) -> str:
