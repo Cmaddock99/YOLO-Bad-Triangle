@@ -8,6 +8,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from tqdm import tqdm
+
 
 DEFAULT_ATTACKS = ("bim", "blur", "deepfool", "fgsm", "gaussian_blur", "ifgsm", "pgd")
 DEFAULT_DEFENSES = ("median_preprocess",)
@@ -224,7 +226,7 @@ def main() -> None:
             print(f"Resume: skipping baseline ({baseline_dir})")
 
         # --- Phase 2: Attack sweep ---
-        for attack in attacks:
+        for attack in tqdm(attacks, desc="Phase 2: attack sweep", unit="attack", dynamic_ncols=True):
             attack_run_name = f"attack_{attack}"
             attack_dir = runs_root / attack_run_name
             if not (args.resume and _metrics_exists(attack_dir)):
@@ -258,28 +260,27 @@ def main() -> None:
                     subprocess.run(summary_command, check=True, stdout=handle)
 
         # --- Phase 3: Defense sweep ---
-        for attack in attacks:
-            attack_dir = runs_root / f"attack_{attack}"
-            for defense in defenses:
-                defended_run_name = f"defended_{attack}_{defense}"
-                defended_dir = runs_root / defended_run_name
-                if not (args.resume and _metrics_exists(defended_dir)):
-                    _run_command(
-                        _experiment_command(
-                            python_bin=args.python_bin,
-                            config=config,
-                            output_root=runs_root,
-                            run_name=defended_run_name,
-                            attack_name=attack,
-                            defense_name=defense,
-                            seed=args.seed,
-                            max_images=max_images,
-                            validation_enabled=args.validation_enabled,
-                        ),
-                        dry_run=args.dry_run,
-                    )
-                else:
-                    print(f"Resume: skipping defended run ({defended_dir})")
+        defense_pairs = [(a, d) for a in attacks for d in defenses]
+        for attack, defense in tqdm(defense_pairs, desc="Phase 3: defense sweep", unit="run", dynamic_ncols=True):
+            defended_run_name = f"defended_{attack}_{defense}"
+            defended_dir = runs_root / defended_run_name
+            if not (args.resume and _metrics_exists(defended_dir)):
+                _run_command(
+                    _experiment_command(
+                        python_bin=args.python_bin,
+                        config=config,
+                        output_root=runs_root,
+                        run_name=defended_run_name,
+                        attack_name=attack,
+                        defense_name=defense,
+                        seed=args.seed,
+                        max_images=max_images,
+                        validation_enabled=args.validation_enabled,
+                    ),
+                    dry_run=args.dry_run,
+                )
+            else:
+                print(f"Resume: skipping defended run ({defended_dir})")
 
         # --- Phase 4: Reports ---
         _run_command(

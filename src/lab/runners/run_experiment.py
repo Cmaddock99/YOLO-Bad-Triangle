@@ -13,6 +13,7 @@ from typing import Any, cast
 
 import cv2
 import numpy as np
+from tqdm import tqdm
 import yaml
 
 from lab.config.contracts import (
@@ -259,7 +260,7 @@ class UnifiedExperimentRunner:
         prepared_paths: list[Path] = []
         skipped_unreadable = 0
         failed_writes = 0
-        for image_path in images:
+        for image_path in tqdm(images, desc="Preparing images", unit="img", dynamic_ncols=True):
             image = cv2.imread(str(image_path))
             if image is None:
                 skipped_unreadable += 1
