@@ -10,9 +10,7 @@
 
 ### Legacy/mainline runners (compatibility wrappers retained)
 
-- `run_experiment.py` (compat wrapper; framework mode forwards to `scripts/run_unified.py run-one`)
-- `run_experiment_api.py` (argparse one-run wrapper)
-- `scripts/run_framework.py` -> `scripts/run_unified.py sweep` (framework-first path; `--legacy` keeps rollback path)
+- `run_experiment.py` (compat wrapper; forwards to `scripts/run_unified.py run-one`)
 - Core execution engine: `src/lab/runners/experiment_runner.py` (`ExperimentRunner.run()`)
 
 ### Framework-first canonical runner path
@@ -22,19 +20,16 @@
 
 ### Runner overlap assessment
 
-- Compatibility wrappers remain, but canonical framework-first path is now `scripts/run_unified.py`.
-- Legacy `ExperimentRunner` remains available for rollback workflows only.
-- Legacy entrypoints (`run_experiment.py --legacy`, `scripts/run_framework.py --legacy`, `src/lab/runners/cli.py`)
-  are emergency-only and policy-gated via `allow_legacy_runtime(...)`.
+- Compatibility wrapper `run_experiment.py` remains; canonical path is `scripts/run_unified.py`.
+- Legacy `ExperimentRunner` remains available for legacy/week1/demo workflows only.
 
 ### Runtime/config constants source of truth
 
 - `src/lab/config/contracts.py` centralizes:
   - schema IDs (`framework_metrics/v1`, `framework_run_summary/v1`, `legacy_compat_csv/v1`)
-  - parity threshold defaults/keys
   - legacy inference defaults (`conf`, `iou`, `imgsz`)
   - canonical runtime path identifiers and compatibility wrapper entrypoint list
-  - runtime toggle key paths (`validation.enabled`, `parity.enabled`, `parity.fail_on_mismatch`, `summary.enabled`, `migration.use_legacy_runtime`)
+  - runtime toggle key paths (`validation.enabled`, `summary.enabled`)
 - Existing compatibility constant names remain exported for current callers.
 
 ## CURRENT ATTACKS
@@ -71,7 +66,6 @@ Primary files:
 
 Primary files:
 - `src/lab/attacks/base_attack.py`
-- `src/lab/attacks/plugin_registry.py`
 - `src/lab/attacks/framework_registry.py`
 
 ## CURRENT DEFENSES
@@ -98,7 +92,6 @@ Primary files:
 
 Primary files:
 - `src/lab/defenses/base_defense.py`
-- `src/lab/defenses/plugin_registry.py`
 - `src/lab/defenses/framework_registry.py`
 
 ## CURRENT MODELS / YOLO USAGE
@@ -210,7 +203,7 @@ Unified runner emits:
 ### Duplicated / overlapping logic
 
 - Multiple CLIs targeting similar outcomes:
-  - `run_experiment.py`, `run_experiment_api.py`, `scripts/run_framework.py`, `src/lab/runners/run_experiment.py`
+  - `run_experiment.py` (compat wrapper), `src/lab/runners/run_experiment.py` (canonical runner)
 - Two registry systems:
   - legacy attack/defense registries vs framework plugin registries
 - Alias behavior split across config and resolver code (not one source of truth).

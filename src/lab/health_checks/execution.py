@@ -124,14 +124,6 @@ def resolve_latest_dir(
     return candidates[-1]
 
 
-def resolve_latest_shadow_run_dir(shadow_root: Path) -> Path:
-    return resolve_latest_dir(
-        shadow_root,
-        predicate=lambda path: (path / "parity_report.json").is_file(),
-        description="shadow run directories with parity_report.json",
-    )
-
-
 def resolve_latest_framework_run(runs_root: Path) -> Path:
     return resolve_latest_dir(runs_root, description="framework run directories")
 

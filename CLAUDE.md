@@ -65,14 +65,15 @@ run_experiment.py (compat wrapper)
                     └── run_summary.json   (schema: framework_run_summary/v1)
 ```
 
-The compat wrappers (`run_experiment.py`, `run_experiment_api.py`, `scripts/run_framework.py`) all delegate to `scripts/run_unified.py`. Prefer the canonical entry for new work.
+The compat wrapper `run_experiment.py` delegates to `scripts/run_unified.py`. Prefer the canonical entry for new work.
 
 ### Plugin System
 
-Attacks, defenses, and models each have two registries:
-- **`plugin_registry.py`** — decorator-based registry for framework plugins
-- **`framework_registry.py`** — builder with lazy imports
+Attacks and defenses each have one framework registry:
+- **`framework_registry.py`** — combined decorator registry + lazy adapter loader (single source of truth)
 - **`registry.py`** — legacy registry (do not extend)
+
+Models use a separate `plugin_registry.py` + `registry.py` pair.
 
 Framework plugins (attacks/defenses) implement `BaseAttack` / `BaseDefense` interfaces that operate on single images. Legacy implementations operate on directories and are adapter-wrapped for framework use (e.g., `fgsm_adapter.py` wraps `fgsm.py`).
 
@@ -82,10 +83,7 @@ YAML configs in `configs/` with `--set key=value` dotted-path overrides. Central
 
 Key toggles (dotted keys for `--set`):
 - `validation.enabled` — enable post-run contract validation
-- `parity.enabled` — enable shadow parity check
-- `parity.fail_on_mismatch` — fail run on parity mismatch
 - `summary.enabled` — enable summary generation
-- `migration.use_legacy_runtime` — use legacy runtime (gated by env var)
 
 ### Key Module Locations
 

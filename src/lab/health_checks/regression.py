@@ -315,37 +315,6 @@ def run_fgsm_sanity_checks(
     return scoped_rows
 
 
-def parity_delta_values(report: dict[str, Any]) -> tuple[float, float]:
-    delta_summary = report.get("delta_summary", {})
-    if not isinstance(delta_summary, dict):
-        raise ValueError("parity report has invalid 'delta_summary' payload")
-    detection = abs(float(delta_summary.get("detection_worst_relative_pct") or 0.0))
-    confidence = abs(float(delta_summary.get("confidence_worst_relative_pct") or 0.0))
-    return detection, confidence
-
-
-def parity_threshold_failures(
-    *,
-    returncode: int,
-    detection_abs_pct: float,
-    confidence_abs_pct: float,
-    max_detection_delta_pct: float,
-    max_confidence_delta_pct: float,
-) -> list[str]:
-    failures: list[str] = []
-    if returncode != 0:
-        failures.append(f"run_shadow_parity returned non-zero exit code: {returncode}")
-    if detection_abs_pct > max_detection_delta_pct:
-        failures.append(
-            f"detection delta {detection_abs_pct:.4f}% exceeds threshold {max_detection_delta_pct:.4f}%"
-        )
-    if confidence_abs_pct > max_confidence_delta_pct:
-        failures.append(
-            f"confidence delta {confidence_abs_pct:.4f}% exceeds threshold {max_confidence_delta_pct:.4f}%"
-        )
-    return failures
-
-
 def append_rolling_baseline_history(*, history_path: Path, snapshot: dict[str, Any]) -> None:
     history_path.parent.mkdir(parents=True, exist_ok=True)
     with history_path.open("a", encoding="utf-8") as handle:
@@ -396,15 +365,3 @@ def load_rolling_baseline(*, history_path: Path, window: int) -> tuple[dict[str,
     return averaged, []
 
 
-def baseline_freshness_check(*, baseline: dict[str, Any], max_age_hours: float) -> tuple[bool, str]:
-    stamp = str(baseline.get("generated_at_utc", "")).strip()
-    if not stamp:
-        return False, "baseline missing generated_at_utc"
-    try:
-        generated = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-    except ValueError:
-        return False, f"invalid baseline generated_at_utc: {stamp}"
-    age_hours = (datetime.now(timezone.utc) - generated).total_seconds() / 3600.0
-    if age_hours > max_age_hours:
-        return False, f"baseline stale: age_hours={age_hours:.2f} > max_age_hours={max_age_hours:.2f}"
-    return True, ""

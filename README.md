@@ -210,7 +210,6 @@ These warning paths are acceptable in demo mode because demo/package workflows p
 Individual gates:
 
 ```bash
-PYTHONPATH=src ./.venv/bin/python scripts/ci/check_contract_ownership.py
 PYTHONPATH=src ./.venv/bin/python scripts/ci/check_demo_gate.py --profile week1-demo --output-root outputs/demo-gate-ci
 PYTHONPATH=src ./.venv/bin/python scripts/ci/check_artifact_gate.py --output-root outputs/demo-gate-ci
 PYTHONPATH=src ./.venv/bin/python scripts/ci/validate_output_schemas.py \
