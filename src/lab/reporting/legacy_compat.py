@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from lab.config.contracts import (
     DEFAULT_CONF,
@@ -14,11 +14,6 @@ from lab.config.contracts import (
     LEGACY_COMPAT_CSV_SCHEMA_VERSION,
 )
 from lab.eval.experiment_table import generate_experiment_table
-from lab.migration.metric_semantics import (
-    legacy_row_status,
-    prediction_confidence_quantiles,
-    to_optional_float,
-)
 from lab.reporting import discover_framework_runs
 
 
@@ -69,6 +64,44 @@ _FIELDNAMES = [
 ]
 
 
+def _to_optional_float(value: Any) -> float | None:
+    if value in ("", None):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _legacy_row_status(
+    *,
+    validation_status: str,
+    metric_values: dict[str, float | None],
+) -> tuple[str, str]:
+    missing = [name for name, value in metric_values.items() if value is None]
+    if missing:
+        return "partial", ",".join(missing)
+    if validation_status.lower() not in {"ok", "enabled"}:
+        return "partial", ""
+    return "ok", ""
+
+
+def _prediction_confidence_quantiles(
+    metrics: Mapping[str, Any],
+) -> tuple[float | None, float | None, float | None]:
+    predictions = metrics.get("predictions", {})
+    if not isinstance(predictions, Mapping):
+        predictions = {}
+    confidence = predictions.get("confidence", {})
+    if not isinstance(confidence, Mapping):
+        confidence = {}
+    return (
+        _to_optional_float(confidence.get("median")),
+        _to_optional_float(confidence.get("p25")),
+        _to_optional_float(confidence.get("p75")),
+    )
+
+
 def _read_json_mapping(path: Path) -> dict[str, Any]:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -99,8 +132,8 @@ def write_legacy_compat_artifacts(
         attack_meta = run_summary.get("attack", {})
         defense_meta = run_summary.get("defense", {})
         model_meta = run_summary.get("model", {})
-        med_conf, p25_conf, p75_conf = prediction_confidence_quantiles(run_metrics)
-        status, missing_metric_fields = legacy_row_status(
+        med_conf, p25_conf, p75_conf = _prediction_confidence_quantiles(run_metrics)
+        status, missing_metric_fields = _legacy_row_status(
             validation_status=record.validation_status,
             metric_values={
                 "precision": record.precision,
@@ -120,8 +153,8 @@ def write_legacy_compat_artifacts(
                 "MODEL": record.model or str(model_meta.get("name", "")),
                 "attack": record.attack,
                 "defense": record.defense,
-                "conf": to_optional_float(run_meta.get("conf", conf_default)) or conf_default,
-                "iou": to_optional_float(run_meta.get("iou", iou_default)) or iou_default,
+                "conf": _to_optional_float(run_meta.get("conf", conf_default)) or conf_default,
+                "iou": _to_optional_float(run_meta.get("iou", iou_default)) or iou_default,
                 "imgsz": int(run_meta.get("imgsz", imgsz_default) or imgsz_default),
                 "seed": record.seed,
                 "images_with_detections": record.images_with_detections,

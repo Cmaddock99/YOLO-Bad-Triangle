@@ -150,8 +150,7 @@ class RunnerPGDEOTSmokeMatrixTests(unittest.TestCase):
                 ],
             }
 
-            with patch("lab.models.YOLOModel", _DummyYOLOModel), \
-                 patch("lab.eval.metrics.allow_legacy_runtime", return_value=True):
+            with patch("lab.models.YOLOModel", _DummyYOLOModel):
                 runner = ExperimentRunner.from_dict(config)
                 rows = runner.run()
 

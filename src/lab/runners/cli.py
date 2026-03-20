@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from lab.migration import allow_legacy_runtime, legacy_runtime_warning
 from .experiment_runner import ExperimentRunner
 
 
@@ -31,13 +30,6 @@ def main() -> None:
         help="Optional override for output directory root (default: outputs/ from config).",
     )
     args = parser.parse_args()
-    if not allow_legacy_runtime(context="src/lab/runners/cli.py"):
-        raise RuntimeError(
-            "Legacy runtime is disabled by policy (migration.use_legacy_runtime=false). "
-            "Set USE_LEGACY_RUNTIME=true for emergency rollback only."
-        )
-    print(legacy_runtime_warning(operator_context="src/lab/runners/cli.py"))
-
     runner = ExperimentRunner.from_yaml(args.config)
     if args.confs:
         runner.confs = [float(part) for part in args.confs.split(",") if part.strip()]

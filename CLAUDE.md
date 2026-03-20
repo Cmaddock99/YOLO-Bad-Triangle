@@ -49,30 +49,6 @@ PYTHONPATH=src ./.venv/bin/python -m unittest discover -s tests -p 'test_*.py'
 PYTHONPATH=src ./.venv/bin/python -m unittest tests/test_framework_output_contract.py
 ```
 
-### Shadow parity check (required pre-merge)
-```bash
-PYTHONPATH=src ./.venv/bin/python run_shadow_parity.py --config configs/parity_test.yaml
-```
-
-### System health gate
-```bash
-PYTHONPATH=src ./.venv/bin/python run_system_health_check.py --parity-config configs/parity_test.yaml
-```
-
-### Full migration gates (CI-ready)
-```bash
-PYTHONPATH=src ./.venv/bin/python scripts/ci/run_migration_gates.py \
-  --parity-config configs/parity_test.yaml \
-  --demo-profile week1-demo \
-  --demo-output-root outputs/demo-gate-ci \
-  --allow-missing-baseline
-```
-
-### Migration status dashboard
-```bash
-./.venv/bin/python scripts/migration_status.py
-```
-
 ## Architecture
 
 ### Execution Path (Framework-First)
@@ -120,14 +96,11 @@ Key toggles (dotted keys for `--set`):
 | Defense plugins | `src/lab/defenses/` |
 | Model adapters | `src/lab/models/` |
 | Metrics/eval | `src/lab/eval/` |
-| Migration/parity | `src/lab/migration/` |
 | Health checks | `src/lab/health_checks/` |
 | Reporting | `src/lab/reporting/` |
 | Schema IDs & constants | `src/lab/config/contracts.py` |
 | CI gate scripts | `scripts/ci/` |
-| Ops automation | `scripts/ops/` |
 | JSON schemas | `schemas/v1/` |
-| SLO contracts | `contracts/migration_contracts.yaml` |
 
 ### Output Contracts
 
@@ -139,17 +112,6 @@ outputs/framework_runs/<run_name>/
 └── run_summary.json    # run metadata
 ```
 
-Legacy path (rollback only):
-```
-outputs/metrics_summary.csv
-outputs/experiment_table.md
-outputs/<run_name>/
-```
-
-### Parity Validation
-
-Shadow parity runs both framework and legacy paths on the same input and compares detection/confidence deltas. Default thresholds: ≤5% relative delta for both detections and confidence. Parity reports written to `outputs/shadow_parity/`.
-
 ### Run Naming Convention
 
 Use `<model>__<attack>__<defense>` format (e.g., `yolov8n__fgsm__none`) for consistent teammate defense matrix comparisons under `outputs/defense_eval/`.
@@ -157,7 +119,5 @@ Use `<model>__<attack>__<defense>` format (e.g., `yolov8n__fgsm__none`) for cons
 ## Key Documentation
 
 - `PROJECT_STATE.md` — authoritative architecture and runner state
-- `READINESS_REPORT.md` — readiness snapshot
-- `docs/` — 26 in-depth guides (migration contracts, incident playbooks, hygiene checklists)
+- `docs/` — in-depth guides
 - `scripts/demo/README.md` — demo package usage
-- `contracts/migration_contracts.yaml` — SLO definitions

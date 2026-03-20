@@ -12,7 +12,6 @@ from .derived_metrics import (
     compute_defense_recovery,
     compute_detection_drop,
 )
-from .parity_checker import compare as compare_parity
 
 __all__ = [
     "append_run_metrics",
@@ -27,6 +26,5 @@ __all__ = [
     "compute_detection_drop",
     "compute_defense_recovery",
     "compute_confidence_drop",
-    "compare_parity",
 ]
 
