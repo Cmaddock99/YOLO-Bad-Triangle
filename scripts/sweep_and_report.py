@@ -116,22 +116,6 @@ def _generate_team_summary_command(
     ]
 
 
-def _generate_legacy_compat_command(
-    *,
-    python_bin: str,
-    runs_root: Path,
-    output_root: Path,
-) -> list[str]:
-    return [
-        python_bin,
-        "scripts/generate_legacy_compat_artifacts.py",
-        "--runs-root",
-        str(runs_root),
-        "--output-root",
-        str(output_root),
-    ]
-
-
 def _default_max_images(preset: str) -> int:
     if preset == "full":
         return 0
@@ -146,11 +130,6 @@ def main() -> None:
     parser.add_argument("--python-bin", default="./.venv/bin/python")
     parser.add_argument("--runs-root", help="Optional output root for framework runs.")
     parser.add_argument("--report-root", help="Optional output root for report artifacts.")
-    parser.add_argument(
-        "--legacy-output-root",
-        default=None,
-        help="Optional output root for generated legacy-compatible artifacts.",
-    )
     parser.add_argument("--attacks", default=",".join(DEFAULT_ATTACKS))
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-images", type=int)
@@ -176,20 +155,7 @@ def main() -> None:
         action="store_false",
         help="Skip team-facing summary artifact generation.",
     )
-    parser.add_argument(
-        "--legacy-compat",
-        dest="legacy_compat",
-        action="store_true",
-        help="Generate legacy-compatible metrics_summary.csv and experiment_table.md.",
-    )
-    parser.add_argument(
-        "--no-legacy-compat",
-        dest="legacy_compat",
-        action="store_false",
-        help="Skip generation of legacy-compatible artifacts.",
-    )
     parser.set_defaults(team_summary=True)
-    parser.set_defaults(legacy_compat=True)
     try:
         args = parser.parse_args()
 
@@ -279,19 +245,6 @@ def main() -> None:
                 report_root=report_root,
             )
             _run_command(team_summary_command, dry_run=args.dry_run)
-        legacy_output_root = (
-            Path(args.legacy_output_root).expanduser().resolve()
-            if args.legacy_output_root
-            else report_root
-        )
-        if args.legacy_compat:
-            legacy_compat_command = _generate_legacy_compat_command(
-                python_bin=args.python_bin,
-                runs_root=runs_root,
-                output_root=legacy_output_root,
-            )
-            _run_command(legacy_compat_command, dry_run=args.dry_run)
-
         print("")
         print("Done.")
         print(f"Per-attack summaries: {report_root}/summary_*.txt")
@@ -300,9 +253,6 @@ def main() -> None:
         if args.team_summary:
             print(f"Team JSON summary:    {report_root}/team_summary.json")
             print(f"Team MD summary:      {report_root}/team_summary.md")
-        if args.legacy_compat:
-            print(f"Legacy CSV view:      {legacy_output_root}/metrics_summary.csv")
-            print(f"Legacy table view:    {legacy_output_root}/experiment_table.md")
     except (ValueError, FileNotFoundError, subprocess.CalledProcessError, PermissionError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         raise SystemExit(2) from exc

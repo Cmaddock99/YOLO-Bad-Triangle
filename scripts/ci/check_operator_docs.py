@@ -9,11 +9,9 @@ ROOT = Path(__file__).resolve().parents[2]
 DOC_PATHS = [
     ROOT / "README.md",
     ROOT / "PROJECT_STATE.md",
-    ROOT / "scripts" / "demo" / "README.md",
 ]
 
 FORBIDDEN_PATTERNS = [
-    r"python\s+run_experiment_api\.py\s",
     r"legacy-first",
     r"legacy runtime default",
 ]
@@ -34,7 +32,7 @@ def main() -> None:
         for pattern in FORBIDDEN_PATTERNS:
             if re.search(pattern, text, flags=re.IGNORECASE):
                 violations.append(f"{path}: forbidden pattern matched /{pattern}/")
-        if "scripts/run_unified.py" not in text and "run_experiment.py" not in text:
+        if "scripts/run_unified.py" not in text:
             violations.append(f"{path}: missing framework operator command guidance")
 
     if violations:
