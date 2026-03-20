@@ -250,11 +250,11 @@ class UnifiedExperimentRunner:
         defense: Any,
         images: list[Path],
     ) -> tuple[list[Path], int, int]:
-        """Apply attack and defense preprocessing, write results to prepared_images/.
+        """Apply attack and defense preprocessing, write results to images/.
 
         Returns (prepared_paths, skipped_unreadable, failed_writes).
         """
-        prepared_dir = run_dir / "prepared_images"
+        prepared_dir = run_dir / "images"
         prepared_dir.mkdir(parents=True, exist_ok=True)
         prepared_paths: list[Path] = []
         skipped_unreadable = 0
@@ -333,22 +333,24 @@ class UnifiedExperimentRunner:
                 orig_cfg = yaml.safe_load(orig_yaml_path.read_text(encoding="utf-8"))
                 orig_root = Path(str(orig_cfg.get("path", ""))).expanduser()
                 if not orig_root.is_absolute():
-                    orig_root = (orig_yaml_path.parent / orig_root).resolve()
+                    orig_root = (Path.cwd() / orig_root).resolve()
                 orig_labels = orig_root / "labels"
 
-                # Symlink labels into the run dir so YOLO can find them via
-                # the standard images -> labels path substitution.
+                # Ultralytics path substitution replaces /images/ with /labels/
+                # when locating label files. Attacked images are stored in the
+                # "images/" subdirectory; we symlink "labels/" → orig_labels so
+                # the substitution resolves correctly.
                 run_dir = prepared_dir.parent
-                labels_link = run_dir / "prepared_labels"
+                labels_link = run_dir / "labels"
                 if not labels_link.exists():
                     labels_link.symlink_to(orig_labels.resolve())
 
-                # Write a minimal dataset YAML that points val at prepared_images.
+                # Write a minimal dataset YAML that points val at images/.
                 attacked_yaml = run_dir / "val_attacked_dataset.yaml"
                 attacked_cfg = {k: v for k, v in orig_cfg.items() if k not in ("path", "train", "val", "test")}
                 attacked_cfg["path"] = str(run_dir)
-                attacked_cfg["train"] = "prepared_images"
-                attacked_cfg["val"] = "prepared_images"
+                attacked_cfg["train"] = "images"
+                attacked_cfg["val"] = "images"
                 attacked_yaml.write_text(yaml.safe_dump(attacked_cfg, sort_keys=False), encoding="utf-8")
 
                 raw_validation_metrics = model.validate(str(attacked_yaml), **validation_params)
@@ -478,7 +480,7 @@ class UnifiedExperimentRunner:
         validation_section, validation_error = self._run_validation(
             model=model,
             validation_cfg=validation_cfg,
-            prepared_dir=run_dir / "prepared_images",
+            prepared_dir=run_dir / "images",
         )
         validation_enabled = bool(validation_cfg.get("enabled", False))
         validation_dataset = validation_cfg.get("dataset")

@@ -8,17 +8,17 @@ from scripts import run_overnight_stress
 
 
 class OvernightStressRunnerTest(unittest.TestCase):
-    def test_collect_progress_counts_completed_and_prepared_images(self) -> None:
+    def test_collect_progress_counts_completed_and_images(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             runs_root = Path(tmp) / "runs"
             baseline = runs_root / "baseline_none"
             attack = runs_root / "attack_fgsm"
-            (baseline / "prepared_images").mkdir(parents=True, exist_ok=True)
-            (attack / "prepared_images").mkdir(parents=True, exist_ok=True)
+            (baseline / "images").mkdir(parents=True, exist_ok=True)
+            (attack / "images").mkdir(parents=True, exist_ok=True)
             for idx in range(3):
-                (baseline / "prepared_images" / f"{idx}.jpg").write_text("x", encoding="utf-8")
+                (baseline / "images" / f"{idx}.jpg").write_text("x", encoding="utf-8")
             for idx in range(2):
-                (attack / "prepared_images" / f"{idx}.jpg").write_text("x", encoding="utf-8")
+                (attack / "images" / f"{idx}.jpg").write_text("x", encoding="utf-8")
             (baseline / "metrics.json").write_text("{}", encoding="utf-8")
 
             progress = run_overnight_stress._collect_progress(runs_root)

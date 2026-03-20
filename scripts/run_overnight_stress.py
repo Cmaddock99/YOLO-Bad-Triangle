@@ -29,7 +29,7 @@ def _collect_progress(runs_root: Path) -> dict[str, Any]:
 
     for run_dir in sorted(run_dirs):
         metrics_path = run_dir / "metrics.json"
-        prepared_dir = run_dir / "prepared_images"
+        prepared_dir = run_dir / "images"
         prepared_count = 0
         if prepared_dir.is_dir():
             prepared_count = sum(1 for _ in prepared_dir.iterdir())
