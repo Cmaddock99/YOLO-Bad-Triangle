@@ -31,7 +31,7 @@ Rationale: these were migration scaffolding artifacts from earlier phases and no
 
 Framework-first command:
 
-- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml`
+- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/default.yaml`
 
 Compatibility entrypoints (`run_experiment.py`, `run_experiment_api.py`, `scripts/run_framework.py`) remain available but now emit deprecation notices.
 

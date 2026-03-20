@@ -39,7 +39,7 @@ class LegacyToFrameworkArgsTest(unittest.TestCase):
         result = _legacy_to_framework_args(["attack=blur"])
         self.assertIn("--config", result)
         idx = result.index("--config")
-        self.assertEqual(result[idx + 1], "configs/lab_framework_phase5.yaml")
+        self.assertEqual(result[idx + 1], "configs/default.yaml")
 
     def test_does_not_append_default_config_when_provided(self) -> None:
         result = _legacy_to_framework_args(["config=configs/my_config.yaml"])

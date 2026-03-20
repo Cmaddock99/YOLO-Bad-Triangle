@@ -14,7 +14,7 @@ USAGE = """\
 [FRAMEWORK-FIRST ENTRYPOINT] one-command experiment lab
 
 Usage:
-  python run_experiment.py --config configs/lab_framework_phase5.yaml --set attack.name=fgsm
+  python run_experiment.py --config configs/default.yaml --set attack.name=fgsm
   python run_experiment.py attack=fgsm defense=none model=yolo26n conf=0.25
 
 Shorthand arguments:
@@ -69,7 +69,7 @@ def _legacy_to_framework_args(argv: list[str]) -> list[str]:
             continue
         mapped.extend(["--set", f"{mapped_key}={value}"])
     if "--config" not in mapped:
-        mapped.extend(["--config", "configs/lab_framework_phase5.yaml"])
+        mapped.extend(["--config", "configs/default.yaml"])
     return mapped
 
 

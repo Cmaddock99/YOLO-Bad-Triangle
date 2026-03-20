@@ -119,7 +119,7 @@ def _run_post_stress_smoke(*, python_bin: str, dry_run: bool, root: Path) -> dic
         python_bin,
         "src/lab/runners/run_experiment.py",
         "--config",
-        "configs/lab_framework_phase5.yaml",
+        "configs/default.yaml",
         "--set",
         f"runner.output_root={root / 'outputs/overnight_post_stress'}",
         "--set",

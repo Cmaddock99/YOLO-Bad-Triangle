@@ -35,7 +35,7 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="mode", required=True)
 
     run_one = subparsers.add_parser("run-one", help="Run one framework experiment.")
-    run_one.add_argument("--config", default="configs/lab_framework_phase5.yaml")
+    run_one.add_argument("--config", default="configs/default.yaml")
     run_one.add_argument(
         "--set",
         dest="overrides",
@@ -47,7 +47,7 @@ def main() -> None:
     run_one.add_argument("--list-plugins", action="store_true")
 
     sweep = subparsers.add_parser("sweep", help="Run baseline + attack sweep with reports.")
-    sweep.add_argument("--config", default="configs/lab_framework_phase5.yaml")
+    sweep.add_argument("--config", default="configs/default.yaml")
     sweep.add_argument("--runs-root", default=None)
     sweep.add_argument("--report-root", default=None)
     sweep.add_argument("--attacks", default=None)

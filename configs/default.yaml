@@ -15,7 +15,7 @@ defense:
   params: {}
 
 predict:
-  conf: 0.5  # Framework smoke-test default; not a production threshold (legacy compat default is 0.25 in contracts.py)
+  conf: 0.5
   iou: 0.7
   imgsz: 640
 
@@ -24,11 +24,6 @@ validation:
   dataset: configs/coco_subset500.yaml
   params: {}
 
-parity:
-  enabled: false
-  legacy_csv_path: outputs/metrics_summary.csv
-  fail_on_mismatch: false
-
 summary:
   enabled: false
 
@@ -36,4 +31,4 @@ runner:
   seed: 42
   max_images: 8
   output_root: outputs/framework_runs
-  run_name: phase5_baseline_smoke
+  run_name: baseline_smoke

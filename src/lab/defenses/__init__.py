@@ -1,6 +1,6 @@
 from .base import Defense, list_registered_defenses, register_defense
 from .base_defense import BaseDefense
-from .plugin_registry import (
+from .framework_registry import (
     get_defense_plugin,
     list_defense_plugins,
     register_defense_plugin,

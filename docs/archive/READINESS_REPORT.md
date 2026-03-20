@@ -106,7 +106,7 @@ bash scripts/demo/run_demo_package.sh fast --profile week1-demo
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py \
-  --config configs/lab_framework_phase5.yaml \
+  --config configs/default.yaml \
   --set runner.max_images=8 \
   --set attack.name=blur \
   --set validation.enabled=false

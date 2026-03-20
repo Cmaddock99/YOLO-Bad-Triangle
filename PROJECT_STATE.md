@@ -200,7 +200,7 @@ Unified runner emits:
 
 ### Framework family
 
-- `configs/lab_framework_phase5.yaml` (currently aligned with unified runner)
+- `configs/default.yaml` (currently aligned with unified runner)
 - `configs/lab_framework_phase3_compat.yaml` (compat config, partially stale)
 - `configs/lab_framework_skeleton.yaml` (phase scaffold)
 - Canonical runtime path for framework family: `scripts/run_unified.py` (`run-one`/`sweep`)
@@ -237,8 +237,8 @@ Unified runner emits:
 
 ### Framework sweep matrix
 
-- `./.venv/bin/python scripts/run_unified.py sweep --config configs/lab_framework_phase5.yaml --attacks fgsm,pgd`
-- `./.venv/bin/python scripts/run_unified.py sweep --config configs/lab_framework_phase5.yaml --attacks fgsm,pgd --runs-root outputs/custom/framework_runs --report-root outputs/custom/framework_reports`
+- `./.venv/bin/python scripts/run_unified.py sweep --config configs/default.yaml --attacks fgsm,pgd`
+- `./.venv/bin/python scripts/run_unified.py sweep --config configs/default.yaml --attacks fgsm,pgd --runs-root outputs/custom/framework_runs --report-root outputs/custom/framework_reports`
 
 ### Week1/demo operational
 
@@ -248,9 +248,9 @@ Unified runner emits:
 
 ### Unified framework runner
 
-- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml`
+- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/default.yaml`
 - `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --list-plugins`
-- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml attack.name=blur`
+- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/default.yaml attack.name=blur`
 
 ## Verified vs Uncertain
 

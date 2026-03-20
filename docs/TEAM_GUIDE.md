@@ -55,13 +55,13 @@ Use the repo virtual environment to avoid missing package issues:
 
 Dry run resolves config only:
 
-- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml --dry-run`
+- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/default.yaml --dry-run`
 
 You should see a resolved summary and runner config.
 
 ## Step 2: Run a small framework test experiment
 
-- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml --set attack.name=blur --set runner.max_images=12 --set validation.enabled=false`
+- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/default.yaml --set attack.name=blur --set runner.max_images=12 --set validation.enabled=false`
 
 ## Step 3: Check outputs
 
@@ -77,7 +77,7 @@ That is enough to prove your environment and workflow are working.
 Use this table (framework-first):
 
 - **I want the canonical framework command**  
-  Use: `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/lab_framework_phase5.yaml`
+  Use: `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/default.yaml`
 
 - **I want to run framework config with overrides**  
   Use: `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config <yaml> --set key=value`

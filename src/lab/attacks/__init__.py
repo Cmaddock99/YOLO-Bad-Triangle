@@ -1,6 +1,6 @@
 from .base import Attack, list_registered_attacks, register_attack
 from .base_attack import BaseAttack
-from .plugin_registry import (
+from .framework_registry import (
     get_attack_plugin,
     list_attack_plugins,
     register_attack_plugin,

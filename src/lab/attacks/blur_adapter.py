@@ -8,7 +8,7 @@ import numpy as np
 
 from .base_attack import BaseAttack
 from .blur import GaussianBlurAttack
-from .plugin_registry import register_attack_plugin
+from .framework_registry import register_attack_plugin
 
 
 @dataclass

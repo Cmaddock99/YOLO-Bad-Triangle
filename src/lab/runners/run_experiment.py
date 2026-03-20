@@ -513,7 +513,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Unified framework runner.")
     parser.add_argument(
         "--config",
-        default="configs/lab_framework_phase5.yaml",
+        default="configs/default.yaml",
         help="Path to framework config YAML.",
     )
     parser.add_argument(

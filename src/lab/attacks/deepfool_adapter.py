@@ -8,7 +8,7 @@ import numpy as np
 
 from .base_attack import BaseAttack
 from .deepfool import DeepFoolAttack
-from .plugin_registry import register_attack_plugin
+from .framework_registry import register_attack_plugin
 
 
 @dataclass

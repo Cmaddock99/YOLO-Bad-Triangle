@@ -9,7 +9,7 @@ import numpy as np
 from lab.eval.adapter_metadata import adapter_stage_metadata
 from lab.eval.prediction_schema import PredictionRecord
 from .base_defense import BaseDefense
-from .plugin_registry import register_defense_plugin
+from .framework_registry import register_defense_plugin
 
 
 @dataclass

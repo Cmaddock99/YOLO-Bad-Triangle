@@ -23,7 +23,7 @@ class SweepAndReportScriptTest(unittest.TestCase):
     def test_experiment_command_contains_required_overrides(self) -> None:
         command = sweep_and_report._experiment_command(
             python_bin="./.venv/bin/python",
-            config=Path("configs/lab_framework_phase5.yaml"),
+            config=Path("configs/default.yaml"),
             output_root=Path("outputs/framework_runs/sweep_x"),
             run_name="attack_fgsm",
             attack_name="fgsm",
