@@ -246,14 +246,6 @@ PYTHONPATH=src ./.venv/bin/python scripts/ci/check_system_health_gate.py \
   --demo-output-root outputs/demo-gate-ci
 ```
 
-Maturity automation:
-
-```bash
-PYTHONPATH=src ./.venv/bin/python scripts/ops/run_nightly_shadow_job.py
-PYTHONPATH=src ./.venv/bin/python scripts/ops/generate_stability_dashboard.py
-PYTHONPATH=src ./.venv/bin/python scripts/ops/report_wrapper_cleanup_candidates.py
-```
-
 ## 5) Overnight Stress Run
 
 ```bash
@@ -275,16 +267,12 @@ python -m json.tool outputs/overnight_stress_reports/overnight_status.json
 ## 6) Documentation Index
 
 - Project state and architecture: `PROJECT_STATE.md`
-- Readiness result snapshot: `READINESS_REPORT.md`
 - Demo script package usage: `scripts/demo/README.md`
-- Hygiene review checklist and findings: `docs/REPO_HYGIENE_CHECKLIST.md`, `docs/REPO_HYGIENE_REVIEW.md`
 - Migration contract + rollout docs: `docs/LEGACY_MIGRATION_CONTRACT_MATRIX.md`, `docs/MIGRATION_SHADOW_VALIDATION.md`, `docs/LEGACY_RETIREMENT_ROLLBACK.md`
-- Incident playbooks: `docs/incidents/parity_failed.md`, `docs/incidents/demo_failed.md`
 - Contracts + SLOs: `contracts/migration_contracts.yaml`
 - Versioned schemas: `schemas/v1/`
 - Runtime policy + cycle tracker: `configs/migration_runtime.yaml`, `outputs/migration_state/migration_cycle_tracker.json`
-- Ops automation: `scripts/ops/run_nightly_shadow_job.py`, `scripts/ops/generate_stability_dashboard.py`, `scripts/ops/report_wrapper_cleanup_candidates.py`
-- Additional reports and runbooks: `docs/`
+- Additional docs: `docs/`
 
 ## 7) Recommended Operator Path
 

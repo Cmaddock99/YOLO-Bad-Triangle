@@ -53,10 +53,10 @@ Defaults:
 
 - `demo` (alias: `week1-demo`):
   - Recommended default for demo rehearsals and presentation flows.
-  - Uses `configs/week1_stabilization_demo_matrix.yaml`.
+  - Uses `configs/lab_framework_phase5.yaml`.
 - `strict` (aliases: `week1-stress`, `custom`):
   - Higher-stress profile with stricter expectations.
-  - Uses `configs/week1_stabilization_matrix.yaml`.
+  - Uses `configs/lab_framework_phase5.yaml`.
 - `fast-demo`:
   - Uses demo matrix defaults with warning-tolerant gate semantics.
   - Intended for rapid package checks where compute reruns are skipped.
