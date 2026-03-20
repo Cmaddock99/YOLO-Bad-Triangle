@@ -21,16 +21,8 @@ FRAMEWORK_RUNS_ROOT=""
 
 apply_profile_defaults() {
   case "${PROFILE}" in
-    demo|week1-demo)
-      CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_demo_matrix.yaml"
-      SANITY_ATTACK="fgsm"
-      ;;
-    strict|week1-stress)
-      CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_matrix.yaml"
-      SANITY_ATTACK="fgsm"
-      ;;
-    fast-demo)
-      CONFIG_PATH="${ROOT_DIR}/configs/week1_stabilization_demo_matrix.yaml"
+    demo|week1-demo|fast-demo|strict|week1-stress)
+      CONFIG_PATH="${ROOT_DIR}/configs/lab_framework_phase5.yaml"
       SANITY_ATTACK="fgsm"
       ;;
     custom)
