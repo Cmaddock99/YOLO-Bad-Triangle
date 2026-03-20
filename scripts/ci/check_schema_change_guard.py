@@ -27,7 +27,7 @@ def _diff_contains_schema_version_change(against: str) -> bool:
     targets = [
         "src/lab/config/contracts.py",
         "src/lab/runners/run_experiment.py",
-        "src/lab/migration/legacy_compat.py",
+        "src/lab/reporting/legacy_compat.py",
     ]
     for target in targets:
         proc = subprocess.run(
