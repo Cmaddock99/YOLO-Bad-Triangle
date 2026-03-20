@@ -1,0 +1,6 @@
+run_name,run_dir,model,attack,defense,seed,prediction_count,images_with_detections,total_detections,avg_confidence,validation_status,precision,recall,mAP50,mAP50-95
+attack_blur,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260320T034121Z/attack_blur,yolo,blur,none,42,500,450,1200,0.754694989323616,missing,,,,
+attack_deepfool,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260320T034121Z/attack_deepfool,yolo,deepfool,none,42,500,463,1427,0.7660916956805982,missing,,,,
+attack_fgsm,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260320T034121Z/attack_fgsm,yolo,fgsm,none,42,500,444,1260,0.762134217790195,missing,,,,
+attack_pgd,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260320T034121Z/attack_pgd,yolo,pgd,none,42,500,445,1259,0.7625203197962523,missing,,,,
+baseline_none,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260320T034121Z/baseline_none,yolo,none,none,42,500,466,1437,0.7647724414585196,missing,,,,
