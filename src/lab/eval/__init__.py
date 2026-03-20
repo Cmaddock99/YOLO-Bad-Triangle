@@ -1,4 +1,3 @@
-from .metrics import append_run_metrics
 from .experiment_table import generate_experiment_table
 from .prediction_schema import PredictionRecord, validate_prediction_record, validate_prediction_records
 from .prediction_adapter import normalize_ultralytics_result
@@ -14,7 +13,6 @@ from .derived_metrics import (
 )
 
 __all__ = [
-    "append_run_metrics",
     "generate_experiment_table",
     "PredictionRecord",
     "validate_prediction_record",

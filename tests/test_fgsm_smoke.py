@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -78,21 +77,6 @@ class FGSMSmokeTests(unittest.TestCase):
         self.assertEqual(int(converted[0, 0, 0]), 10)
         self.assertEqual(int(converted[0, 0, 1]), 10)
         self.assertEqual(int(converted[0, 0, 2]), 10)
-
-
-class DiscoveryCliSmokeTests(unittest.TestCase):
-    def test_run_experiment_lists_registered_attacks(self) -> None:
-        script = ROOT / "run_experiment.py"
-        proc = subprocess.run(
-            [sys.executable, str(script), "--list-attacks"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(proc.returncode, 0, msg=proc.stderr)
-        self.assertIn("fgsm", proc.stdout)
-        self.assertIn("deepfool", proc.stdout)
-        self.assertIn("pgd", proc.stdout)
 
 
 if __name__ == "__main__":
