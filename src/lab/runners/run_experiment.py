@@ -27,7 +27,6 @@ from lab.eval.framework_metrics import (
     summarize_prediction_metrics,
     validation_status,
 )
-from lab.migration import compare_legacy_csv_to_framework_artifacts
 from lab.eval.prediction_io import write_predictions_jsonl
 from lab.eval.prediction_schema import PredictionRecord, validate_prediction_records
 from lab.models.registry import build_model, list_available_models
@@ -341,40 +340,6 @@ class UnifiedExperimentRunner:
             )
         return {**cleaned, "status": state}, validation_error
 
-    def _run_parity_check(self, *, run_dir: Path, parity_cfg: dict[str, Any]) -> None:
-        """Run optional shadow parity check against the legacy CSV output."""
-        if not bool(parity_cfg.get("enabled", False)):
-            return
-        print("Running parity check...")
-        legacy_csv_raw = parity_cfg.get("legacy_csv_path", "outputs/metrics_summary.csv")
-        if legacy_csv_raw is None or not str(legacy_csv_raw).strip():
-            raise ValueError("parity.enabled=true requires config.parity.legacy_csv_path.")
-        framework_run_dir_raw = parity_cfg.get("framework_run_dir")
-        framework_run_dir = run_dir
-        if framework_run_dir_raw is not None and str(framework_run_dir_raw).strip():
-            framework_run_dir = Path(str(framework_run_dir_raw)).expanduser().resolve()
-        parity_report = compare_legacy_csv_to_framework_artifacts(
-            legacy_csv=Path(str(legacy_csv_raw)).expanduser().resolve(),
-            framework_metrics_json=framework_run_dir / "metrics.json",
-            predictions_jsonl=framework_run_dir / "predictions.jsonl",
-        )
-        parity_report_file = run_dir / "parity_report.json"
-        parity_report_file.write_text(
-            json.dumps(parity_report, indent=2, sort_keys=True), encoding="utf-8"
-        )
-        overall_status = str(parity_report.get("overall_status", "FAIL"))
-        worst_metric_delta = parity_report.get("worst_metric_delta") or {}
-        worst_metric_name = worst_metric_delta.get("metric", "n/a")
-        worst_metric_abs_delta = worst_metric_delta.get("absolute_delta")
-        print(f"Parity check status: {overall_status}")
-        print(f"Worst metric delta: {worst_metric_name}={worst_metric_abs_delta}")
-        fail_on_mismatch = bool(parity_cfg.get("fail_on_mismatch", False))
-        if overall_status == "FAIL":
-            failure_message = f"Parity check failed. See report: {parity_report_file}"
-            if fail_on_mismatch:
-                raise RuntimeError(failure_message)
-            print(f"WARNING: {failure_message}")
-
     def _generate_experiment_summary(
         self,
         *,
@@ -429,7 +394,6 @@ class UnifiedExperimentRunner:
         runner_cfg = as_mapping(self.config, "runner")
         predict_cfg = as_mapping(self.config, "predict")
         validation_cfg = as_mapping(self.config, "validation")
-        parity_cfg = as_mapping(self.config, "parity")
 
         model_name = str(model_cfg.get("name", ""))
         if not model_name:
@@ -505,8 +469,6 @@ class UnifiedExperimentRunner:
         _assert_metrics_payload_contract(metrics_payload)
         metrics_file = run_dir / "metrics.json"
         metrics_file.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
-
-        self._run_parity_check(run_dir=run_dir, parity_cfg=parity_cfg)
 
         self._generate_experiment_summary(
             run_dir=run_dir,

@@ -5,19 +5,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from lab.eval.metrics import _parse_detection_stats, append_run_metrics
 
-_allow_legacy = patch("lab.eval.metrics.allow_legacy_runtime", return_value=True)
-
 
 class MetricsCsvIntegrityTests(unittest.TestCase):
-    @_allow_legacy
-    def test_append_run_metrics_upgrades_schema_and_preserves_rows(self, _mock: object) -> None:
+    def test_append_run_metrics_upgrades_schema_and_preserves_rows(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             run_dir = root / "run_a"
@@ -113,8 +108,7 @@ class MetricsCsvIntegrityTests(unittest.TestCase):
             self.assertIsNone(stats["avg_conf"])
             self.assertIsNone(stats["median_conf"])
 
-    @_allow_legacy
-    def test_append_run_metrics_marks_partial_when_validation_metrics_missing(self, _mock: object) -> None:
+    def test_append_run_metrics_marks_partial_when_validation_metrics_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             run_dir = root / "run_partial"
@@ -140,8 +134,7 @@ class MetricsCsvIntegrityTests(unittest.TestCase):
             self.assertIn("precision", row["missing_metric_fields"])
             self.assertEqual(row["validation_reason"], "validation_disabled")
 
-    @_allow_legacy
-    def test_append_run_metrics_respects_failed_status_and_error_reason(self, _mock: object) -> None:
+    def test_append_run_metrics_respects_failed_status_and_error_reason(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             run_dir = root / "run_failed"

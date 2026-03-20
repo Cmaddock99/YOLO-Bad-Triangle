@@ -69,12 +69,6 @@ PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
 ./.venv/bin/python scripts/run_unified.py sweep --attacks fgsm,pgd
 ```
 
-### Required pre-merge shadow parity check
-
-```bash
-PYTHONPATH=src ./.venv/bin/python run_shadow_parity.py --config configs/parity_test.yaml
-```
-
 ### Reproducible teammate defense matrix (`c_dog`)
 
 Use a consistent output layout and run naming convention so all teammate defense tests are comparable:
@@ -200,23 +194,6 @@ Recommended demo preflight:
 bash scripts/demo/run_demo_package.sh fast --profile week1-demo
 ```
 
-Framework-first migration gates (CI-ready):
-
-```bash
-PYTHONPATH=src ./.venv/bin/python scripts/ci/run_migration_gates.py \
-  --parity-config configs/parity_test.yaml \
-  --demo-profile week1-demo \
-  --demo-output-root outputs/demo-gate-ci \
-  --allow-missing-baseline
-```
-
-Required global health gate:
-
-```bash
-PYTHONPATH=src ./.venv/bin/python run_system_health_check.py \
-  --parity-config configs/parity_test.yaml
-```
-
 ### Demo Profile Behavior
 
 Runtime gate behavior is profile-driven via `configs/runtime_profiles.yaml`.
@@ -234,16 +211,11 @@ Individual gates:
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python scripts/ci/check_contract_ownership.py
-PYTHONPATH=src ./.venv/bin/python scripts/ci/check_parity_gate.py --config configs/parity_test.yaml
 PYTHONPATH=src ./.venv/bin/python scripts/ci/check_demo_gate.py --profile week1-demo --output-root outputs/demo-gate-ci
 PYTHONPATH=src ./.venv/bin/python scripts/ci/check_artifact_gate.py --output-root outputs/demo-gate-ci
 PYTHONPATH=src ./.venv/bin/python scripts/ci/validate_output_schemas.py \
-  --framework-run-dir outputs/shadow_parity/<run_id>/framework/<framework_run_name> \
+  --framework-run-dir outputs/framework_runs/<run_name> \
   --legacy-compat-csv outputs/demo-gate-ci/metrics_summary.csv
-PYTHONPATH=src ./.venv/bin/python scripts/ci/check_system_health_gate.py \
-  --parity-config configs/parity_test.yaml \
-  --demo-profile week1-demo \
-  --demo-output-root outputs/demo-gate-ci
 ```
 
 ## 5) Overnight Stress Run
@@ -268,19 +240,12 @@ python -m json.tool outputs/overnight_stress_reports/overnight_status.json
 
 - Project state and architecture: `PROJECT_STATE.md`
 - Demo script package usage: `scripts/demo/README.md`
-- Migration contract + rollout docs: `docs/LEGACY_MIGRATION_CONTRACT_MATRIX.md`, `docs/MIGRATION_SHADOW_VALIDATION.md`, `docs/LEGACY_RETIREMENT_ROLLBACK.md`
-- Contracts + SLOs: `contracts/migration_contracts.yaml`
 - Versioned schemas: `schemas/v1/`
-- Runtime policy + cycle tracker: `configs/migration_runtime.yaml`, `outputs/migration_state/migration_cycle_tracker.json`
 - Additional docs: `docs/`
 
 ## 7) Recommended Operator Path
 
-- Use **framework-first wrappers** for new runs and migration surfaces.
 - Canonical primary path: `scripts/run_unified.py`.
 - Fallback for demo rehearsals: `scripts/demo/run_demo_package.sh`.
-- Keep **legacy scripts** available as rollback path during migration window.
-- Migration status dashboard: `./.venv/bin/python scripts/migration_status.py`.
 - Use **framework runner + sweep/report scripts** for modular robustness analysis.
-- Keep changes additive and avoid modifying legacy behavior unless explicitly intended.
 

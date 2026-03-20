@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from lab.migration import write_legacy_compat_artifacts
+from lab.reporting.legacy_compat import write_legacy_compat_artifacts
 
 
 def main() -> None:
