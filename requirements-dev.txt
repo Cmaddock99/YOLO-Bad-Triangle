@@ -1,0 +1,11 @@
+# Development and testing dependencies (not required for running experiments)
+# Install after requirements.txt: pip install -r requirements-dev.txt
+
+# Test runner
+pytest>=7.4.0,<9.0.0
+
+# Type checking
+mypy>=1.8.0,<2.0.0
+
+# Linting and formatting
+ruff>=0.3.0,<1.0.0

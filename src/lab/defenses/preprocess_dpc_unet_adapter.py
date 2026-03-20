@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -23,7 +24,9 @@ from .plugin_registry import register_defense_plugin
 class PreprocessDPCUNetDefenseAdapter(BaseDefense):
     """Provisional wrapper-based preprocessing defense with strict safety checks."""
 
-    checkpoint_path: str = "/Users/lurch/Downloads/dpc_unet_final_golden.pt"
+    checkpoint_path: str = field(
+        default_factory=lambda: os.environ.get("DPC_UNET_CHECKPOINT_PATH", "")
+    )
     timestep: float = 50.0
     color_order: str = "bgr"
     scaling: str = "zero_one"
@@ -45,6 +48,12 @@ class PreprocessDPCUNetDefenseAdapter(BaseDefense):
     def _ensure_loaded(self) -> None:
         if self._loaded:
             return
+        if not self.checkpoint_path:
+            raise ValueError(
+                "DPC-UNet checkpoint path is not set. "
+                "Pass checkpoint_path= when building the plugin, "
+                "or set the DPC_UNET_CHECKPOINT_PATH environment variable."
+            )
         checkpoint = Path(self.checkpoint_path).expanduser().resolve()
         if not checkpoint.exists():
             raise FileNotFoundError(f"DPC-UNet checkpoint not found: {checkpoint}")

@@ -242,6 +242,185 @@ class UnifiedExperimentRunner:
         run_dir.mkdir(parents=True, exist_ok=True)
         return run_dir
 
+    def _prepare_images(
+        self,
+        *,
+        run_dir: Path,
+        model: Any,
+        attack: Any,
+        defense: Any,
+        images: list[Path],
+    ) -> tuple[list[Path], int, int]:
+        """Apply attack and defense preprocessing, write results to prepared_images/.
+
+        Returns (prepared_paths, skipped_unreadable, failed_writes).
+        """
+        prepared_dir = run_dir / "prepared_images"
+        prepared_dir.mkdir(parents=True, exist_ok=True)
+        prepared_paths: list[Path] = []
+        skipped_unreadable = 0
+        failed_writes = 0
+        for image_path in images:
+            image = cv2.imread(str(image_path))
+            if image is None:
+                skipped_unreadable += 1
+                continue
+            defended_image, _ = defense.preprocess(image)
+            transformed = defended_image
+            if attack is not None:
+                transformed, _ = attack.apply(defended_image, model=model)
+            target = prepared_dir / image_path.name
+            wrote = cv2.imwrite(str(target), transformed)
+            if not wrote:
+                failed_writes += 1
+                continue
+            prepared_paths.append(target)
+        if not prepared_paths:
+            raise ValueError(
+                "No images were prepared for inference. "
+                f"unreadable={skipped_unreadable}, failed_writes={failed_writes}, "
+                f"source_count={len(images)}"
+            )
+        return prepared_paths, skipped_unreadable, failed_writes
+
+    def _run_inference(
+        self,
+        *,
+        model: Any,
+        prepared_paths: list[Path],
+        predict_cfg: dict[str, Any],
+        defense: Any,
+    ) -> list[PredictionRecord]:
+        """Run model prediction and defense postprocessing."""
+        predictions = model.predict(prepared_paths, **predict_cfg)
+        postprocessed: list[PredictionRecord] = []
+        for record in predictions:
+            records, _ = defense.postprocess([record])
+            postprocessed.extend(records)
+        if prepared_paths and not postprocessed:
+            raise RuntimeError(
+                "Model returned zero prediction records for non-empty prepared inputs. "
+                f"processed_image_count={len(prepared_paths)}"
+            )
+        validate_prediction_records(postprocessed)
+        return postprocessed
+
+    def _run_validation(
+        self,
+        *,
+        model: Any,
+        validation_cfg: dict[str, Any],
+    ) -> tuple[dict[str, Any], str | None]:
+        """Run optional model validation.
+
+        Returns ({cleaned_metrics..., status}, error_message).
+        """
+        validation_enabled = bool(validation_cfg.get("enabled", False))
+        validation_dataset = validation_cfg.get("dataset")
+        validation_params = dict(as_mapping(validation_cfg, "params"))
+        raw_validation_metrics: dict[str, Any] | None = None
+        validation_error: str | None = None
+        if validation_enabled:
+            if not validation_dataset:
+                raise ValueError(
+                    "validation.enabled=true requires config.validation.dataset "
+                    "(for example: configs/coco_subset500.yaml)."
+                )
+            try:
+                raw_validation_metrics = model.validate(str(validation_dataset), **validation_params)
+            except Exception as exc:  # pragma: no cover - runtime path
+                validation_error = str(exc)
+        cleaned = sanitize_validation_metrics(raw_validation_metrics)
+        state = validation_status(cleaned)
+        if validation_error is not None:
+            state = "error"
+        if state == "partial":
+            print(
+                "WARNING: validation metrics are partial — some metrics could not be computed. "
+                "Check that a validation dataset was provided and is accessible."
+            )
+        return {**cleaned, "status": state}, validation_error
+
+    def _run_parity_check(self, *, run_dir: Path, parity_cfg: dict[str, Any]) -> None:
+        """Run optional shadow parity check against the legacy CSV output."""
+        if not bool(parity_cfg.get("enabled", False)):
+            return
+        print("Running parity check...")
+        legacy_csv_raw = parity_cfg.get("legacy_csv_path", "outputs/metrics_summary.csv")
+        if legacy_csv_raw is None or not str(legacy_csv_raw).strip():
+            raise ValueError("parity.enabled=true requires config.parity.legacy_csv_path.")
+        framework_run_dir_raw = parity_cfg.get("framework_run_dir")
+        framework_run_dir = run_dir
+        if framework_run_dir_raw is not None and str(framework_run_dir_raw).strip():
+            framework_run_dir = Path(str(framework_run_dir_raw)).expanduser().resolve()
+        parity_report = compare_legacy_csv_to_framework_artifacts(
+            legacy_csv=Path(str(legacy_csv_raw)).expanduser().resolve(),
+            framework_metrics_json=framework_run_dir / "metrics.json",
+            predictions_jsonl=framework_run_dir / "predictions.jsonl",
+        )
+        parity_report_file = run_dir / "parity_report.json"
+        parity_report_file.write_text(
+            json.dumps(parity_report, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        overall_status = str(parity_report.get("overall_status", "FAIL"))
+        worst_metric_delta = parity_report.get("worst_metric_delta") or {}
+        worst_metric_name = worst_metric_delta.get("metric", "n/a")
+        worst_metric_abs_delta = worst_metric_delta.get("absolute_delta")
+        print(f"Parity check status: {overall_status}")
+        print(f"Worst metric delta: {worst_metric_name}={worst_metric_abs_delta}")
+        fail_on_mismatch = bool(parity_cfg.get("fail_on_mismatch", False))
+        if overall_status == "FAIL":
+            failure_message = f"Parity check failed. See report: {parity_report_file}"
+            if fail_on_mismatch:
+                raise RuntimeError(failure_message)
+            print(f"WARNING: {failure_message}")
+
+    def _generate_experiment_summary(
+        self,
+        *,
+        run_dir: Path,
+        model_name: str,
+        seed: int,
+        attack_name: str,
+        defense_name: str,
+        metrics_payload: dict[str, Any],
+        runner_cfg: dict[str, Any],
+    ) -> None:
+        """Generate optional multi-run comparison summary."""
+        summary_cfg = as_mapping(self.config, "summary")
+        if not bool(summary_cfg.get("enabled", False)):
+            return
+        output_root = Path(
+            str(runner_cfg.get("output_root", "outputs/framework_runs"))
+        ).expanduser().resolve()
+        candidates = _collect_summary_candidates(
+            output_root=output_root,
+            model_name=model_name,
+            seed=seed,
+            current_run_dir=run_dir,
+            current_attack_name=attack_name,
+            current_defense_name=defense_name,
+            current_metrics=metrics_payload,
+        )
+        baseline_metrics, attack_metrics, defense_metrics = _select_related_summary_metrics(
+            candidates, current_attack_name=attack_name
+        )
+        if baseline_metrics is None or attack_metrics is None:
+            print(
+                "WARNING: Summary generation skipped; related baseline/attack framework runs were not found."
+            )
+            return
+        experiment_summary = generate_summary(
+            baseline_metrics=baseline_metrics,
+            attack_metrics=attack_metrics,
+            defense_metrics=defense_metrics,
+        )
+        experiment_summary_file = run_dir / "experiment_summary.json"
+        experiment_summary_file.write_text(
+            json.dumps(experiment_summary, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        print(f"Experiment summary written: {experiment_summary_file}")
+
     def run(self) -> dict[str, Any]:
         model_cfg = as_mapping(self.config, "model")
         data_cfg = as_mapping(self.config, "data")
@@ -251,7 +430,6 @@ class UnifiedExperimentRunner:
         predict_cfg = as_mapping(self.config, "predict")
         validation_cfg = as_mapping(self.config, "validation")
         parity_cfg = as_mapping(self.config, "parity")
-        summary_cfg = as_mapping(self.config, "summary")
 
         model_name = str(model_cfg.get("name", ""))
         if not model_name:
@@ -269,8 +447,6 @@ class UnifiedExperimentRunner:
             raise FileNotFoundError(f"source_dir not found: {source_dir}")
 
         run_dir = self._resolve_run_dir()
-        prepared_dir = run_dir / "prepared_images"
-        prepared_dir.mkdir(parents=True, exist_ok=True)
 
         max_images = int(runner_cfg.get("max_images", 0))
         images = _collect_images(source_dir, max_images=max_images)
@@ -291,81 +467,35 @@ class UnifiedExperimentRunner:
         defense_params = dict(as_mapping(defense_cfg, "params"))
         defense = build_defense_plugin(defense_name or "none", **defense_params)
 
-        prepared_paths: list[Path] = []
-        skipped_unreadable = 0
-        failed_writes = 0
-        for image_path in images:
-            image = cv2.imread(str(image_path))
-            if image is None:
-                skipped_unreadable += 1
-                continue
-            defended_image, _ = defense.preprocess(image)
-            transformed = defended_image
-            if attack is not None:
-                transformed, _ = attack.apply(defended_image, model=model)
+        prepared_paths, skipped_unreadable, failed_writes = self._prepare_images(
+            run_dir=run_dir,
+            model=model,
+            attack=attack,
+            defense=defense,
+            images=images,
+        )
 
-            target = prepared_dir / image_path.name
-            wrote = cv2.imwrite(str(target), transformed)
-            if not wrote:
-                failed_writes += 1
-                continue
-            prepared_paths.append(target)
-
-        if not prepared_paths:
-            raise ValueError(
-                "No images were prepared for inference. "
-                f"unreadable={skipped_unreadable}, failed_writes={failed_writes}, "
-                f"source_count={len(images)}"
-            )
-
-        predictions = model.predict(prepared_paths, **predict_cfg)
-        postprocessed: list[PredictionRecord] = []
-        for record in predictions:
-            records, _ = defense.postprocess([record])
-            postprocessed.extend(records)
-
-        if prepared_paths and not postprocessed:
-            raise RuntimeError(
-                "Model returned zero prediction records for non-empty prepared inputs. "
-                f"processed_image_count={len(prepared_paths)}"
-            )
-        validate_prediction_records(postprocessed)
+        postprocessed = self._run_inference(
+            model=model,
+            prepared_paths=prepared_paths,
+            predict_cfg=predict_cfg,
+            defense=defense,
+        )
 
         predictions_file = run_dir / "predictions.jsonl"
         write_predictions_jsonl(postprocessed, predictions_file)
-
         prediction_metrics = summarize_prediction_metrics(postprocessed)
 
+        validation_section, validation_error = self._run_validation(
+            model=model,
+            validation_cfg=validation_cfg,
+        )
         validation_enabled = bool(validation_cfg.get("enabled", False))
         validation_dataset = validation_cfg.get("dataset")
-        validation_params = dict(as_mapping(validation_cfg, "params"))
-        raw_validation_metrics: dict[str, Any] | None = None
-        validation_error: str | None = None
-        if validation_enabled:
-            if not validation_dataset:
-                raise ValueError(
-                    "validation.enabled=true requires config.validation.dataset "
-                    "(for example: configs/coco_subset500.yaml)."
-                )
-            try:
-                raw_validation_metrics = model.validate(str(validation_dataset), **validation_params)
-            except Exception as exc:  # pragma: no cover - runtime path
-                validation_error = str(exc)
-        cleaned_validation_metrics = sanitize_validation_metrics(raw_validation_metrics)
-        validation_state = validation_status(cleaned_validation_metrics)
-        if validation_error is not None:
-            validation_state = "error"
-        if validation_state == "partial":
-            print(
-                "WARNING: validation metrics are partial — some metrics could not be computed. "
-                "Check that a validation dataset was provided and is accessible."
-            )
-
         metrics_payload = {
             "schema_version": FRAMEWORK_METRICS_SCHEMA_VERSION,
             "validation": {
-                **cleaned_validation_metrics,
-                "status": validation_state,
+                **validation_section,
                 "enabled": validation_enabled,
                 "dataset": str(validation_dataset) if validation_dataset else None,
                 "error": validation_error,
@@ -376,76 +506,17 @@ class UnifiedExperimentRunner:
         metrics_file = run_dir / "metrics.json"
         metrics_file.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
 
-        parity_enabled = bool(parity_cfg.get("enabled", False))
-        if parity_enabled:
-            print("Running parity check...")
-            legacy_csv_raw = parity_cfg.get("legacy_csv_path", "outputs/metrics_summary.csv")
-            if legacy_csv_raw is None or not str(legacy_csv_raw).strip():
-                raise ValueError("parity.enabled=true requires config.parity.legacy_csv_path.")
+        self._run_parity_check(run_dir=run_dir, parity_cfg=parity_cfg)
 
-            framework_run_dir_raw = parity_cfg.get("framework_run_dir")
-            framework_run_dir = run_dir
-            if framework_run_dir_raw is not None and str(framework_run_dir_raw).strip():
-                framework_run_dir = Path(str(framework_run_dir_raw)).expanduser().resolve()
-
-            parity_report = compare_legacy_csv_to_framework_artifacts(
-                legacy_csv=Path(str(legacy_csv_raw)).expanduser().resolve(),
-                framework_metrics_json=framework_run_dir / "metrics.json",
-                predictions_jsonl=framework_run_dir / "predictions.jsonl",
-            )
-            parity_report_file = run_dir / "parity_report.json"
-            parity_report_file.write_text(
-                json.dumps(parity_report, indent=2, sort_keys=True),
-                encoding="utf-8",
-            )
-
-            overall_status = str(parity_report.get("overall_status", "FAIL"))
-            worst_metric_delta = parity_report.get("worst_metric_delta") or {}
-            worst_metric_name = worst_metric_delta.get("metric", "n/a")
-            worst_metric_abs_delta = worst_metric_delta.get("absolute_delta")
-
-            print(f"Parity check status: {overall_status}")
-            print(f"Worst metric delta: {worst_metric_name}={worst_metric_abs_delta}")
-
-            fail_on_mismatch = bool(parity_cfg.get("fail_on_mismatch", False))
-            if overall_status == "FAIL":
-                failure_message = f"Parity check failed. See report: {parity_report_file}"
-                if fail_on_mismatch:
-                    raise RuntimeError(failure_message)
-                print(f"WARNING: {failure_message}")
-
-        summary_enabled = bool(summary_cfg.get("enabled", False))
-        if summary_enabled:
-            output_root = Path(str(runner_cfg.get("output_root", "outputs/framework_runs"))).expanduser().resolve()
-            candidates = _collect_summary_candidates(
-                output_root=output_root,
-                model_name=model_name,
-                seed=seed,
-                current_run_dir=run_dir,
-                current_attack_name=attack_name or "none",
-                current_defense_name=defense_name or "none",
-                current_metrics=metrics_payload,
-            )
-            baseline_metrics, attack_metrics, defense_metrics = _select_related_summary_metrics(
-                candidates,
-                current_attack_name=attack_name or "none",
-            )
-            if baseline_metrics is None or attack_metrics is None:
-                print(
-                    "WARNING: Summary generation skipped; related baseline/attack framework runs were not found."
-                )
-            else:
-                experiment_summary = generate_summary(
-                    baseline_metrics=baseline_metrics,
-                    attack_metrics=attack_metrics,
-                    defense_metrics=defense_metrics,
-                )
-                experiment_summary_file = run_dir / "experiment_summary.json"
-                experiment_summary_file.write_text(
-                    json.dumps(experiment_summary, indent=2, sort_keys=True),
-                    encoding="utf-8",
-                )
-                print(f"Experiment summary written: {experiment_summary_file}")
+        self._generate_experiment_summary(
+            run_dir=run_dir,
+            model_name=model_name,
+            seed=seed,
+            attack_name=attack_name or "none",
+            defense_name=defense_name or "none",
+            metrics_payload=metrics_payload,
+            runner_cfg=runner_cfg,
+        )
 
         resolved_config_file = run_dir / "resolved_config.yaml"
         resolved_config_file.write_text(

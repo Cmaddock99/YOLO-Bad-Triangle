@@ -25,7 +25,6 @@ CANONICAL_RUNTIME_ENTRYPOINT = "scripts/run_unified.py"
 CANONICAL_RUNTIME_COMMANDS = ("run-one", "sweep")
 COMPAT_WRAPPER_ENTRYPOINTS = (
     "run_experiment.py",
-    "run_experiment_api.py",
     "scripts/run_framework.py",
 )
 
@@ -53,6 +52,9 @@ DEFAULT_MAX_CONFIDENCE_DELTA_PCT = PARITY_MAX_CONFIDENCE_DELTA_PCT_DEFAULT
 # Global governance guardrails.
 MAX_FIX_LOOP = 5
 
+# Image pixel range constant (8-bit unsigned integer images).
+PIXEL_MAX: float = 255.0
+
 # Legacy-compat inference defaults.
 # These apply ONLY to the legacy compat path (run_experiment.py --legacy and
 # ExperimentRunner). The framework path (UnifiedExperimentRunner) reads conf/iou/imgsz
@@ -65,3 +67,7 @@ LEGACY_IMGSZ_DEFAULT = 640
 DEFAULT_CONF = LEGACY_CONF_DEFAULT
 DEFAULT_IOU = LEGACY_IOU_DEFAULT
 DEFAULT_IMGSZ = LEGACY_IMGSZ_DEFAULT
+
+# Default confidence threshold used when running a legacy conf sweep (distinct from
+# LEGACY_CONF_DEFAULT which is the per-run YOLO inference threshold).
+LEGACY_SWEEP_CONF_DEFAULT: float = 0.5

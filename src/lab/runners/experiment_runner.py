@@ -487,7 +487,7 @@ class ExperimentRunner:
                         f"attack={spec.attack_label or spec.attack} "
                         f"defense={spec.defense_label or spec.defense} conf={conf}"
                     )
-                except Exception as exc:
+                except Exception as exc:  # broad: any failure in a batch run should be logged, not fatal
                     error_reason = f"{type(exc).__name__} at {stage}: {exc}"
                     row = append_run_metrics(
                         run_dir=run_dir,

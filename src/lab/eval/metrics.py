@@ -35,7 +35,7 @@ def _git_metadata() -> tuple[str, str]:
             ).strip()
         )
         return commit, branch
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return "unknown", "unknown"
 
 
@@ -44,7 +44,7 @@ def _read_json(path: Path) -> dict[str, Any]:
         return {}
     try:
         return json.loads(path.read_text())
-    except Exception:
+    except (OSError, json.JSONDecodeError, ValueError):
         return {}
 
 
@@ -80,7 +80,7 @@ def _parse_detection_stats(run_dir: Path) -> dict[str, Any]:
                     continue
                 try:
                     confidences.append(float(parts[5]))
-                except Exception:
+                except ValueError:
                     malformed_conf_rows += 1
 
     if has_non_six_column_rows or malformed_conf_rows:

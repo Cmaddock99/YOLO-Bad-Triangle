@@ -1,7 +1,0 @@
-model: yolov8n.pt
-attack: blur
-defense: none
-imgsz: 640
-conf: 0.25
-dataset_path: datasets/coco/val2017_subset500/images
-output_dir: outputs/
