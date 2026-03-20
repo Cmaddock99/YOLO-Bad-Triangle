@@ -28,27 +28,24 @@ class FrameworkAttackPluginTest(unittest.TestCase):
         self.assertIn("pgd", available)
         self.assertIn("deepfool", available)
 
-    def test_deepfool_adapter_runs_without_model(self) -> None:
-        attack = build_attack_plugin("deepfool", epsilon=0.3, steps=2)
-        attacked, metadata = attack.apply(self.image, seed=123)
-        self.assertEqual(attacked.shape, self.image.shape)
-        self.assertEqual(attacked.dtype, np.uint8)
-        self.assertEqual(metadata["attack"], "deepfool")
-
-    def test_fgsm_and_pgd_adapters_run_with_torch_model(self) -> None:
+    def test_fgsm_pgd_deepfool_adapters_run_with_torch_model(self) -> None:
         model = _DummyGradModel()
         fgsm = build_attack_plugin("fgsm", epsilon=0.005)
         pgd = build_attack_plugin("pgd", epsilon=0.01, alpha=0.002, steps=2, restarts=1)
+        deepfool = build_attack_plugin("deepfool", epsilon=0.05, steps=2)
 
         fgsm_img, fgsm_meta = fgsm.apply(self.image, model=model)
         pgd_img, pgd_meta = pgd.apply(self.image, model=model, seed=7)
+        df_img, df_meta = deepfool.apply(self.image, model=model)
 
-        self.assertEqual(fgsm_img.shape, self.image.shape)
-        self.assertEqual(pgd_img.shape, self.image.shape)
-        self.assertEqual(fgsm_img.dtype, np.uint8)
-        self.assertEqual(pgd_img.dtype, np.uint8)
-        self.assertEqual(fgsm_meta["attack"], "fgsm")
-        self.assertEqual(pgd_meta["attack"], "pgd")
+        for img, meta, name in [
+            (fgsm_img, fgsm_meta, "fgsm"),
+            (pgd_img, pgd_meta, "pgd"),
+            (df_img, df_meta, "deepfool"),
+        ]:
+            self.assertEqual(img.shape, self.image.shape)
+            self.assertEqual(img.dtype, np.uint8)
+            self.assertEqual(meta["attack"], name)
 
 
 if __name__ == "__main__":
