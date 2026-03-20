@@ -309,8 +309,9 @@ class UnifiedExperimentRunner:
         *,
         model: Any,
         validation_cfg: dict[str, Any],
+        prepared_dir: Path,
     ) -> tuple[dict[str, Any], str | None]:
-        """Run optional model validation.
+        """Run optional model validation against the attacked prepared images.
 
         Returns ({cleaned_metrics..., status}, error_message).
         """
@@ -326,7 +327,31 @@ class UnifiedExperimentRunner:
                     "(for example: configs/coco_subset500.yaml)."
                 )
             try:
-                raw_validation_metrics = model.validate(str(validation_dataset), **validation_params)
+                # Build a temporary dataset YAML pointing at the attacked images
+                # so validation measures mAP on the perturbed inputs, not the originals.
+                orig_yaml_path = Path(str(validation_dataset)).expanduser().resolve()
+                orig_cfg = yaml.safe_load(orig_yaml_path.read_text(encoding="utf-8"))
+                orig_root = Path(str(orig_cfg.get("path", ""))).expanduser()
+                if not orig_root.is_absolute():
+                    orig_root = (orig_yaml_path.parent / orig_root).resolve()
+                orig_labels = orig_root / "labels"
+
+                # Symlink labels into the run dir so YOLO can find them via
+                # the standard images -> labels path substitution.
+                run_dir = prepared_dir.parent
+                labels_link = run_dir / "prepared_labels"
+                if not labels_link.exists():
+                    labels_link.symlink_to(orig_labels.resolve())
+
+                # Write a minimal dataset YAML that points val at prepared_images.
+                attacked_yaml = run_dir / "val_attacked_dataset.yaml"
+                attacked_cfg = {k: v for k, v in orig_cfg.items() if k not in ("path", "train", "val", "test")}
+                attacked_cfg["path"] = str(run_dir)
+                attacked_cfg["train"] = "prepared_images"
+                attacked_cfg["val"] = "prepared_images"
+                attacked_yaml.write_text(yaml.safe_dump(attacked_cfg, sort_keys=False), encoding="utf-8")
+
+                raw_validation_metrics = model.validate(str(attacked_yaml), **validation_params)
             except Exception as exc:  # pragma: no cover - runtime path
                 validation_error = str(exc)
         cleaned = sanitize_validation_metrics(raw_validation_metrics)
@@ -453,6 +478,7 @@ class UnifiedExperimentRunner:
         validation_section, validation_error = self._run_validation(
             model=model,
             validation_cfg=validation_cfg,
+            prepared_dir=run_dir / "prepared_images",
         )
         validation_enabled = bool(validation_cfg.get("enabled", False))
         validation_dataset = validation_cfg.get("dataset")
