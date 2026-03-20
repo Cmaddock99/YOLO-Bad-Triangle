@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import torch
 
-from .base import register_attack
-from .fgsm import FGSMAttack
+from .fgsm_adapter import FGSMAttack
 
 
-@register_attack("fgsm_center_mask", "fgsm_center")
 class FGSMCenterMaskAttack(FGSMAttack):
     """FGSM variant that perturbs only a central elliptical region."""
 
@@ -44,20 +41,3 @@ class FGSMCenterMaskAttack(FGSMAttack):
         _, _, h, w = adv.shape
         mask = self._center_mask(h, w, self.radius_fraction, adv.device)
         return torch.clamp(mask * adv + (1.0 - mask) * base.to(adv.device), 0.0, 1.0)
-
-    def apply(
-        self,
-        source_dir: Path | torch.Tensor,
-        output_dir: Path | Any | None = None,
-        *,
-        seed: int | None = None,
-        model: Any | None = None,
-        target: torch.Tensor | None = None,
-    ) -> Path | torch.Tensor:
-        return super().apply(
-            source_dir=source_dir,
-            output_dir=output_dir,
-            seed=seed,
-            model=model,
-            target=target,
-        )
