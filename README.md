@@ -53,6 +53,8 @@ PYTHONPATH=src ./.venv/bin/python -m unittest discover -s tests -p 'test_*.py'
 | `--resume` | Skip runs that already completed |
 | `--skip-errors` | Continue on failure, report at end |
 
+`--workers auto` picks `os.cpu_count()` parallel subprocesses. Each worker runs a full YOLO job; on **one GPU** that often reduces throughput or causes OOM, so use `--workers 1` unless you have enough devices or CPU-only runs.
+
 ## Outputs
 
 Each run writes to `outputs/framework_runs/<run_name>/`:
@@ -110,7 +112,7 @@ Config: `configs/default.yaml`. Override anything with `--set key=value` (dotted
 
 ## Colab (GPU)
 
-Open `colab_sweep.ipynb` in Google Colab, switch runtime to T4 GPU, then run all cells. Downloads repo, dataset, and weights automatically.
+Open `colab_sweep.ipynb` in Google Colab, switch runtime to T4 GPU, then run all cells. Downloads repo, dataset, and weights automatically. Before committing notebook changes from Colab, clear outputs (or strip cells) so git diffs stay small.
 
 ## Docs
 

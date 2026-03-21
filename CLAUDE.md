@@ -115,4 +115,4 @@ Use `<model>__<attack>__<defense>` (e.g. `yolo26n__fgsm__c_dog`) for defense mat
 
 - `PYTHONPATH=src` is required. It's set in `.env` but must be explicit for direct script invocations.
 - `DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt` is set in `.env` — c_dog works without extra env setup.
-- The root-level `run_experiment.py` is a legacy shim. Use `scripts/run_unified.py` for all new work.
+- The experiment runner implementation lives in `src/lab/runners/run_experiment.py`; invoke it only through `scripts/run_unified.py` or `scripts/sweep_and_report.py`.
