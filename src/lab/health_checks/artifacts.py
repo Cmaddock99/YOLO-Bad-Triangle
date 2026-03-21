@@ -4,8 +4,8 @@ from pathlib import Path
 
 
 _ARTIFACT_SETS: dict[str, tuple[str, ...]] = {
-    "demo_gate": ("metrics_summary.csv", "experiment_table.md"),
-    "compat": ("metrics_summary.csv", "experiment_table.md"),
+    "demo_gate": ("metrics.json", "run_summary.json", "predictions.jsonl"),
+    "compat": ("metrics.json", "run_summary.json"),
 }
 
 
