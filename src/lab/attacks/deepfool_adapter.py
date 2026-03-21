@@ -51,29 +51,30 @@ class DeepFoolAttack(FGSMAttack):
         )
 
     def _detection_confidence(self, outputs: Any) -> torch.Tensor | None:
-        """Return a differentiable scalar representing aggregate detection confidence."""
-        tensors = self._iter_output_tensors(outputs)
-        if tensors:
-            conf_terms: list[torch.Tensor] = []
-            for t in tensors:
-                if t.ndim >= 3 and t.shape[-1] >= 5:
-                    conf_terms.append(t[..., 4].float().mean())
-            if conf_terms:
-                return torch.stack(conf_terms).mean()
-            return torch.stack([t.float().mean() for t in tensors]).mean()
+        """Return a differentiable scalar in (0, 1] representing aggregate detection confidence.
 
-        if isinstance(outputs, (list, tuple)) and outputs:
-            first = outputs[0]
-            for attr in ("logits", "pred"):
-                val = getattr(first, attr, None)
-                if isinstance(val, torch.Tensor):
-                    return val.float().mean()
-            boxes = getattr(first, "boxes", None)
-            if boxes is not None:
-                data = getattr(boxes, "data", None)
-                if isinstance(data, torch.Tensor):
-                    return data.float().mean()
-        return None
+        YOLO outputs tensors of shape (batch, channels, anchors) where channels=4 are
+        box coordinates and channels=num_classes are raw class logits.  Applying sigmoid
+        to class logit tensors gives a proxy that is always positive (never causes the
+        DeepFool loop to terminate early) and has meaningful gradients.
+        """
+        tensors = self._iter_output_tensors(outputs)
+        conf_terms: list[torch.Tensor] = []
+        for t in tensors:
+            if t.ndim == 3:
+                _, c, n = t.shape
+                if c > 4 and n > 100:
+                    # Class score tensor (batch, num_classes, num_anchors) — apply sigmoid
+                    # so values are in (0, 1) and gradients flow cleanly.
+                    conf_terms.append(t.float().sigmoid().mean())
+                elif n == 6:
+                    # Post-NMS output (batch, detections, 6=[x,y,x,y,conf,cls])
+                    conf_terms.append(t[..., 4].float().mean())
+        if conf_terms:
+            return torch.stack(conf_terms).mean()
+        # Fallback: sigmoid of all tensor values keeps the proxy in (0, 1).
+        all_t = [t.float().sigmoid().mean() for t in tensors if t.numel() > 0]
+        return torch.stack(all_t).mean() if all_t else None
 
     def _apply_to_tensor(
         self,
@@ -119,8 +120,8 @@ class DeepFoolAttack(FGSMAttack):
                 break
 
             f_scalar = f_val.item()
-            if f_scalar <= 0.0:
-                LOGGER.debug("DeepFool: confidence reached zero at step %s/%s.", step, self.steps)
+            if f_scalar < 1e-6:
+                LOGGER.debug("DeepFool: confidence suppressed at step %s/%s.", step, self.steps)
                 break
 
             w = x_hat.grad.detach()

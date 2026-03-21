@@ -45,6 +45,10 @@ class FGSMAttack:
 
     @staticmethod
     def _resolve_torch_model(model: Any) -> torch.nn.Module:
+        # Trigger lazy loading if the adapter supports it.
+        ensure = getattr(model, "_ensure_loaded", None)
+        if callable(ensure):
+            ensure()
         # Resolve wrapped YOLO objects down to a torch.nn.Module.
         model_obj = getattr(model, "_model", model)
         torch_model = getattr(model_obj, "model", model_obj)
