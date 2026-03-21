@@ -5,6 +5,7 @@ import argparse
 import shlex
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,12 +20,33 @@ def _timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
-def _run_command(command: list[str], *, dry_run: bool) -> None:
+def _run_command(
+    command: list[str],
+    *,
+    dry_run: bool,
+    bar: tqdm | None = None,
+    label: str = "",
+) -> None:
     rendered = " ".join(shlex.quote(part) for part in command)
-    print(f"$ {rendered}")
+    _write(f"$ {rendered}", bar=bar)
     if dry_run:
         return
-    subprocess.run(command, check=True)
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        # Replay captured output so the error is visible.
+        if result.stdout:
+            _write(result.stdout.rstrip(), bar=bar)
+        if result.stderr:
+            _write(result.stderr.rstrip(), bar=bar)
+        raise subprocess.CalledProcessError(result.returncode, command)
+
+
+def _write(msg: str, *, bar: tqdm | None = None) -> None:
+    """Print via tqdm.write when inside a bar, otherwise plain print."""
+    if bar is not None:
+        bar.write(msg)
+    else:
+        print(msg)
 
 
 def _metrics_exists(run_dir: Path) -> bool:
@@ -159,6 +181,13 @@ def main() -> None:
     )
     parser.add_argument("--validation-enabled", action="store_true")
     parser.add_argument("--resume", action="store_true", help="Skip runs that already have metrics.json.")
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of parallel experiment workers (default 1 = serial). "
+             "Each worker is a subprocess so N workers run N experiments simultaneously.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print commands without executing.")
     parser.add_argument(
         "--team-summary",
@@ -205,9 +234,17 @@ def main() -> None:
         if defenses:
             print(f"Defenses:     {defenses}")
 
+        workers = max(1, args.workers)
+        total_runs = 1 + len(attacks) + len(attacks) * len(defenses)
+        print(f"Total runs:   {total_runs} (1 baseline + {len(attacks)} attacks"
+              + (f" + {len(attacks) * len(defenses)} defended)" if defenses else ")"))
+        if workers > 1:
+            print(f"Workers:      {workers} parallel")
+
         # --- Phase 1: Baseline ---
         baseline_dir = runs_root / args.baseline_run_name
         if not (args.resume and _metrics_exists(baseline_dir)):
+            print("Phase 1: running baseline...")
             _run_command(
                 _experiment_command(
                     python_bin=args.python_bin,
@@ -222,14 +259,17 @@ def main() -> None:
                 ),
                 dry_run=args.dry_run,
             )
+            print("Phase 1: baseline done.")
         else:
-            print(f"Resume: skipping baseline ({baseline_dir})")
+            print(f"Phase 1: skipping baseline (resume, exists at {baseline_dir})")
 
         # --- Phase 2: Attack sweep ---
-        for attack in tqdm(attacks, desc="Phase 2: attack sweep", unit="attack", dynamic_ncols=True):
+        def _run_attack_job(attack: str, bar: tqdm) -> None:
             attack_run_name = f"attack_{attack}"
             attack_dir = runs_root / attack_run_name
-            if not (args.resume and _metrics_exists(attack_dir)):
+            if args.resume and _metrics_exists(attack_dir):
+                _write(f"Resume: skipping {attack_run_name}", bar=bar)
+            else:
                 _run_command(
                     _experiment_command(
                         python_bin=args.python_bin,
@@ -243,10 +283,8 @@ def main() -> None:
                         validation_enabled=args.validation_enabled,
                     ),
                     dry_run=args.dry_run,
+                    bar=bar,
                 )
-            else:
-                print(f"Resume: skipping attack run ({attack_dir})")
-
             summary_command = _print_summary_command(
                 python_bin=args.python_bin,
                 baseline_dir=baseline_dir,
@@ -254,17 +292,27 @@ def main() -> None:
             )
             summary_out = report_root / f"summary_{attack}.txt"
             rendered = " ".join(shlex.quote(part) for part in summary_command)
-            print(f"$ {rendered} > {shlex.quote(str(summary_out))}")
+            _write(f"$ {rendered} > {shlex.quote(str(summary_out))}", bar=bar)
             if not args.dry_run:
                 with summary_out.open("w", encoding="utf-8") as handle:
                     subprocess.run(summary_command, check=True, stdout=handle)
 
+        with tqdm(total=len(attacks), desc="Phase 2 attacks", unit="attack", dynamic_ncols=True) as bar2:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = {pool.submit(_run_attack_job, attack, bar2): attack for attack in attacks}
+                for fut in as_completed(futures):
+                    attack = futures[fut]
+                    fut.result()  # re-raises any exception from the worker
+                    bar2.set_description(f"Phase 2 | {attack} done")
+                    bar2.update(1)
+
         # --- Phase 3: Defense sweep ---
-        defense_pairs = [(a, d) for a in attacks for d in defenses]
-        for attack, defense in tqdm(defense_pairs, desc="Phase 3: defense sweep", unit="run", dynamic_ncols=True):
+        def _run_defense_job(attack: str, defense: str, bar: tqdm) -> None:
             defended_run_name = f"defended_{attack}_{defense}"
             defended_dir = runs_root / defended_run_name
-            if not (args.resume and _metrics_exists(defended_dir)):
+            if args.resume and _metrics_exists(defended_dir):
+                _write(f"Resume: skipping {defended_run_name}", bar=bar)
+            else:
                 _run_command(
                     _experiment_command(
                         python_bin=args.python_bin,
@@ -278,11 +326,24 @@ def main() -> None:
                         validation_enabled=args.validation_enabled,
                     ),
                     dry_run=args.dry_run,
+                    bar=bar,
                 )
-            else:
-                print(f"Resume: skipping defended run ({defended_dir})")
+
+        defense_pairs = [(a, d) for a in attacks for d in defenses]
+        with tqdm(total=len(defense_pairs), desc="Phase 3 defenses", unit="run", dynamic_ncols=True) as bar3:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures3 = {
+                    pool.submit(_run_defense_job, attack, defense, bar3): (attack, defense)
+                    for attack, defense in defense_pairs
+                }
+                for fut in as_completed(futures3):
+                    attack, defense = futures3[fut]
+                    fut.result()
+                    bar3.set_description(f"Phase 3 | {attack}+{defense} done")
+                    bar3.update(1)
 
         # --- Phase 4: Reports ---
+        print("Phase 4: generating reports...")
         _run_command(
             _generate_framework_report_command(
                 python_bin=args.python_bin,

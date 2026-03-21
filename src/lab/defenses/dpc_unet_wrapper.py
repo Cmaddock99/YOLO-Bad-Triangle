@@ -223,3 +223,62 @@ def run_wrapper_on_bgr_image(
     image_out = model_tensor_to_image_bgr(output, cfg=cfg)
     return image_out, stats
 
+
+@torch.no_grad()
+def run_wrapper_multipass_on_bgr_image(
+    image_bgr: np.ndarray,
+    model: DPCUNet,
+    *,
+    timestep_schedule: list[float],
+    cfg: WrapperInputConfig,
+    device: str = "cpu",
+) -> tuple[np.ndarray, dict[str, float | bool | str]]:
+    """Run DPC-UNet multiple times at decreasing timesteps.
+
+    Each pass feeds its output into the next, progressively cleaning
+    adversarial perturbations from coarse (high timestep) to fine (low timestep).
+    """
+    if not timestep_schedule:
+        raise ValueError("timestep_schedule must be a non-empty list.")
+    model = model.to(device=device)
+    model.eval()
+    current = image_bgr_to_model_tensor(image_bgr, cfg=cfg).to(device=device)
+    for t in timestep_schedule:
+        output = model(current, timestep=float(t))
+        # Re-encode via uint8 round-trip to stay in valid image space between passes.
+        arr = output.squeeze(0).permute(1, 2, 0).cpu().numpy().astype(np.float32)
+        if cfg.normalize:
+            mean = np.asarray(cfg.mean, dtype=np.float32).reshape(1, 1, 3)
+            std = np.asarray(cfg.std, dtype=np.float32).reshape(1, 1, 3)
+            arr = (arr * std) + mean
+        if cfg.scaling == "minus_one_one":
+            arr = (arr + 1.0) / 2.0
+        arr = np.clip(arr, 0.0, 1.0)
+        intermediate = np.rint(arr * 255.0).astype(np.uint8)
+        if cfg.color_order == "rgb":
+            intermediate = cv2.cvtColor(intermediate, cv2.COLOR_RGB2BGR)
+        current = image_bgr_to_model_tensor(intermediate, cfg=cfg).to(device=device)
+    final_output = model(current, timestep=float(timestep_schedule[-1]))
+    finite = bool(torch.isfinite(final_output).all().item())
+    stats = {
+        "finite": finite,
+        "tensor_min": float(final_output.min().item()),
+        "tensor_max": float(final_output.max().item()),
+        "tensor_mean": float(final_output.mean().item()),
+        "tensor_std": float(final_output.std(unbiased=False).item()),
+        "passes": len(timestep_schedule),
+    }
+    image_out = model_tensor_to_image_bgr(final_output, cfg=cfg)
+    return image_out, stats
+
+
+def sharpen_image(image_bgr: np.ndarray, alpha: float = 0.5) -> np.ndarray:
+    """Apply unsharp masking to recover edges softened by denoising.
+
+    alpha controls sharpening strength (0.0 = no-op, 1.0 = strong).
+    """
+    if alpha <= 0.0:
+        return image_bgr
+    blurred = cv2.GaussianBlur(image_bgr, (0, 0), sigmaX=1.0)
+    return cv2.addWeighted(image_bgr, 1.0 + alpha, blurred, -alpha, 0)
+

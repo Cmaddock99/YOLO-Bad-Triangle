@@ -13,15 +13,27 @@ matrix:
     - none
     - fgsm
     - pgd
+    - deepfool
   defenses:
     - none
+    - median_preprocess
     - c_dog
+    - c_dog_ensemble
 
 # Defense-specific params (referenced by name in matrix.defenses)
 defense_params:
   c_dog:
     checkpoint_path: "${DPC_UNET_CHECKPOINT_PATH}"
     timestep: 50
+    color_order: bgr
+    scaling: zero_one
+    normalize: true
+    device: cpu
+  c_dog_ensemble:
+    checkpoint_path: "${DPC_UNET_CHECKPOINT_PATH}"
+    median_kernel: 3
+    timestep_schedule: "50"
+    sharpen_alpha: 0.3
     color_order: bgr
     scaling: zero_one
     normalize: true

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 
 from lab.eval.prediction_utils import adapter_stage_metadata
@@ -22,29 +23,42 @@ from .framework_registry import register_defense_plugin
 
 
 @dataclass
-@register_defense_plugin("preprocess_dpc_unet", "c_dog")
-class PreprocessDPCUNetDefenseAdapter(BaseDefense):
-    """Provisional wrapper-based preprocessing defense with strict safety checks."""
+@register_defense_plugin("preprocess_ensemble_c_dog", "c_dog_ensemble")
+class PreprocessEnsembleCDogDefenseAdapter(BaseDefense):
+    """Ensemble defense: median blur → DPC-UNet → optional sharpening.
+
+    Median blur removes pixel-level adversarial noise (FGSM/PGD perturbations).
+    DPC-UNet at t=50 handles residual structured adversarial patterns without
+    over-smoothing. Unsharp masking (optional) recovers edges softened by the UNet.
+
+    Multi-pass schedules (e.g. "75,50,25") are available via timestep_schedule but
+    risk degrading detection confidence — single-pass "50" is the recommended default.
+    """
 
     checkpoint_path: str = field(
         default_factory=lambda: os.environ.get("DPC_UNET_CHECKPOINT_PATH", "")
     )
-    timestep: float = 50.0
-    # Multi-pass: comma-separated timesteps e.g. "75,50,25". When set,
-    # overrides `timestep` and runs the model once per value in sequence.
-    timestep_schedule: str = ""
-    # Sharpening applied after DPC-UNet output (0.0 = disabled, 0.5 = moderate).
-    sharpen_alpha: float = 0.0
+    # Median blur kernel applied before DPC-UNet (must be odd, >= 3).
+    median_kernel: int = 3
+    # DPC-UNet timestep(s). Single pass at t=50 is the sweet spot; multi-pass
+    # (e.g. "75,50,25") risks over-smoothing and degrading detection confidence.
+    timestep_schedule: str = "50"
+    # Sharpening strength after DPC-UNet (0.0 = disabled).
+    sharpen_alpha: float = 0.3
     color_order: str = "bgr"
     scaling: str = "zero_one"
     normalize: bool = True
     device: str = "cpu"
-    name: str = "c_dog"
+    name: str = "c_dog_ensemble"
     _model: DPCUNet = field(init=False, repr=False)
     _cfg: WrapperInputConfig = field(init=False, repr=False)
     _loaded: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        k = int(self.median_kernel)
+        if k < 3 or k % 2 == 0:
+            raise ValueError("median_kernel must be odd and >= 3.")
+        self.median_kernel = k
         self._cfg = WrapperInputConfig(
             color_order=self.color_order,
             scaling=self.scaling,
@@ -71,45 +85,43 @@ class PreprocessDPCUNetDefenseAdapter(BaseDefense):
         self._model = model
         self._loaded = True
 
-    def _parse_timestep_schedule(self) -> list[float] | None:
-        if not self.timestep_schedule.strip():
-            return None
+    def _parse_schedule(self) -> list[float]:
         return [float(t.strip()) for t in self.timestep_schedule.split(",") if t.strip()]
 
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:
         del kwargs
         self._ensure_loaded()
-        schedule = self._parse_timestep_schedule()
-        if schedule:
-            output, stats = run_wrapper_multipass_on_bgr_image(
-                image,
-                self._model,
-                timestep_schedule=schedule,
-                cfg=self._cfg,
-                device=self.device,
-            )
-        else:
-            output, stats = run_wrapper_on_bgr_image(
-                image,
-                self._model,
-                timestep=float(self.timestep),
-                cfg=self._cfg,
-                device=self.device,
-            )
+
+        # Stage 1: median blur to strip pixel-level adversarial noise.
+        blurred = cv2.medianBlur(image, self.median_kernel)
+
+        # Stage 2: DPC-UNet multi-pass denoising.
+        schedule = self._parse_schedule()
+        output, stats = run_wrapper_multipass_on_bgr_image(
+            blurred,
+            self._model,
+            timestep_schedule=schedule,
+            cfg=self._cfg,
+            device=self.device,
+        )
+
         if not bool(stats["finite"]):
-            raise RuntimeError("DPC-UNet defense produced non-finite output.")
+            raise RuntimeError("DPC-UNet (ensemble) produced non-finite output.")
         if output.shape != image.shape:
             raise RuntimeError(
-                f"DPC-UNet defense changed image shape: input={image.shape} output={output.shape}"
+                f"DPC-UNet (ensemble) changed image shape: input={image.shape} output={output.shape}"
             )
+
+        # Stage 3: optional unsharp mask to recover detection edges.
         if self.sharpen_alpha > 0.0:
             output = sharpen_image(output, alpha=float(self.sharpen_alpha))
+
         return output, adapter_stage_metadata(
-            "preprocess_dpc_unet",
+            "preprocess_ensemble_c_dog",
             "preprocess",
             checkpoint_path=str(Path(self.checkpoint_path).expanduser()),
-            timestep=float(self.timestep),
-            timestep_schedule=self.timestep_schedule or None,
+            median_kernel=self.median_kernel,
+            timestep_schedule=self.timestep_schedule,
             sharpen_alpha=float(self.sharpen_alpha),
             color_order=self._cfg.color_order,
             scaling=self._cfg.scaling,
@@ -128,7 +140,7 @@ class PreprocessDPCUNetDefenseAdapter(BaseDefense):
     ) -> tuple[list[PredictionRecord], dict[str, Any]]:
         del kwargs
         return predictions, adapter_stage_metadata(
-            "preprocess_dpc_unet",
+            "preprocess_ensemble_c_dog",
             "postprocess",
             note="identity_postprocess",
         )
