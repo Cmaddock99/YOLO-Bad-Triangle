@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from lab.eval.adapter_metadata import adapter_stage_metadata
+from lab.eval.prediction_utils import adapter_stage_metadata
 from lab.eval.prediction_schema import PredictionRecord
 from .base_defense import BaseDefense
 from .dpc_unet_wrapper import (

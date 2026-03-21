@@ -28,9 +28,9 @@ from lab.eval.framework_metrics import (
     summarize_prediction_metrics,
     validation_status,
 )
-from lab.eval.prediction_io import write_predictions_jsonl
+from lab.eval.prediction_utils import write_predictions_jsonl
 from lab.eval.prediction_schema import PredictionRecord, validate_prediction_records
-from lab.models.registry import build_model, list_available_models
+from lab.models.framework_registry import build_model, list_available_models
 from lab.reporting.experiment_summary import generate_summary
 from lab.runners.cli_utils import apply_override, as_mapping, load_yaml_mapping, sanitize_segment
 

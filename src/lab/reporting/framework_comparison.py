@@ -6,7 +6,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .name_normalization import is_none_like, normalize_name
+NONE_LIKE_NAMES = {"", "none", "identity"}
+
+
+def normalize_name(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def is_none_like(value: object) -> bool:
+    return normalize_name(value) in NONE_LIKE_NAMES
 
 
 @dataclass

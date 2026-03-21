@@ -1,9 +1,0 @@
-run_name,run_dir,model,attack,defense,seed,prediction_count,images_with_detections,total_detections,avg_confidence,validation_status,precision,recall,mAP50,mAP50-95
-attack_bim,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260319T025528Z/attack_bim,yolo,bim,none,42,8,8,17,0.7935984800843632,missing,,,,
-attack_blur,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260319T025528Z/attack_blur,yolo,blur,none,42,8,8,16,0.7271772585809231,missing,,,,
-attack_deepfool,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260319T025528Z/attack_deepfool,yolo,deepfool,none,42,8,8,22,0.7625265311111104,missing,,,,
-attack_fgsm,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260319T025528Z/attack_fgsm,yolo,fgsm,none,42,8,8,17,0.752236520542818,missing,,,,
-attack_gaussian_blur,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260319T025528Z/attack_gaussian_blur,yolo,gaussian_blur,none,42,8,8,16,0.7271772585809231,missing,,,,
-attack_ifgsm,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260319T025528Z/attack_ifgsm,yolo,ifgsm,none,42,8,7,19,0.7366661680372137,missing,,,,
-attack_pgd,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260319T025528Z/attack_pgd,yolo,pgd,none,42,8,8,18,0.7904726962248484,missing,,,,
-baseline_none,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260319T025528Z/baseline_none,yolo,none,none,42,8,8,21,0.7658033484504336,missing,,,,

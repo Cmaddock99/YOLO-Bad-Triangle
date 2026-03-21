@@ -7,7 +7,7 @@ from .framework_comparison import (
 )
 from .experiment_summary import generate_summary
 from .team_summary import build_team_summary_payload, render_team_summary_markdown, write_team_summary
-from .name_normalization import is_none_like, normalize_name
+from .framework_comparison import is_none_like, normalize_name
 
 __all__ = [
     "FrameworkRunRecord",

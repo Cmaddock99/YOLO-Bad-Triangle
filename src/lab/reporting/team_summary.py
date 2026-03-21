@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .name_normalization import is_none_like, normalize_name
+from .framework_comparison import is_none_like, normalize_name
 
 
 def _to_optional_float(value: Any) -> float | None:

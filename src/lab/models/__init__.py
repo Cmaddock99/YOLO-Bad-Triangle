@@ -5,7 +5,7 @@ from typing import Any
 
 from .base_model import BaseModel
 from .model_utils import model_label_from_path, normalize_model_path
-from .plugin_registry import get_model_class, list_registered_models, register_model
+from .framework_registry import get_model_class, list_registered_models, register_model
 
 __all__ = [
     "BaseModel",

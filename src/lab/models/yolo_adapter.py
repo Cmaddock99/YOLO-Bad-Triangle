@@ -10,7 +10,7 @@ from lab.eval.prediction_adapter import normalize_ultralytics_result
 from lab.eval.prediction_schema import PredictionRecord
 from .base_model import BaseModel
 from .model_utils import model_label_from_path, normalize_model_path
-from .plugin_registry import register_model
+from .framework_registry import register_model
 
 
 @dataclass
