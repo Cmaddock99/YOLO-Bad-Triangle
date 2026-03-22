@@ -16,7 +16,7 @@ import argparse
 import zipfile
 from pathlib import Path
 
-SWEEP_ROOT_DEFAULT = "outputs/framework_runs/sweep_20260321T033240Z"
+SWEEP_ROOT_DEFAULT = "outputs/framework_runs/sweep_20260321T183700Z"
 CLEAN_DIR_DEFAULT = "coco/val2017_subset500/images"
 CHECKPOINT_DEFAULT = "dpc_unet_final_golden.pt"
 OUTPUT_ZIP_DEFAULT = "outputs/dpc_unet_training.zip"
@@ -25,6 +25,7 @@ ATTACKS = {
     "fgsm": "attack_fgsm",
     "pgd": "attack_pgd",
     "deepfool": "attack_deepfool",
+    "blur": "attack_blur",
 }
 
 
