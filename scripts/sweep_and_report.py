@@ -573,6 +573,21 @@ def main() -> None:
                     )
                     bar4.set_description("  reports | team summary done")
                     bar4.update(1)
+
+            # Generate dashboard
+            dashboard_out = Path("outputs/dashboard.html").resolve()
+            _run_command(
+                [
+                    args.python_bin,
+                    "scripts/generate_dashboard.py",
+                    "--reports-root", str(report_root.parent),
+                    "--output", str(dashboard_out),
+                ],
+                dry_run=args.dry_run,
+                bar=bar4,
+            )
+            bar4.set_description("  reports | dashboard done")
+
             phase_times[4] = time.monotonic() - t0_p4
             print(f"[{_now()}] Phase 4/reports: done ({_fmt_elapsed(phase_times[4])})")
         else:
@@ -597,6 +612,7 @@ def main() -> None:
             if args.team_summary:
                 print(f"Team JSON summary:    {report_root}/team_summary.json")
                 print(f"Team MD summary:      {report_root}/team_summary.md")
+            print(f"Dashboard:            outputs/dashboard.html")
         print("=" * 60)
     except (ValueError, FileNotFoundError, subprocess.CalledProcessError, PermissionError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
