@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Lint (ruff if available)
+        run: |
+          if command -v ruff >/dev/null 2>&1; then
+            ruff check src tests scripts
+          else
+            echo "ruff not installed; skipping lint"
+          fi
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Create tiny CI demo image
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import cv2
+          import numpy as np
+
+          out = Path("outputs/ci_demo/images")
+          out.mkdir(parents=True, exist_ok=True)
+          img = np.full((128, 128, 3), 127, dtype=np.uint8)
+          cv2.imwrite(str(out / "ci.jpg"), img)
+          print(f"Wrote demo image to {out / 'ci.jpg'}")
+          PY
+
+      - name: Run minimal framework experiment
+        run: |
+          python scripts/run_unified.py run-one \
+            --config configs/ci_demo.yaml \
+            --set runner.output_root=outputs/framework_runs/ci \
+            --set runner.run_name=ci_demo
+
+      - name: Validate output artifacts
+        run: |
+          python scripts/ci/validate_outputs.py \
+            --output-root outputs/framework_runs/ci/ci_demo
+
+      - name: Generate framework report CSV
+        run: |
+          python scripts/generate_framework_report.py \
+            --runs-root outputs/framework_runs/ci \
+            --output-dir outputs/framework_reports/ci
+
+      - name: Enforce required metrics_summary.csv and print metrics
+        run: |
+          cp outputs/framework_reports/ci/framework_run_summary.csv outputs/metrics_summary.csv
+          test -s outputs/metrics_summary.csv
+          echo "=== metrics_summary.csv (head) ==="
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          path = Path("outputs/metrics_summary.csv")
+          with path.open(newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            for idx, row in enumerate(reader):
+              print(",".join(row))
+              if idx >= 5:
+                break
+          PY
+
+      - name: Upload metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics-summary
+          path: outputs/metrics_summary.csv
+          if-no-files-found: error
+
+      - name: Upload plots artifact (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: plots
+          path: outputs/plots/
+          if-no-files-found: ignore

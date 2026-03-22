@@ -1,0 +1,56 @@
+image: python:3.11
+
+stages:
+  - ci
+
+variables:
+  PYTHONPATH: "src"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+ci:
+  stage: ci
+  timeout: 15m
+  script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
+    - |
+      if command -v ruff >/dev/null 2>&1; then
+        ruff check src tests scripts
+      else
+        echo "ruff not installed; skipping lint"
+      fi
+    - pytest -q
+    - |
+      python - <<'PY'
+      from pathlib import Path
+      import cv2
+      import numpy as np
+
+      out = Path("outputs/ci_demo/images")
+      out.mkdir(parents=True, exist_ok=True)
+      img = np.full((128, 128, 3), 127, dtype=np.uint8)
+      cv2.imwrite(str(out / "ci.jpg"), img)
+      print(f"Wrote demo image to {out / 'ci.jpg'}")
+      PY
+    - |
+      python scripts/run_unified.py run-one \
+        --config configs/ci_demo.yaml \
+        --set runner.output_root=outputs/framework_runs/ci \
+        --set runner.run_name=ci_demo
+    - |
+      python scripts/ci/validate_outputs.py \
+        --output-root outputs/framework_runs/ci/ci_demo
+    - |
+      python scripts/generate_framework_report.py \
+        --runs-root outputs/framework_runs/ci \
+        --output-dir outputs/framework_reports/ci
+    - cp outputs/framework_reports/ci/framework_run_summary.csv outputs/metrics_summary.csv
+    - test -s outputs/metrics_summary.csv
+    - echo "=== metrics_summary.csv (head) ==="
+    - head -n 6 outputs/metrics_summary.csv
+  artifacts:
+    when: always
+    paths:
+      - outputs/metrics_summary.csv
+      - outputs/plots/
