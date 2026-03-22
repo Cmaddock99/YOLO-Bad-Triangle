@@ -415,7 +415,14 @@ Plotly.newPlot("trend", {trend_json},
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(html, encoding="utf-8")
+
+    # Also write to docs/index.html for GitHub Pages
+    pages_out = Path("docs/index.html").resolve()
+    pages_out.parent.mkdir(parents=True, exist_ok=True)
+    pages_out.write_text(html, encoding="utf-8")
+
     print(f"Dashboard written to {output}")
+    print(f"  GitHub Pages:  {pages_out}")
     print(f"  Sweeps loaded: {len(sweeps)}")
     print(f"  Latest sweep:  {latest['label']} ({latest['sweep']})")
 

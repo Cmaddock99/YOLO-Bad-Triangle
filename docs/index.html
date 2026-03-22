@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YOLO Adversarial Robustness Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #0f1117; color: #e0e0e0; padding: 24px; }
+  h1 { font-size: 1.6rem; font-weight: 700; color: #ffffff; margin-bottom: 4px; }
+  .subtitle { color: #888; font-size: 0.85rem; margin-bottom: 28px; }
+  h2 { font-size: 1.1rem; font-weight: 600; color: #ccc; margin: 32px 0 12px; }
+  .cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .card { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px;
+           padding: 18px 24px; min-width: 180px; flex: 1; }
+  .card-title { font-size: 0.75rem; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.05em; margin-bottom: 6px; }
+  .card-value { font-size: 1.8rem; font-weight: 700; margin-bottom: 4px; }
+  .card-sub { font-size: 0.78rem; color: #666; }
+  .chart-box { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px;
+                padding: 20px; margin-bottom: 20px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { text-align: left; padding: 10px 14px; color: #888; font-weight: 500;
+        border-bottom: 1px solid #2a2d3a; text-transform: uppercase;
+        font-size: 0.75rem; letter-spacing: 0.05em; }
+  td { padding: 10px 14px; border-bottom: 1px solid #1e2130; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #20243a; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px;
+            font-size: 0.78rem; font-weight: 600; }
+  .badge.attack { background: #1e2a40; color: #7aabff; }
+  .badge.defense { background: #2a1e3a; color: #d4a6ff; }
+  @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>YOLO Adversarial Robustness Dashboard</h1>
+<div class="subtitle">Model: yolo26n &nbsp;·&nbsp; Dataset: 500 COCO val images
+  &nbsp;·&nbsp; 4 sweep(s) &nbsp;·&nbsp; Generated: 2026-03-22 04:51 UTC</div>
+
+<div class="cards">
+        <div class="card">
+            <div class="card-title">Total Sweeps</div>
+            <div class="card-value" style="color:#4C72B0">4</div>
+            <div class="card-sub">runs recorded</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Baseline Detections</div>
+            <div class="card-value" style="color:#2ca02c">1437</div>
+            <div class="card-sub">clean images, no attack</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Strongest Attack</div>
+            <div class="card-value" style="color:#C44E52">DEEPFOOL</div>
+            <div class="card-sub">−78.2% detections</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Best Defense (latest)</div>
+            <div class="card-value" style="color:#E377C2">median_preprocess</div>
+            <div class="card-sub">vs pgd: −17.6%</div>
+        </div></div>
+
+<h2>Latest Sweep — Defense Heatmap (Mar 21 18:37)</h2>
+<div class="chart-box">
+  <div id="heatmap" style="height:320px"></div>
+</div>
+
+<div class="two-col">
+  <div>
+    <h2>Attack Effectiveness (Undefended)</h2>
+    <div class="chart-box">
+      <div id="attack-bars" style="height:300px"></div>
+    </div>
+  </div>
+  <div>
+    <h2>Defense Recovery — Latest Sweep</h2>
+    <div class="chart-box" style="overflow-x:auto">
+      
+    <table>
+        <thead>
+            <tr>
+                <th>Attack</th><th>Defense</th>
+                <th>Detection Drop</th><th>Detections</th><th>Avg Confidence</th>
+            </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td><span class="badge attack">pgd</span></td>
+            <td><span class="badge defense">Median Filter</span></td>
+            <td style="color:#27ae60; font-weight:600">17.6%</td>
+            <td>1184</td>
+            <td>0.7573</td>
+        </tr>
+        <tr>
+            <td><span class="badge attack">blur</span></td>
+            <td><span class="badge defense">Median Filter</span></td>
+            <td style="color:#27ae60; font-weight:600">18.6%</td>
+            <td>1169</td>
+            <td>0.7522</td>
+        </tr>
+        <tr>
+            <td><span class="badge attack">fgsm</span></td>
+            <td><span class="badge defense">Median Filter</span></td>
+            <td style="color:#27ae60; font-weight:600">20.1%</td>
+            <td>1148</td>
+            <td>0.7592</td>
+        </tr>
+        <tr>
+            <td><span class="badge attack">pgd</span></td>
+            <td><span class="badge defense">DPC-UNet (c_dog)</span></td>
+            <td style="color:#27ae60; font-weight:600">29.9%</td>
+            <td>1007</td>
+            <td>0.7575</td>
+        </tr>
+        <tr>
+            <td><span class="badge attack">fgsm</span></td>
+            <td><span class="badge defense">DPC-UNet (c_dog)</span></td>
+            <td style="color:#27ae60; font-weight:600">30.0%</td>
+            <td>1006</td>
+            <td>0.76</td>
+        </tr>
+        <tr>
+            <td><span class="badge attack">blur</span></td>
+            <td><span class="badge defense">DPC-UNet (c_dog)</span></td>
+            <td style="color:#e67e22; font-weight:600">31.3%</td>
+            <td>987</td>
+            <td>0.7527</td>
+        </tr>
+        <tr>
+            <td><span class="badge attack">deepfool</span></td>
+            <td><span class="badge defense">Median Filter</span></td>
+            <td style="color:#c0392b; font-weight:600">84.8%</td>
+            <td>218</td>
+            <td>0.748</td>
+        </tr>
+        <tr>
+            <td><span class="badge attack">deepfool</span></td>
+            <td><span class="badge defense">DPC-UNet (c_dog)</span></td>
+            <td style="color:#c0392b; font-weight:600">88.7%</td>
+            <td>163</td>
+            <td>0.7277</td>
+        </tr></tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<h2>Detection Drop Over Time — All Sweeps</h2>
+<div class="chart-box">
+  <div id="trend" style="height:380px"></div>
+</div>
+
+<script>
+const dark = {
+  paper_bgcolor: "#1a1d27",
+  plot_bgcolor: "#1a1d27",
+  font: { color: "#cccccc", family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+  xaxis: { gridcolor: "#2a2d3a", zerolinecolor: "#2a2d3a" },
+  yaxis: { gridcolor: "#2a2d3a", zerolinecolor: "#2a2d3a" },
+  margin: { t: 20, r: 20, b: 50, l: 140 },
+};
+
+Plotly.newPlot("heatmap", [{"type": "heatmap", "x": ["blur", "deepfool", "fgsm", "pgd"], "y": ["DPC-UNet (c_dog)", "Median Filter"], "z": [[31.3, 88.7, 30.0, 29.9], [18.6, 84.8, 20.1, 17.6]], "text": [["31.3%<br>987 detections", "88.7%<br>163 detections", "30.0%<br>1006 detections", "29.9%<br>1007 detections"], ["18.6%<br>1169 detections", "84.8%<br>218 detections", "20.1%<br>1148 detections", "17.6%<br>1184 detections"]], "hovertemplate": "<b>%{x}</b> + <b>%{y}</b><br>Drop: %{z}%<extra></extra>", "colorscale": [[0, "#27ae60"], [0.5, "#f39c12"], [1, "#c0392b"]], "zmin": 0, "zmax": 100, "showscale": true, "colorbar": {"title": "Detection Drop %"}, "texttemplate": "%{text}", "textfont": {"size": 12, "color": "white"}}],
+  Object.assign({}, dark, {
+    margin: { t: 20, r: 120, b: 60, l: 160 },
+    xaxis: Object.assign({}, dark.xaxis, { title: "Attack" }),
+    yaxis: Object.assign({}, dark.yaxis, { title: "" }),
+  }),
+  {responsive: true, displayModeBar: false}
+);
+
+Plotly.newPlot("attack-bars", [{"x": ["blur", "deepfool", "fgsm", "pgd"], "y": [16.5, 78.2, 12.3, 13.4], "type": "bar", "marker": {"color": ["#55A868", "#C44E52", "#4C72B0", "#DD8452"]}, "text": ["16.5%", "78.2%", "12.3%", "13.4%"], "textposition": "outside"}],
+  Object.assign({}, dark, {
+    margin: { t: 20, r: 20, b: 50, l: 60 },
+    yaxis: Object.assign({}, dark.yaxis, {
+      title: "Detection Drop %", range: [0, 100]
+    }),
+    xaxis: Object.assign({}, dark.xaxis, { title: "Attack" }),
+    showlegend: false,
+  }),
+  {responsive: true, displayModeBar: false}
+);
+
+Plotly.newPlot("trend", [{"x": ["Mar 21 03:32", "Mar 21 18:37"], "y": [64.8, 31.3], "name": "blur + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#55A868", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 03:32"], "y": [86.4], "name": "blur + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#55A868", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 03:32", "Mar 21 18:37"], "y": [18.6, 18.6, 18.6], "name": "blur + Median Filter", "mode": "lines+markers", "line": {"color": "#55A868", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [94.8, 96.8, 88.7], "name": "deepfool + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32"], "y": [96.9, 98.5], "name": "deepfool + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [4.5, 83.5, 84.8, 84.8], "name": "deepfool + Median Filter", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [69.1, 69.1, 30.0], "name": "fgsm + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#4C72B0", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32"], "y": [92.8, 90.5], "name": "fgsm + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#4C72B0", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [20.1, 26.8, 20.1, 20.1], "name": "fgsm + Median Filter", "mode": "lines+markers", "line": {"color": "#4C72B0", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [69.1, 74.3, 29.9], "name": "pgd + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#DD8452", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32"], "y": [95.9, 93.5], "name": "pgd + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#DD8452", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [19.4, 23.7, 19.1, 17.6], "name": "pgd + Median Filter", "mode": "lines+markers", "line": {"color": "#DD8452", "width": 2}, "marker": {"size": 8, "symbol": "square"}}],
+  Object.assign({}, dark, {
+    margin: { t: 20, r: 20, b: 60, l: 60 },
+    yaxis: Object.assign({}, dark.yaxis, {
+      title: "Detection Drop %", range: [0, 105]
+    }),
+    xaxis: Object.assign({}, dark.xaxis, { title: "Sweep" }),
+    legend: { bgcolor: "#1a1d27", bordercolor: "#2a2d3a", borderwidth: 1 },
+    hovermode: "x unified",
+  }),
+  {responsive: true, displayModeBar: false}
+);
+</script>
+</body>
+</html>
