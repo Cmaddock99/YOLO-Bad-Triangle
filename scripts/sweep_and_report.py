@@ -22,6 +22,33 @@ def _timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
+def _now() -> str:
+    """Current local time as HH:MM:SS for progress headers."""
+    return datetime.now().strftime("%H:%M:%S")
+
+
+def _phase_header(n: int, label: str) -> str:
+    return f"[{_now()}] Phase {n}: {label}"
+
+
+def _parse_phases(raw: str) -> set[int]:
+    phases: set[int] = set()
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            n = int(part)
+        except ValueError:
+            raise ValueError(f"Invalid phase {part!r}: phases must be integers (1-4).")
+        if n not in {1, 2, 3, 4}:
+            raise ValueError(f"Invalid phase {n}: must be 1, 2, 3, or 4.")
+        phases.add(n)
+    if not phases:
+        raise ValueError("--phases must include at least one phase number.")
+    return phases
+
+
 def _list_plugins() -> None:
     sys.path.insert(0, str(Path("src").resolve()))
     from lab.attacks.framework_registry import list_available_attack_plugins
@@ -254,6 +281,15 @@ def main() -> None:
     )
     parser.add_argument("--resume", action="store_true", help="Skip runs that already have metrics.json.")
     parser.add_argument(
+        "--phases",
+        default="1,2,3,4",
+        help=(
+            "Comma-separated phases to run (default: 1,2,3,4). "
+            "1=baseline  2=attacks  3=defenses  4=reports. "
+            "Example: --phases 3,4 to re-run only defenses + reports against an existing --runs-root."
+        ),
+    )
+    parser.add_argument(
         "--workers",
         default="1",
         help="Parallel experiment workers. Pass a number (e.g. 4) or 'auto' to use CPU count. "
@@ -313,6 +349,7 @@ def main() -> None:
         if not python_bin_path.is_file():
             raise FileNotFoundError(f"Python binary not found: {python_bin_path}")
 
+        phases = _parse_phases(args.phases)
         max_images = args.max_images if args.max_images is not None else _default_max_images(args.preset)
         attacks = _parse_attacks(args.attacks)
         raw_defenses = _parse_defenses(args.defenses)
@@ -320,59 +357,75 @@ def main() -> None:
 
         runs_root.mkdir(parents=True, exist_ok=True)
         report_root.mkdir(parents=True, exist_ok=True)
-        print(f"Runs root:    {runs_root}")
-        print(f"Reports root: {report_root}")
-        print(f"Attacks:      {attacks}")
+
+        # --- Startup banner ---
+        phase_names = {1: "baseline", 2: "attacks", 3: "defenses", 4: "reports"}
+        running_phases = sorted(phases)
+        print(f"[{_now()}] Sweep starting")
+        print(f"  Runs root:    {runs_root}")
+        print(f"  Reports root: {report_root}")
+        print(f"  Attacks:      {attacks}")
         if defenses:
-            print(f"Defenses:     {defenses}")
-
-        total_runs = 1 + len(attacks) + len(attacks) * len(defenses)
-        print(f"Total runs:   {total_runs} (1 baseline + {len(attacks)} attacks"
-              + (f" + {len(attacks) * len(defenses)} defended)" if defenses else ")"))
+            print(f"  Defenses:     {defenses}")
+        total_runs = (
+            (1 if 1 in phases else 0)
+            + (len(attacks) if 2 in phases else 0)
+            + (len(attacks) * len(defenses) if 3 in phases else 0)
+        )
+        phase_label = " → ".join(f"{n}:{phase_names[n]}" for n in running_phases)
+        print(f"  Phases:       {phase_label}")
+        print(f"  Total runs:   {total_runs}")
         if workers > 1:
-            print(f"Workers:      {workers} parallel")
+            print(f"  Workers:      {workers} parallel")
         if args.objective_mode:
-            print(f"Objective:    {args.objective_mode}")
+            print(f"  Objective:    {args.objective_mode}")
         if args.target_class is not None:
-            print(f"Target class: {args.target_class}")
+            print(f"  Target class: {args.target_class}")
         if args.attack_roi:
-            print(f"Attack ROI:   {args.attack_roi}")
+            print(f"  Attack ROI:   {args.attack_roi}")
         if args.skip_errors:
-            print("Mode:         skip-errors (failures collected, not fatal)")
+            print("  Mode:         skip-errors (failures collected, not fatal)")
+        print()
 
+        sweep_t0 = time.monotonic()
         failures: list[str] = []
+        phase_times: dict[int, float] = {}
 
         # --- Phase 1: Baseline ---
         baseline_dir = runs_root / args.baseline_run_name
-        if not (args.resume and _metrics_exists(baseline_dir)):
-            print("Phase 1: running baseline...")
-            t0 = time.monotonic()
-            ok = _run_command(
-                _experiment_command(
-                    python_bin=args.python_bin,
-                    config=config,
-                    output_root=runs_root,
-                    run_name=args.baseline_run_name,
-                    attack_name="none",
-                    defense_name="none",
-                    seed=args.seed,
-                    max_images=max_images,
-                    validation_enabled=args.validation_enabled,
-                    objective_mode=args.objective_mode,
-                    target_class=args.target_class,
-                    attack_roi=args.attack_roi,
-                ),
-                dry_run=args.dry_run,
-                skip_errors=args.skip_errors,
-            )
-            elapsed = time.monotonic() - t0
-            if ok:
-                print(f"Phase 1: baseline done ({_fmt_elapsed(elapsed)}).")
+        if 1 in phases:
+            if args.resume and _metrics_exists(baseline_dir):
+                print(f"[{_now()}] Phase 1/baseline: skipping (exists at {baseline_dir})")
             else:
-                failures.append("baseline")
-                print(f"Phase 1: baseline FAILED ({_fmt_elapsed(elapsed)}) — continuing.")
+                print(f"[{_now()}] Phase 1/baseline: starting...")
+                t0 = time.monotonic()
+                ok = _run_command(
+                    _experiment_command(
+                        python_bin=args.python_bin,
+                        config=config,
+                        output_root=runs_root,
+                        run_name=args.baseline_run_name,
+                        attack_name="none",
+                        defense_name="none",
+                        seed=args.seed,
+                        max_images=max_images,
+                        validation_enabled=args.validation_enabled,
+                        objective_mode=args.objective_mode,
+                        target_class=args.target_class,
+                        attack_roi=args.attack_roi,
+                    ),
+                    dry_run=args.dry_run,
+                    skip_errors=args.skip_errors,
+                )
+                elapsed = time.monotonic() - t0
+                phase_times[1] = elapsed
+                if ok:
+                    print(f"[{_now()}] Phase 1/baseline: done ({_fmt_elapsed(elapsed)})")
+                else:
+                    failures.append("baseline")
+                    print(f"[{_now()}] Phase 1/baseline: FAILED ({_fmt_elapsed(elapsed)}) — continuing")
         else:
-            print(f"Phase 1: skipping baseline (resume, exists at {baseline_dir})")
+            print(f"[{_now()}] Phase 1/baseline: skipped (not in --phases)")
 
         # --- Phase 2: Attack sweep ---
         def _run_attack_job(attack: str, bar: tqdm) -> tuple[str, bool]:
@@ -380,7 +433,7 @@ def main() -> None:
             attack_dir = runs_root / attack_run_name
             t0 = time.monotonic()
             if args.resume and _metrics_exists(attack_dir):
-                _write(f"Resume: skipping {attack_run_name}", bar=bar)
+                _write(f"  [{_now()}] {attack_run_name}: skipped (resume)", bar=bar)
                 return attack, True
             ok = _run_command(
                 _experiment_command(
@@ -403,7 +456,7 @@ def main() -> None:
             )
             elapsed = time.monotonic() - t0
             status = "done" if ok else "FAILED"
-            _write(f"  {attack_run_name}: {status} ({_fmt_elapsed(elapsed)})", bar=bar)
+            _write(f"  [{_now()}] {attack_run_name}: {status} ({_fmt_elapsed(elapsed)})", bar=bar)
 
             if ok:
                 summary_command = _print_summary_command(
@@ -419,16 +472,23 @@ def main() -> None:
                         subprocess.run(summary_command, check=True, stdout=handle)
             return attack, ok
 
-        with tqdm(total=len(attacks), desc="Phase 2 attacks", unit="attack", dynamic_ncols=True) as bar2:
-            with ThreadPoolExecutor(max_workers=workers) as pool:
-                futures = {pool.submit(_run_attack_job, attack, bar2): attack for attack in attacks}
-                for fut in as_completed(futures):
-                    attack = futures[fut]
-                    _, ok = fut.result()
-                    if not ok:
-                        failures.append(f"attack_{attack}")
-                    bar2.set_description(f"Phase 2 | {attack} {'done' if ok else 'FAILED'}")
-                    bar2.update(1)
+        if 2 in phases:
+            print(f"[{_now()}] Phase 2/attacks: starting ({len(attacks)} attack(s), workers={workers})...")
+            t0_p2 = time.monotonic()
+            with tqdm(total=len(attacks), desc="  attacks", unit="attack", dynamic_ncols=True) as bar2:
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    futures = {pool.submit(_run_attack_job, attack, bar2): attack for attack in attacks}
+                    for fut in as_completed(futures):
+                        attack = futures[fut]
+                        _, ok = fut.result()
+                        if not ok:
+                            failures.append(f"attack_{attack}")
+                        bar2.set_description(f"  attacks | {attack} {'done' if ok else 'FAILED'}")
+                        bar2.update(1)
+            phase_times[2] = time.monotonic() - t0_p2
+            print(f"[{_now()}] Phase 2/attacks: done ({_fmt_elapsed(phase_times[2])})")
+        else:
+            print(f"[{_now()}] Phase 2/attacks: skipped (not in --phases)")
 
         # --- Phase 3: Defense sweep ---
         def _run_defense_job(attack: str, defense: str, bar: tqdm) -> tuple[str, bool]:
@@ -436,7 +496,7 @@ def main() -> None:
             defended_dir = runs_root / defended_run_name
             t0 = time.monotonic()
             if args.resume and _metrics_exists(defended_dir):
-                _write(f"Resume: skipping {defended_run_name}", bar=bar)
+                _write(f"  [{_now()}] {defended_run_name}: skipped (resume)", bar=bar)
                 return defended_run_name, True
             ok = _run_command(
                 _experiment_command(
@@ -459,53 +519,85 @@ def main() -> None:
             )
             elapsed = time.monotonic() - t0
             status = "done" if ok else "FAILED"
-            _write(f"  {defended_run_name}: {status} ({_fmt_elapsed(elapsed)})", bar=bar)
+            _write(f"  [{_now()}] {defended_run_name}: {status} ({_fmt_elapsed(elapsed)})", bar=bar)
             return defended_run_name, ok
 
-        defense_pairs = [(a, d) for a in attacks for d in defenses]
-        with tqdm(total=len(defense_pairs), desc="Phase 3 defenses", unit="run", dynamic_ncols=True) as bar3:
-            with ThreadPoolExecutor(max_workers=workers) as pool:
-                futures3 = {
-                    pool.submit(_run_defense_job, attack, defense, bar3): (attack, defense)
-                    for attack, defense in defense_pairs
-                }
-                for fut in as_completed(futures3):
-                    attack, defense = futures3[fut]
-                    run_name, ok = fut.result()
-                    if not ok:
-                        failures.append(run_name)
-                    bar3.set_description(f"Phase 3 | {attack}+{defense} {'done' if ok else 'FAILED'}")
-                    bar3.update(1)
+        if 3 in phases:
+            defense_pairs = [(a, d) for a in attacks for d in defenses]
+            n_pairs = len(defense_pairs)
+            print(f"[{_now()}] Phase 3/defenses: starting ({n_pairs} run(s), workers={workers})...")
+            t0_p3 = time.monotonic()
+            with tqdm(total=n_pairs, desc="  defenses", unit="run", dynamic_ncols=True) as bar3:
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    futures3 = {
+                        pool.submit(_run_defense_job, attack, defense, bar3): (attack, defense)
+                        for attack, defense in defense_pairs
+                    }
+                    for fut in as_completed(futures3):
+                        attack, defense = futures3[fut]
+                        run_name, ok = fut.result()
+                        if not ok:
+                            failures.append(run_name)
+                        bar3.set_description(f"  defenses | {attack}+{defense} {'done' if ok else 'FAILED'}")
+                        bar3.update(1)
+            phase_times[3] = time.monotonic() - t0_p3
+            print(f"[{_now()}] Phase 3/defenses: done ({_fmt_elapsed(phase_times[3])})")
+        else:
+            print(f"[{_now()}] Phase 3/defenses: skipped (not in --phases)")
 
         # --- Phase 4: Reports ---
-        print("Phase 4: generating reports...")
-        _run_command(
-            _generate_framework_report_command(
-                python_bin=args.python_bin,
-                runs_root=runs_root,
-                output_dir=report_root,
-            ),
-            dry_run=args.dry_run,
-        )
-        if args.team_summary:
-            _run_command(
-                _generate_team_summary_command(
-                    python_bin=args.python_bin,
-                    report_root=report_root,
-                ),
-                dry_run=args.dry_run,
-            )
+        if 4 in phases:
+            report_steps = 2 if args.team_summary else 1
+            print(f"[{_now()}] Phase 4/reports: generating ({report_steps} report(s))...")
+            t0_p4 = time.monotonic()
+            with tqdm(total=report_steps, desc="  reports", unit="report", dynamic_ncols=True) as bar4:
+                _run_command(
+                    _generate_framework_report_command(
+                        python_bin=args.python_bin,
+                        runs_root=runs_root,
+                        output_dir=report_root,
+                    ),
+                    dry_run=args.dry_run,
+                    bar=bar4,
+                )
+                bar4.set_description("  reports | framework report done")
+                bar4.update(1)
+                if args.team_summary:
+                    _run_command(
+                        _generate_team_summary_command(
+                            python_bin=args.python_bin,
+                            report_root=report_root,
+                        ),
+                        dry_run=args.dry_run,
+                        bar=bar4,
+                    )
+                    bar4.set_description("  reports | team summary done")
+                    bar4.update(1)
+            phase_times[4] = time.monotonic() - t0_p4
+            print(f"[{_now()}] Phase 4/reports: done ({_fmt_elapsed(phase_times[4])})")
+        else:
+            print(f"[{_now()}] Phase 4/reports: skipped (not in --phases)")
 
-        print("")
+        # --- Final summary ---
+        total_elapsed = time.monotonic() - sweep_t0
+        print()
+        print("=" * 60)
+        print(f"Sweep complete — total time: {_fmt_elapsed(total_elapsed)}")
+        if phase_times:
+            print("Phase breakdown:")
+            for n in sorted(phase_times):
+                print(f"  Phase {n}/{phase_names[n]:<10} {_fmt_elapsed(phase_times[n])}")
         if failures:
-            print(f"WARNING: {len(failures)} run(s) failed: {', '.join(failures)}")
-        print("Done.")
-        print(f"Per-attack summaries: {report_root}/summary_*.txt")
-        print(f"Aggregate CSV:        {report_root}/framework_run_summary.csv")
-        print(f"Aggregate Markdown:   {report_root}/framework_run_report.md")
-        if args.team_summary:
-            print(f"Team JSON summary:    {report_root}/team_summary.json")
-            print(f"Team MD summary:      {report_root}/team_summary.md")
+            print(f"\nWARNING: {len(failures)} run(s) failed: {', '.join(failures)}")
+        if 4 in phases:
+            print()
+            print(f"Per-attack summaries: {report_root}/summary_*.txt")
+            print(f"Aggregate CSV:        {report_root}/framework_run_summary.csv")
+            print(f"Aggregate Markdown:   {report_root}/framework_run_report.md")
+            if args.team_summary:
+                print(f"Team JSON summary:    {report_root}/team_summary.json")
+                print(f"Team MD summary:      {report_root}/team_summary.md")
+        print("=" * 60)
     except (ValueError, FileNotFoundError, subprocess.CalledProcessError, PermissionError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         raise SystemExit(2) from exc
