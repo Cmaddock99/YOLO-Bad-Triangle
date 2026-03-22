@@ -10,11 +10,13 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from lab.config.contracts import ATTACK_OBJECTIVE_UNTARGETED
 from lab.config.contracts import PIXEL_MAX
 
 from .base_attack import BaseAttack
 from .fgsm_adapter import FGSMAttack
 from .framework_registry import register_attack_plugin
+from .objective import AttackObjective
 
 
 LOGGER = logging.getLogger(__name__)
@@ -60,8 +62,10 @@ class PGDAttack(FGSMAttack):
         steps: int = 20,
         random_start: bool = True,
         restarts: int = 1,
+        *,
+        objective: AttackObjective | None = None,
     ) -> None:
-        super().__init__(epsilon=epsilon)
+        super().__init__(epsilon=epsilon, objective=objective)
         self.epsilon = _validate_finite_range("epsilon", self.epsilon, min_value=0.0, max_value=1.0)
         if self.epsilon <= 0.0:
             raise ValueError("epsilon must be > 0.")
@@ -173,7 +177,14 @@ class PGDAttack(FGSMAttack):
                         loss.backward()
                 if x_adv.grad is None:
                     raise RuntimeError("PGD failed: gradients are unavailable.")
-                grad_sign = x_adv.grad.sign()
+                grad = x_adv.grad
+                _, _, padded_h, padded_w = grad.shape
+                grad_mask = self.objective.gradient_mask(
+                    height=padded_h, width=padded_w, device=grad.device
+                )
+                if grad_mask is not None:
+                    grad = grad * grad_mask
+                grad_sign = grad.sign()
                 x_adv = x_adv + (self.alpha * grad_sign)
                 delta = torch.clamp(x_adv - x0, min=-self.epsilon, max=self.epsilon)
                 self._log_step_stats(
@@ -208,16 +219,28 @@ class PGDAttackAdapter(BaseAttack):
     steps: int = 20
     random_start: bool = True
     restarts: int = 1
+    objective_mode: str = ATTACK_OBJECTIVE_UNTARGETED
+    target_class: int | None = None
+    preserve_weight: float = 0.25
+    attack_roi: tuple[float, float, float, float] | list[float] | str | None = None
     name: str = "pgd_adapter"
     _impl: PGDAttack = field(init=False, repr=False)
+    _objective: AttackObjective = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        self._objective = AttackObjective.from_kwargs(
+            mode=self.objective_mode,
+            target_class=self.target_class,
+            preserve_weight=self.preserve_weight,
+            attack_roi=self.attack_roi,
+        )
         self._impl = PGDAttack(
             epsilon=self.epsilon,
             alpha=self.alpha,
             steps=self.steps,
             random_start=self.random_start,
             restarts=self.restarts,
+            objective=self._objective,
         )
 
     @staticmethod
@@ -259,4 +282,5 @@ class PGDAttackAdapter(BaseAttack):
             "steps": self._impl.steps,
             "random_start": self._impl.random_start,
             "restarts": self._impl.restarts,
+            **self._objective.to_dict(),
         }

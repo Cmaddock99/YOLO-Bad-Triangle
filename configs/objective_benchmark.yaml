@@ -1,0 +1,39 @@
+model:
+  name: yolo
+  params:
+    model: yolo26n.pt
+
+data:
+  source_dir: coco/val2017_subset500/images
+
+attack:
+  name: fgsm
+  params:
+    objective_mode: untargeted_conf_suppression
+    # Set target_class when using target/hiding objectives.
+    target_class:
+    # Optional normalized patch region x,y,w,h.
+    attack_roi:
+
+defense:
+  name: none
+  params: {}
+
+predict:
+  conf: 0.5
+  iou: 0.7
+  imgsz: 640
+
+validation:
+  enabled: true
+  dataset: configs/coco_subset500.yaml
+  params: {}
+
+summary:
+  enabled: false
+
+runner:
+  seed: 42
+  max_images: 32
+  output_root: outputs/framework_runs
+  run_name: objective_benchmark

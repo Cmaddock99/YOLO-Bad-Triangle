@@ -119,8 +119,11 @@ def _experiment_command(
     seed: int,
     max_images: int,
     validation_enabled: bool,
+    objective_mode: str | None = None,
+    target_class: int | None = None,
+    attack_roi: str | None = None,
 ) -> list[str]:
-    return [
+    command = [
         python_bin,
         "src/lab/runners/run_experiment.py",
         "--config",
@@ -142,6 +145,13 @@ def _experiment_command(
         "--set",
         "summary.enabled=false",
     ]
+    if objective_mode:
+        command.extend(["--set", f"attack.params.objective_mode={objective_mode}"])
+    if target_class is not None:
+        command.extend(["--set", f"attack.params.target_class={int(target_class)}"])
+    if attack_roi:
+        command.extend(["--set", f"attack.params.attack_roi={attack_roi}"])
+    return command
 
 
 def _print_summary_command(
@@ -224,6 +234,24 @@ def main() -> None:
         help="smoke=fast sanity defaults (8 images), full=all images.",
     )
     parser.add_argument("--validation-enabled", action="store_true")
+    parser.add_argument(
+        "--objective-mode",
+        choices=(
+            "untargeted_conf_suppression",
+            "target_class_misclassification",
+            "class_conditional_hiding",
+        ),
+        help="Optional semantic objective mode applied to all gradient attacks in this sweep.",
+    )
+    parser.add_argument(
+        "--target-class",
+        type=int,
+        help="Optional target class ID used by target/hiding objectives.",
+    )
+    parser.add_argument(
+        "--attack-roi",
+        help="Optional normalized ROI x,y,w,h (for example 0.2,0.2,0.5,0.5).",
+    )
     parser.add_argument("--resume", action="store_true", help="Skip runs that already have metrics.json.")
     parser.add_argument(
         "--workers",
@@ -303,6 +331,12 @@ def main() -> None:
               + (f" + {len(attacks) * len(defenses)} defended)" if defenses else ")"))
         if workers > 1:
             print(f"Workers:      {workers} parallel")
+        if args.objective_mode:
+            print(f"Objective:    {args.objective_mode}")
+        if args.target_class is not None:
+            print(f"Target class: {args.target_class}")
+        if args.attack_roi:
+            print(f"Attack ROI:   {args.attack_roi}")
         if args.skip_errors:
             print("Mode:         skip-errors (failures collected, not fatal)")
 
@@ -324,6 +358,9 @@ def main() -> None:
                     seed=args.seed,
                     max_images=max_images,
                     validation_enabled=args.validation_enabled,
+                    objective_mode=args.objective_mode,
+                    target_class=args.target_class,
+                    attack_roi=args.attack_roi,
                 ),
                 dry_run=args.dry_run,
                 skip_errors=args.skip_errors,
@@ -356,6 +393,9 @@ def main() -> None:
                     seed=args.seed,
                     max_images=max_images,
                     validation_enabled=args.validation_enabled,
+                    objective_mode=args.objective_mode,
+                    target_class=args.target_class,
+                    attack_roi=args.attack_roi,
                 ),
                 dry_run=args.dry_run,
                 bar=bar,
@@ -409,6 +449,9 @@ def main() -> None:
                     seed=args.seed,
                     max_images=max_images,
                     validation_enabled=args.validation_enabled,
+                    objective_mode=args.objective_mode,
+                    target_class=args.target_class,
+                    attack_roi=args.attack_roi,
                 ),
                 dry_run=args.dry_run,
                 bar=bar,

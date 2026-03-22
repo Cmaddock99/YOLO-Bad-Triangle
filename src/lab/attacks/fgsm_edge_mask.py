@@ -7,6 +7,7 @@ import numpy as np
 import torch
 
 from .fgsm_adapter import FGSMAttack
+from .objective import AttackObjective
 
 
 class FGSMSobelEdgeMaskAttack(FGSMAttack):
@@ -17,8 +18,10 @@ class FGSMSobelEdgeMaskAttack(FGSMAttack):
         epsilon: float = 0.008,
         edge_threshold: int = 40,
         edge_dilate: int = 1,
+        *,
+        objective: AttackObjective | None = None,
     ) -> None:
-        super().__init__(epsilon=epsilon)
+        super().__init__(epsilon=epsilon, objective=objective)
         self.edge_threshold = int(edge_threshold)
         self.edge_dilate = int(edge_dilate)
         if self.edge_threshold < 0 or self.edge_threshold > 255:

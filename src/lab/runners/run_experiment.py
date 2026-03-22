@@ -250,25 +250,36 @@ class UnifiedExperimentRunner:
         attack: Any,
         defense: Any,
         images: list[Path],
-    ) -> tuple[list[Path], int, int]:
+        seed: int,
+        attack_name: str,
+    ) -> tuple[list[Path], int, int, dict[str, Any]]:
         """Apply attack and defense preprocessing, write results to images/.
 
-        Returns (prepared_paths, skipped_unreadable, failed_writes).
+        Returns (prepared_paths, skipped_unreadable, failed_writes, attack_metadata).
         """
         prepared_dir = run_dir / "images"
         prepared_dir.mkdir(parents=True, exist_ok=True)
         prepared_paths: list[Path] = []
         skipped_unreadable = 0
         failed_writes = 0
-        for image_path in tqdm(images, desc="Preparing images", unit="img", dynamic_ncols=True):
+        attack_metadata: dict[str, Any] = {}
+        for index, image_path in enumerate(
+            tqdm(images, desc="Preparing images", unit="img", dynamic_ncols=True)
+        ):
             image = cv2.imread(str(image_path))
             if image is None:
                 skipped_unreadable += 1
                 continue
-            defended_image, _ = defense.preprocess(image)
+            defended_image, _ = defense.preprocess(image, attack_hint=attack_name)
             transformed = defended_image
             if attack is not None:
-                transformed, _ = attack.apply(defended_image, model=model)
+                transformed, attack_meta = attack.apply(
+                    defended_image,
+                    model=model,
+                    seed=int(seed) + index,
+                )
+                if not attack_metadata:
+                    attack_metadata = cast(dict[str, Any], dict(attack_meta))
             target = prepared_dir / image_path.name
             wrote = cv2.imwrite(str(target), transformed)
             if not wrote:
@@ -281,7 +292,7 @@ class UnifiedExperimentRunner:
                 f"unreadable={skipped_unreadable}, failed_writes={failed_writes}, "
                 f"source_count={len(images)}"
             )
-        return prepared_paths, skipped_unreadable, failed_writes
+        return prepared_paths, skipped_unreadable, failed_writes, attack_metadata
 
     def _run_inference(
         self,
@@ -459,12 +470,14 @@ class UnifiedExperimentRunner:
         defense_params = dict(as_mapping(defense_cfg, "params"))
         defense = build_defense_plugin(defense_name or "none", **defense_params)
 
-        prepared_paths, skipped_unreadable, failed_writes = self._prepare_images(
+        prepared_paths, skipped_unreadable, failed_writes, attack_metadata = self._prepare_images(
             run_dir=run_dir,
             model=model,
             attack=attack,
             defense=defense,
             images=images,
+            seed=seed,
+            attack_name=attack_name or "none",
         )
 
         postprocessed = self._run_inference(
@@ -526,7 +539,15 @@ class UnifiedExperimentRunner:
             "failed_image_writes": failed_writes,
             "prediction_record_count": len(postprocessed),
             "model": {"name": model_name, "params": model_params},
-            "attack": {"name": attack_name or "none", "params": attack_params},
+            "attack": {
+                "name": attack_name or "none",
+                "params": attack_params,
+                "resolved_objective": {
+                    "objective_mode": attack_metadata.get("objective_mode"),
+                    "target_class": attack_metadata.get("target_class"),
+                    "attack_roi": attack_metadata.get("attack_roi"),
+                },
+            },
             "defense": {"name": defense_name or "none", "params": defense_params},
             "predict": predict_cfg,
             "validation": metrics_payload["validation"],

@@ -9,11 +9,13 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from lab.config.contracts import ATTACK_OBJECTIVE_UNTARGETED
 from lab.config.contracts import PIXEL_MAX
 
 from .base_attack import BaseAttack
 from .fgsm_adapter import FGSMAttack
 from .framework_registry import register_attack_plugin
+from .objective import AttackObjective
 
 
 LOGGER = logging.getLogger(__name__)
@@ -37,8 +39,10 @@ class DeepFoolAttack(FGSMAttack):
         epsilon: float = 0.05,
         steps: int = 50,
         overshoot: float = 0.02,
+        *,
+        objective: AttackObjective | None = None,
     ) -> None:
-        super().__init__(epsilon=epsilon)
+        super().__init__(epsilon=epsilon, objective=objective)
         if steps < 1:
             raise ValueError("steps must be >= 1.")
         if overshoot < 0.0:
@@ -60,15 +64,30 @@ class DeepFoolAttack(FGSMAttack):
         """
         tensors = self._iter_output_tensors(outputs)
         conf_terms: list[torch.Tensor] = []
+        class_logits = self._extract_class_logits(tensors)
+        if class_logits is not None:
+            target_class = int(self.objective.target_class or 0)
+            max_classes = int(class_logits.shape[-1])
+            if target_class < 0 or target_class >= max_classes:
+                raise ValueError(
+                    f"target_class {target_class} out of range for logits size {max_classes}"
+                )
+            target = class_logits[..., target_class].mean()
+            if self.objective.mode == "target_class_misclassification":
+                return -target  # maximize this objective in DeepFool loop.
+            if self.objective.mode == "class_conditional_hiding":
+                if max_classes <= 1:
+                    return target
+                other_idx = [idx for idx in range(max_classes) if idx != target_class]
+                others = class_logits[..., other_idx].mean()
+                return target - (self.objective.preserve_weight * others)
+
         for t in tensors:
             if t.ndim == 3:
                 _, c, n = t.shape
                 if c > 4 and n > 100:
-                    # Class score tensor (batch, num_classes, num_anchors) — apply sigmoid
-                    # so values are in (0, 1) and gradients flow cleanly.
                     conf_terms.append(t.float().sigmoid().mean())
                 elif n == 6:
-                    # Post-NMS output (batch, detections, 6=[x,y,x,y,conf,cls])
                     conf_terms.append(t[..., 4].float().mean())
         if conf_terms:
             return torch.stack(conf_terms).mean()
@@ -125,6 +144,12 @@ class DeepFoolAttack(FGSMAttack):
                 break
 
             w = x_hat.grad.detach()
+            _, _, padded_h, padded_w = w.shape
+            grad_mask = self.objective.gradient_mask(
+                height=padded_h, width=padded_w, device=w.device
+            )
+            if grad_mask is not None:
+                w = w * grad_mask
             # Minimal L2 step: r = -(1 + overshoot) * f(x) / ||w||² * w
             # Negative because we are minimising confidence (driving f → 0).
             w_sq = w.pow(2).sum().clamp(min=1e-8)
@@ -145,14 +170,26 @@ class DeepFoolAttackAdapter(BaseAttack):
     epsilon: float = 0.05
     steps: int = 50
     overshoot: float = 0.02
+    objective_mode: str = ATTACK_OBJECTIVE_UNTARGETED
+    target_class: int | None = None
+    preserve_weight: float = 0.25
+    attack_roi: tuple[float, float, float, float] | list[float] | str | None = None
     name: str = "deepfool_adapter"
     _impl: DeepFoolAttack = field(init=False, repr=False)
+    _objective: AttackObjective = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        self._objective = AttackObjective.from_kwargs(
+            mode=self.objective_mode,
+            target_class=self.target_class,
+            preserve_weight=self.preserve_weight,
+            attack_roi=self.attack_roi,
+        )
         self._impl = DeepFoolAttack(
             epsilon=self.epsilon,
             steps=self.steps,
             overshoot=self.overshoot,
+            objective=self._objective,
         )
 
     @staticmethod
@@ -188,4 +225,5 @@ class DeepFoolAttackAdapter(BaseAttack):
             "epsilon": self._impl.epsilon,
             "steps": self._impl.steps,
             "overshoot": self._impl.overshoot,
+            **self._objective.to_dict(),
         }

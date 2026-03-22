@@ -9,10 +9,12 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from lab.config.contracts import ATTACK_OBJECTIVE_UNTARGETED
 from lab.config.contracts import PIXEL_MAX
 
 from .base_attack import BaseAttack
 from .framework_registry import register_attack_plugin
+from .objective import AttackObjective
 
 
 LOGGER = logging.getLogger(__name__)
@@ -21,10 +23,11 @@ LOGGER = logging.getLogger(__name__)
 class FGSMAttack:
     """Core FGSM gradient-based attack (no legacy base)."""
 
-    def __init__(self, epsilon: float = 0.01):
+    def __init__(self, epsilon: float = 0.01, *, objective: AttackObjective | None = None):
         self.epsilon = float(epsilon)
         if self.epsilon <= 0.0:
             raise ValueError("epsilon must be > 0.")
+        self.objective = objective or AttackObjective()
         LOGGER.info("FGSM attack initialized (epsilon=%s)", self.epsilon)
 
     @staticmethod
@@ -61,16 +64,43 @@ class FGSMAttack:
         outputs: Any,
         *,
         image: torch.Tensor,
-        target: torch.Tensor | None,
+        target: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        # Targeted mode: pull predictions toward a specific tensor.
+        # Legacy targeted mode: explicit tensor target for compatibility.
         tensor_outputs = self._iter_output_tensors(outputs)
         if target is not None and tensor_outputs:
             return F.mse_loss(tensor_outputs[0].float(), target.float())
 
-        # Untargeted mode: reduce detection confidence/objectness by maximizing
-        # a negative confidence proxy. For common detection tensors this uses
-        # objectness logits at index 4.
+        if self.objective.mode == ATTACK_OBJECTIVE_UNTARGETED:
+            return self._untargeted_loss(tensor_outputs=tensor_outputs, outputs=outputs)
+
+        class_logits = self._extract_class_logits(tensor_outputs)
+        if class_logits is None:
+            # If class channels are unavailable, fallback to untargeted confidence suppression.
+            return self._untargeted_loss(tensor_outputs=tensor_outputs, outputs=outputs)
+
+        target_class = int(self.objective.target_class or 0)
+        max_classes = int(class_logits.shape[-1])
+        if target_class < 0 or target_class >= max_classes:
+            raise ValueError(
+                f"target_class {target_class} out of range for logits size {max_classes}"
+            )
+        target_logit = class_logits[..., target_class].mean()
+
+        if self.objective.mode == "target_class_misclassification":
+            # Maximize target class activation.
+            return target_logit
+
+        if self.objective.mode == "class_conditional_hiding":
+            if max_classes <= 1:
+                return -target_logit
+            other_idx = [idx for idx in range(max_classes) if idx != target_class]
+            other_logits = class_logits[..., other_idx].mean()
+            return -target_logit + (self.objective.preserve_weight * other_logits)
+
+        raise ValueError(f"Unsupported objective mode: {self.objective.mode}")
+
+    def _untargeted_loss(self, *, tensor_outputs: list[torch.Tensor], outputs: Any) -> torch.Tensor:
         if tensor_outputs:
             confidence_terms: list[torch.Tensor] = []
             for out in tensor_outputs:
@@ -108,13 +138,23 @@ class FGSMAttack:
                     return box_data.float().mean()
             probs = getattr(first, "probs", None)
             if isinstance(probs, torch.Tensor):
-                if target is not None and target.shape == probs.shape:
-                    return F.mse_loss(probs.float(), target.float())
                 return probs.float().mean()
 
         raise TypeError(
             "Unable to compute FGSM loss from model outputs (no differentiable tensor found)."
         )
+
+    @staticmethod
+    def _extract_class_logits(tensors: list[torch.Tensor]) -> torch.Tensor | None:
+        for out in tensors:
+            if out.ndim == 3:
+                # Common raw YOLO path: (batch, channels, anchors)
+                if out.shape[1] > 6:
+                    return out[:, 4:, :].permute(0, 2, 1).float()
+                # Alternate path: (batch, anchors, channels)
+                if out.shape[-1] > 6:
+                    return out[..., 5:].float()
+        return None
 
     @staticmethod
     def _tensor_to_uint8_rgb(image_tensor: torch.Tensor) -> np.ndarray:
@@ -171,6 +211,10 @@ class FGSMAttack:
 
         # FGSM perturbation: x_adv = x + epsilon * sign(gradient)
         grad = image.grad
+        _, _, padded_h, padded_w = grad.shape
+        grad_mask = self.objective.gradient_mask(height=padded_h, width=padded_w, device=grad.device)
+        if grad_mask is not None:
+            grad = grad * grad_mask
         perturbed = image + (self.epsilon * grad.sign())
 
         # Keep pixels in valid image range.
@@ -186,11 +230,22 @@ class FGSMAttackAdapter(BaseAttack):
     """Framework FGSM plugin."""
 
     epsilon: float = 0.01
+    objective_mode: str = ATTACK_OBJECTIVE_UNTARGETED
+    target_class: int | None = None
+    preserve_weight: float = 0.25
+    attack_roi: tuple[float, float, float, float] | list[float] | str | None = None
     name: str = "fgsm_adapter"
     _impl: FGSMAttack = field(init=False, repr=False)
+    _objective: AttackObjective = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self._impl = FGSMAttack(epsilon=self.epsilon)
+        self._objective = AttackObjective.from_kwargs(
+            mode=self.objective_mode,
+            target_class=self.target_class,
+            preserve_weight=self.preserve_weight,
+            attack_roi=self.attack_roi,
+        )
+        self._impl = FGSMAttack(epsilon=self.epsilon, objective=self._objective)
 
     @staticmethod
     def _resolve_model(model: Any | None) -> Any:
@@ -226,4 +281,5 @@ class FGSMAttackAdapter(BaseAttack):
         return attacked, {
             "attack": "fgsm",
             "epsilon": self._impl.epsilon,
+            **self._objective.to_dict(),
         }

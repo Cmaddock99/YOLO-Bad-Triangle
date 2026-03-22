@@ -34,3 +34,13 @@ MAX_FIX_LOOP = 5
 # Image pixel range constant (8-bit unsigned integer images).
 PIXEL_MAX: float = 255.0
 
+# Semantic attack objective modes.
+ATTACK_OBJECTIVE_UNTARGETED = "untargeted_conf_suppression"
+ATTACK_OBJECTIVE_TARGET_CLASS = "target_class_misclassification"
+ATTACK_OBJECTIVE_CLASS_HIDE = "class_conditional_hiding"
+ATTACK_OBJECTIVE_MODES = (
+    ATTACK_OBJECTIVE_UNTARGETED,
+    ATTACK_OBJECTIVE_TARGET_CLASS,
+    ATTACK_OBJECTIVE_CLASS_HIDE,
+)
+

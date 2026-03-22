@@ -5,13 +5,20 @@ from typing import Any
 import torch
 
 from .fgsm_adapter import FGSMAttack
+from .objective import AttackObjective
 
 
 class FGSMCenterMaskAttack(FGSMAttack):
     """FGSM variant that perturbs only a central elliptical region."""
 
-    def __init__(self, epsilon: float = 0.008, radius_fraction: float = 0.35) -> None:
-        super().__init__(epsilon=epsilon)
+    def __init__(
+        self,
+        epsilon: float = 0.008,
+        radius_fraction: float = 0.35,
+        *,
+        objective: AttackObjective | None = None,
+    ) -> None:
+        super().__init__(epsilon=epsilon, objective=objective)
         self.radius_fraction = float(radius_fraction)
         if not 0.05 <= self.radius_fraction <= 0.95:
             raise ValueError("radius_fraction must be between 0.05 and 0.95.")

@@ -19,6 +19,7 @@ from .dpc_unet_wrapper import (
     sharpen_image,
 )
 from .framework_registry import register_defense_plugin
+from .routing import RoutingThresholds, choose_route, detect_attack_signal
 
 
 @dataclass
@@ -35,6 +36,11 @@ class PreprocessDPCUNetDefenseAdapter(BaseDefense):
     timestep_schedule: str = ""
     # Sharpening applied after DPC-UNet output (0.0 = disabled, 0.5 = moderate).
     sharpen_alpha: float = 0.0
+    routing_enabled: bool = False
+    attack_hint: str = ""
+    low_noise_hf: float = 0.03
+    strong_hf: float = 0.08
+    strong_laplacian: float = 0.02
     color_order: str = "bgr"
     scaling: str = "zero_one"
     normalize: bool = True
@@ -77,8 +83,43 @@ class PreprocessDPCUNetDefenseAdapter(BaseDefense):
         return [float(t.strip()) for t in self.timestep_schedule.split(",") if t.strip()]
 
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:
-        del kwargs
+        runtime_attack_hint = str(kwargs.get("attack_hint", "") or self.attack_hint)
         self._ensure_loaded()
+        signal = detect_attack_signal(image)
+        route = "cdog_only"
+        if self.routing_enabled:
+            route = choose_route(
+                signal=signal,
+                attack_hint=runtime_attack_hint,
+                thresholds=RoutingThresholds(
+                    low_noise_hf=float(self.low_noise_hf),
+                    strong_hf=float(self.strong_hf),
+                    strong_laplacian=float(self.strong_laplacian),
+                ),
+            )
+        if route == "passthrough":
+            output = image.copy()
+            stats = {
+                "finite": bool(np.isfinite(output).all()),
+                "tensor_min": float(output.min()),
+                "tensor_max": float(output.max()),
+                "tensor_mean": float(output.mean()),
+                "tensor_std": float(output.std()),
+            }
+            return output, adapter_stage_metadata(
+                "preprocess_dpc_unet",
+                "preprocess",
+                checkpoint_path=str(Path(self.checkpoint_path).expanduser()),
+                routing_enabled=bool(self.routing_enabled),
+                routing_route=route,
+                attack_hint=runtime_attack_hint or None,
+                **signal.as_dict(),
+                finite=bool(stats["finite"]),
+                tensor_min=float(stats["tensor_min"]),
+                tensor_max=float(stats["tensor_max"]),
+                tensor_mean=float(stats["tensor_mean"]),
+                tensor_std=float(stats["tensor_std"]),
+            )
         schedule = self._parse_timestep_schedule()
         if schedule:
             output, stats = run_wrapper_multipass_on_bgr_image(

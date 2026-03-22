@@ -27,6 +27,9 @@ class FrameworkAttackPluginTest(unittest.TestCase):
         self.assertIn("fgsm", available)
         self.assertIn("pgd", available)
         self.assertIn("deepfool", available)
+        self.assertIn("eot_pgd", available)
+        self.assertIn("fgsm_center_mask", available)
+        self.assertIn("fgsm_edge_mask", available)
 
     def test_fgsm_pgd_deepfool_adapters_run_with_torch_model(self) -> None:
         model = _DummyGradModel()
@@ -46,6 +49,20 @@ class FrameworkAttackPluginTest(unittest.TestCase):
             self.assertEqual(img.shape, self.image.shape)
             self.assertEqual(img.dtype, np.uint8)
             self.assertEqual(meta["attack"], name)
+
+    def test_semantic_objective_metadata_is_reported(self) -> None:
+        model = _DummyGradModel()
+        attack = build_attack_plugin(
+            "fgsm",
+            epsilon=0.005,
+            objective_mode="class_conditional_hiding",
+            target_class=1,
+            attack_roi=[0.25, 0.25, 0.5, 0.5],
+        )
+        _, meta = attack.apply(self.image, model=model)
+        self.assertEqual(meta["objective_mode"], "class_conditional_hiding")
+        self.assertEqual(meta["target_class"], 1)
+        self.assertEqual(meta["attack_roi"], [0.25, 0.25, 0.5, 0.5])
 
 
 if __name__ == "__main__":

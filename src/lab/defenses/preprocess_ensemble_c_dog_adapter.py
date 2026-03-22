@@ -20,6 +20,7 @@ from .dpc_unet_wrapper import (
     sharpen_image,
 )
 from .framework_registry import register_defense_plugin
+from .routing import RoutingThresholds, choose_route, detect_attack_signal
 
 
 @dataclass
@@ -45,6 +46,12 @@ class PreprocessEnsembleCDogDefenseAdapter(BaseDefense):
     timestep_schedule: str = "50"
     # Sharpening strength after DPC-UNet (0.0 = disabled).
     sharpen_alpha: float = 0.3
+    # Optional adaptive routing.
+    routing_enabled: bool = False
+    attack_hint: str = ""
+    low_noise_hf: float = 0.03
+    strong_hf: float = 0.08
+    strong_laplacian: float = 0.02
     color_order: str = "bgr"
     scaling: str = "zero_one"
     normalize: bool = True
@@ -89,32 +96,61 @@ class PreprocessEnsembleCDogDefenseAdapter(BaseDefense):
         return [float(t.strip()) for t in self.timestep_schedule.split(",") if t.strip()]
 
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:
-        del kwargs
+        runtime_attack_hint = str(kwargs.get("attack_hint", "") or self.attack_hint)
         self._ensure_loaded()
-
-        # Stage 1: median blur to strip pixel-level adversarial noise.
-        blurred = cv2.medianBlur(image, self.median_kernel)
-
-        # Stage 2: DPC-UNet multi-pass denoising.
-        schedule = self._parse_schedule()
-        output, stats = run_wrapper_multipass_on_bgr_image(
-            blurred,
-            self._model,
-            timestep_schedule=schedule,
-            cfg=self._cfg,
-            device=self.device,
+        signal = detect_attack_signal(image)
+        thresholds = RoutingThresholds(
+            low_noise_hf=float(self.low_noise_hf),
+            strong_hf=float(self.strong_hf),
+            strong_laplacian=float(self.strong_laplacian),
         )
+        route = "median_cdog"
+        if self.routing_enabled:
+            route = choose_route(signal=signal, attack_hint=runtime_attack_hint, thresholds=thresholds)
 
-        if not bool(stats["finite"]):
-            raise RuntimeError("DPC-UNet (ensemble) produced non-finite output.")
-        if output.shape != image.shape:
-            raise RuntimeError(
-                f"DPC-UNet (ensemble) changed image shape: input={image.shape} output={output.shape}"
+        stage_input = image
+        if route in {"median_only", "median_cdog"}:
+            stage_input = cv2.medianBlur(image, self.median_kernel)
+
+        if route == "passthrough":
+            output = image.copy()
+            stats = {
+                "finite": bool(np.isfinite(output).all()),
+                "tensor_min": float(output.min()),
+                "tensor_max": float(output.max()),
+                "tensor_mean": float(output.mean()),
+                "tensor_std": float(output.std()),
+            }
+        elif route == "median_only":
+            output = stage_input
+            stats = {
+                "finite": bool(np.isfinite(output).all()),
+                "tensor_min": float(output.min()),
+                "tensor_max": float(output.max()),
+                "tensor_mean": float(output.mean()),
+                "tensor_std": float(output.std()),
+            }
+        else:
+            schedule = self._parse_schedule()
+            if route == "cdog_only":
+                stage_input = image
+            output, stats = run_wrapper_multipass_on_bgr_image(
+                stage_input,
+                self._model,
+                timestep_schedule=schedule,
+                cfg=self._cfg,
+                device=self.device,
             )
 
-        # Stage 3: optional unsharp mask to recover detection edges.
-        if self.sharpen_alpha > 0.0:
-            output = sharpen_image(output, alpha=float(self.sharpen_alpha))
+            if not bool(stats["finite"]):
+                raise RuntimeError("DPC-UNet (ensemble) produced non-finite output.")
+            if output.shape != image.shape:
+                raise RuntimeError(
+                    f"DPC-UNet (ensemble) changed image shape: input={image.shape} output={output.shape}"
+                )
+
+            if self.sharpen_alpha > 0.0:
+                output = sharpen_image(output, alpha=float(self.sharpen_alpha))
 
         return output, adapter_stage_metadata(
             "preprocess_ensemble_c_dog",
@@ -123,6 +159,10 @@ class PreprocessEnsembleCDogDefenseAdapter(BaseDefense):
             median_kernel=self.median_kernel,
             timestep_schedule=self.timestep_schedule,
             sharpen_alpha=float(self.sharpen_alpha),
+            routing_enabled=bool(self.routing_enabled),
+            routing_route=route,
+            attack_hint=runtime_attack_hint or None,
+            **signal.as_dict(),
             color_order=self._cfg.color_order,
             scaling=self._cfg.scaling,
             normalize=self._cfg.normalize,

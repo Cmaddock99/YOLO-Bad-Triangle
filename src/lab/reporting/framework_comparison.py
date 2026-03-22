@@ -34,6 +34,9 @@ class FrameworkRunRecord:
     recall: float | None
     map50: float | None
     map50_95: float | None
+    objective_mode: str | None
+    target_class: int | None
+    attack_roi: str | None
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -67,6 +70,19 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
         metrics = _read_json(metrics_path)
         predictions = metrics.get("predictions", {})
         validation = metrics.get("validation", {})
+        attack_obj = (summary.get("attack") or {}).get("resolved_objective") or {}
+        attack_params = (summary.get("attack") or {}).get("params") or {}
+        objective_mode = attack_obj.get("objective_mode") or attack_params.get("objective_mode")
+        target_class_raw = attack_obj.get("target_class")
+        if target_class_raw is None:
+            target_class_raw = attack_params.get("target_class")
+        try:
+            target_class = int(target_class_raw) if target_class_raw is not None else None
+        except (TypeError, ValueError):
+            target_class = None
+        attack_roi = attack_obj.get("attack_roi")
+        if attack_roi is None:
+            attack_roi = attack_params.get("attack_roi")
 
         records.append(
             FrameworkRunRecord(
@@ -85,6 +101,9 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
                 recall=_as_optional_float(validation.get("recall")),
                 map50=_as_optional_float(validation.get("mAP50")),
                 map50_95=_as_optional_float(validation.get("mAP50-95")),
+                objective_mode=str(objective_mode) if objective_mode else None,
+                target_class=target_class,
+                attack_roi=str(attack_roi) if attack_roi is not None else None,
             )
         )
 
@@ -116,6 +135,7 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "run_name", "run_dir", "model", "attack", "defense", "seed",
+        "objective_mode", "target_class", "attack_roi",
         "prediction_count", "images_with_detections", "total_detections",
         "avg_confidence", "validation_status", "precision", "recall",
         "mAP50", "mAP50-95",
@@ -131,6 +151,9 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
                 "attack": record.attack,
                 "defense": record.defense,
                 "seed": record.seed,
+                "objective_mode": record.objective_mode,
+                "target_class": record.target_class,
+                "attack_roi": record.attack_roi,
                 "prediction_count": record.prediction_count,
                 "images_with_detections": record.images_with_detections,
                 "total_detections": record.total_detections,
@@ -164,6 +187,9 @@ def build_comparison_rows(records: list[FrameworkRunRecord]) -> list[dict[str, A
                 "seed": seed,
                 "attack_run": run.run_name,
                 "attack": normalize_name(run.attack),
+                "objective_mode": run.objective_mode,
+                "target_class": run.target_class,
+                "attack_roi": run.attack_roi,
                 "baseline_mAP50": baseline.map50 if baseline else None,
                 "attack_mAP50": run.map50,
                 "mAP50_drop": (
@@ -228,6 +254,9 @@ def build_defense_recovery_rows(records: list[FrameworkRunRecord]) -> list[dict[
                 "seed": seed,
                 "attack": normalize_name(defended.attack),
                 "defense": normalize_name(defended.defense),
+                "objective_mode": defended.objective_mode,
+                "target_class": defended.target_class,
+                "attack_roi": defended.attack_roi,
                 "defended_run": defended.run_name,
                 "baseline_mAP50": b_map,
                 "attack_mAP50": a_map,
@@ -281,12 +310,14 @@ def render_markdown_report(records: list[FrameworkRunRecord]) -> str:
         lines.append("No baseline/attack pairs found.")
     else:
         lines += [
-            "| Model | Seed | Attack | mAP50 baseline | mAP50 attacked | mAP50 drop | Effectiveness |",
-            "|---|---:|---|---:|---:|---:|---:|",
+            "| Model | Seed | Attack | Objective | Target class | ROI | mAP50 baseline | mAP50 attacked | mAP50 drop | Effectiveness |",
+            "|---|---:|---|---|---:|---|---:|---:|---:|---:|",
         ]
         for row in comparison_rows:
             lines.append(
                 f"| `{row['model']}` | {row['seed']} | `{row['attack']}` | "
+                f"`{row['objective_mode'] or ''}` | {'' if row['target_class'] is None else row['target_class']} | "
+                f"`{row['attack_roi'] or ''}` | "
                 f"{_fmt(row['baseline_mAP50'])} | {_fmt(row['attack_mAP50'])} | "
                 f"{_fmt(row['mAP50_drop'])} | {_fmt_pct(row['mAP50_effectiveness'])} |"
             )
@@ -298,12 +329,14 @@ def render_markdown_report(records: list[FrameworkRunRecord]) -> str:
         lines.append("No defended runs found. Run with `--defenses` to enable defense sweep.")
     else:
         lines += [
-            "| Model | Attack | Defense | mAP50 attacked | mAP50 defended | Recovery |",
-            "|---|---|---|---:|---:|---:|",
+            "| Model | Attack | Defense | Objective | Target class | ROI | mAP50 attacked | mAP50 defended | Recovery |",
+            "|---|---|---|---|---:|---|---:|---:|---:|",
         ]
         for row in recovery_rows:
             lines.append(
                 f"| `{row['model']}` | `{row['attack']}` | `{row['defense']}` | "
+                f"`{row['objective_mode'] or ''}` | {'' if row['target_class'] is None else row['target_class']} | "
+                f"`{row['attack_roi'] or ''}` | "
                 f"{_fmt(row['attack_mAP50'])} | {_fmt(row['defended_mAP50'])} | "
                 f"{_fmt_pct(row['mAP50_recovery'])} |"
             )

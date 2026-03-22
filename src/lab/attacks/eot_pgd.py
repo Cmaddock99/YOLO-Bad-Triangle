@@ -6,6 +6,7 @@ from typing import Any
 import torch
 import torch.nn.functional as F
 
+from .objective import AttackObjective
 from .pgd_adapter import PGDAttack, _validate_finite_range, _validate_positive_int
 
 
@@ -22,6 +23,7 @@ class EOTPGDAttack(PGDAttack):
         steps: int = 20,
         random_start: bool = True,
         restarts: int = 1,
+        objective: AttackObjective | None = None,
         eot_samples: int = 4,
         scale_jitter: float = 0.1,
         translate_frac: float = 0.03,
@@ -35,6 +37,7 @@ class EOTPGDAttack(PGDAttack):
             steps=steps,
             random_start=random_start,
             restarts=restarts,
+            objective=objective,
         )
         self.eot_samples = _validate_positive_int("eot_samples", eot_samples)
         self.scale_jitter = _validate_finite_range(
@@ -180,7 +183,14 @@ class EOTPGDAttack(PGDAttack):
                         avg_loss.backward()
                 if x_adv.grad is None:
                     raise RuntimeError("EOT-PGD failed: gradients are unavailable.")
-                x_adv = x_adv + (self.alpha * x_adv.grad.sign())
+                grad = x_adv.grad
+                _, _, padded_h, padded_w = grad.shape
+                grad_mask = self.objective.gradient_mask(
+                    height=padded_h, width=padded_w, device=grad.device
+                )
+                if grad_mask is not None:
+                    grad = grad * grad_mask
+                x_adv = x_adv + (self.alpha * grad.sign())
                 delta = torch.clamp(x_adv - x0, min=-self.epsilon, max=self.epsilon)
                 self._log_step_stats(
                     step_idx=step_idx,
