@@ -10,6 +10,7 @@ venv/
 
 # Experiment outputs
 outputs/
+!outputs/dashboard.html
 runs/
 logs/
 results/
@@ -30,6 +31,7 @@ Thumbs.db
 # Local developer files
 .env
 .env.*
+!.env.example
 .vscode/
 .mplconfig/
 .cursor/*
