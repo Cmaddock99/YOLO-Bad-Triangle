@@ -103,16 +103,16 @@ ATTACK_PARAM_SPACE: dict[str, dict[str, dict]] = {
         "attack.params.edge_threshold": {"init": 40,    "min": 10,    "max": 100,  "scale": "int",  "step": 15},
     },
     "blur": {
-        "attack.params.kernel_size": {"init": 9,  "min": 3, "max": 31, "scale": "odd_int", "step": 4},
+        "attack.params.kernel_size": {"init": 25, "min": 3, "max": 51, "scale": "odd_int", "step": 4},
     },
     "gaussian_blur": {
-        "attack.params.kernel_size": {"init": 9,  "min": 3, "max": 31, "scale": "odd_int", "step": 4},
+        "attack.params.kernel_size": {"init": 25, "min": 3, "max": 51, "scale": "odd_int", "step": 4},
     },
 }
 
 DEFENSE_PARAM_SPACE: dict[str, dict[str, dict]] = {
     "median_preprocess": {
-        "defense.params.kernel_size": {"init": 3,    "min": 3,   "max": 15,  "scale": "odd_int",      "step": 2},
+        "defense.params.kernel_size": {"init": 7,    "min": 3,   "max": 31,  "scale": "odd_int",      "step": 2},
     },
     "c_dog": {
         "defense.params.timestep":      {"init": 50.0, "min": 10.0, "max": 90.0, "scale": "linear_float", "step": 15.0},
@@ -198,7 +198,16 @@ def get_map50(m: dict) -> float | None:
 # ── Subprocess helpers ────────────────────────────────────────────────────────
 
 def _env() -> dict:
-    return {**os.environ, "PYTHONPATH": str(REPO / "src")}
+    cpu_count = str(os.cpu_count() or 4)
+    return {
+        **os.environ,
+        "PYTHONPATH": str(REPO / "src"),
+        # Use all available CPU cores for PyTorch / OpenMP / MKL
+        "OMP_NUM_THREADS": cpu_count,
+        "MKL_NUM_THREADS": cpu_count,
+        "OPENBLAS_NUM_THREADS": cpu_count,
+        "NUMEXPR_NUM_THREADS": cpu_count,
+    }
 
 
 def run_sweep(
@@ -334,15 +343,16 @@ def _rank_attacks(state: dict) -> list[str]:
 # ── Phase 2 — Matrix ──────────────────────────────────────────────────────────
 
 def phase2(state: dict) -> bool:
-    log(f"=== Phase 2: Matrix ({state['top_attacks']} × all defenses, full) ===")
-    # sweep_phases="1,2,3": phases 1+2 skip via --resume; only phase 3 runs
+    log(f"=== Phase 2: Matrix ({state['top_attacks']} × all defenses, smoke) ===")
+    # Use smoke preset (8 images) — just enough to rank defenses reliably.
+    # Full validated runs happen in Phase 4; no need to spend hours here.
     ok = run_sweep(
         attacks=state["top_attacks"],
         defenses=ALL_DEFENSES,
         runs_root=state["runs_root"],
         report_root=state["report_root"],
         sweep_phases="1,2,3",
-        preset="full",
+        preset="smoke",
     )
     if not ok:
         log("Phase 2 had errors — continuing with available data")
