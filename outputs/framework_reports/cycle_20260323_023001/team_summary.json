@@ -1,0 +1,554 @@
+{
+  "attacks_ranked": [
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.9375094845890999,
+      "detection_drop": 0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_def_confidence_filter_004",
+      "seed": 42.0,
+      "total_detections": 8.0
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7515869471761916,
+      "detection_drop": 0.5714285714285714,
+      "interpretation": "Strong attack effect",
+      "run_name": "attack_deepfool",
+      "seed": 42.0,
+      "total_detections": 9.0
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.8156093955039978,
+      "detection_drop": 0.38095238095238093,
+      "interpretation": "Strong attack effect",
+      "run_name": "attack_eot_pgd",
+      "seed": 42.0,
+      "total_detections": 13.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7271771840751171,
+      "detection_drop": 0.23809523809523808,
+      "interpretation": "Strong attack effect",
+      "run_name": "attack_blur",
+      "seed": 42.0,
+      "total_detections": 16.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7271771840751171,
+      "detection_drop": 0.23809523809523808,
+      "interpretation": "Strong attack effect",
+      "run_name": "attack_gaussian_blur",
+      "seed": 42.0,
+      "total_detections": 16.0
+    },
+    {
+      "attack": "fgsm",
+      "avg_confidence": 0.7522443392697502,
+      "detection_drop": 0.19047619047619047,
+      "interpretation": "Strong attack effect",
+      "run_name": "attack_fgsm",
+      "seed": 42.0,
+      "total_detections": 17.0
+    },
+    {
+      "attack": "fgsm_edge_mask",
+      "avg_confidence": 0.7595884517619484,
+      "detection_drop": 0.09523809523809523,
+      "interpretation": "Moderate robustness",
+      "run_name": "attack_fgsm_edge_mask",
+      "seed": 42.0,
+      "total_detections": 19.0
+    },
+    {
+      "attack": "fgsm_center_mask",
+      "avg_confidence": 0.7540136307477951,
+      "detection_drop": 0.047619047619047616,
+      "interpretation": "Moderate robustness",
+      "run_name": "attack_fgsm_center_mask",
+      "seed": 42.0,
+      "total_detections": 20.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.7373882315375588,
+      "detection_drop": -0.047619047619047616,
+      "interpretation": "Moderate robustness",
+      "run_name": "attack_pgd",
+      "seed": 42.0,
+      "total_detections": 22.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7318903698640711,
+      "detection_drop": -0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_010",
+      "seed": 42.0,
+      "total_detections": 34.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7318903698640711,
+      "detection_drop": -0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_010",
+      "seed": 42.0,
+      "total_detections": 34.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.8766390190405005,
+      "detection_drop": -0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_def_confidence_filter_002",
+      "seed": 42.0,
+      "total_detections": 34.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.8766390190405005,
+      "detection_drop": -0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_def_confidence_filter_006",
+      "seed": 42.0,
+      "total_detections": 34.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.8429105939964453,
+      "detection_drop": -1.2857142857142858,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_def_confidence_filter_001",
+      "seed": 42.0,
+      "total_detections": 48.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.8429105939964453,
+      "detection_drop": -1.2857142857142858,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_def_confidence_filter_005",
+      "seed": 42.0,
+      "total_detections": 48.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7163326934892305,
+      "detection_drop": -1.3333333333333333,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_008",
+      "seed": 42.0,
+      "total_detections": 49.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7163326934892305,
+      "detection_drop": -1.3333333333333333,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_008",
+      "seed": 42.0,
+      "total_detections": 49.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7163326934892305,
+      "detection_drop": -1.3333333333333333,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_best",
+      "seed": 42.0,
+      "total_detections": 49.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.72598958224581,
+      "detection_drop": -1.7142857142857142,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_006",
+      "seed": 42.0,
+      "total_detections": 57.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.72598958224581,
+      "detection_drop": -1.7142857142857142,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_011",
+      "seed": 42.0,
+      "total_detections": 57.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.72598958224581,
+      "detection_drop": -1.7142857142857142,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_006",
+      "seed": 42.0,
+      "total_detections": 57.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.72598958224581,
+      "detection_drop": -1.7142857142857142,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_011",
+      "seed": 42.0,
+      "total_detections": 57.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.8112513351029363,
+      "detection_drop": -1.7619047619047619,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_def_confidence_filter_003",
+      "seed": 42.0,
+      "total_detections": 58.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7437992721796036,
+      "detection_drop": -1.8571428571428572,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_def_median_preprocess_002",
+      "seed": 42.0,
+      "total_detections": 60.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7285638129124876,
+      "detection_drop": -1.9047619047619047,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_004",
+      "seed": 42.0,
+      "total_detections": 61.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7285638129124876,
+      "detection_drop": -1.9047619047619047,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_009",
+      "seed": 42.0,
+      "total_detections": 61.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7285638129124876,
+      "detection_drop": -1.9047619047619047,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_004",
+      "seed": 42.0,
+      "total_detections": 61.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7285638129124876,
+      "detection_drop": -1.9047619047619047,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_009",
+      "seed": 42.0,
+      "total_detections": 61.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7464292303604239,
+      "detection_drop": -2.238095238095238,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_def_median_preprocess_001",
+      "seed": 42.0,
+      "total_detections": 68.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7386930204819941,
+      "detection_drop": -2.2857142857142856,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_002",
+      "seed": 42.0,
+      "total_detections": 69.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7386930204819941,
+      "detection_drop": -2.2857142857142856,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_007",
+      "seed": 42.0,
+      "total_detections": 69.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7386930204819941,
+      "detection_drop": -2.2857142857142856,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_002",
+      "seed": 42.0,
+      "total_detections": 69.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7386930204819941,
+      "detection_drop": -2.2857142857142856,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_007",
+      "seed": 42.0,
+      "total_detections": 69.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7566432789580463,
+      "detection_drop": -2.4761904761904763,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_001",
+      "seed": 42.0,
+      "total_detections": 73.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7566432789580463,
+      "detection_drop": -2.4761904761904763,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_005",
+      "seed": 42.0,
+      "total_detections": 73.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7566432789580463,
+      "detection_drop": -2.4761904761904763,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_001",
+      "seed": 42.0,
+      "total_detections": 73.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7566432789580463,
+      "detection_drop": -2.4761904761904763,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_005",
+      "seed": 42.0,
+      "total_detections": 73.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7380997385527637,
+      "detection_drop": -2.5238095238095237,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_def_median_preprocess_003",
+      "seed": 42.0,
+      "total_detections": 74.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7749052482492783,
+      "detection_drop": -3.0476190476190474,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_blur_003",
+      "seed": 42.0,
+      "total_detections": 85.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7749052482492783,
+      "detection_drop": -3.0476190476190474,
+      "interpretation": "Strong attack effect",
+      "run_name": "tune_atk_gaussian_blur_003",
+      "seed": 42.0,
+      "total_detections": 85.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.757013333880383,
+      "detection_drop": -3.380952380952381,
+      "interpretation": "Moderate robustness",
+      "run_name": "tune_atk_pgd_002",
+      "seed": 42.0,
+      "total_detections": 92.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.748158828208321,
+      "detection_drop": -3.5238095238095237,
+      "interpretation": "Moderate robustness",
+      "run_name": "tune_atk_pgd_004",
+      "seed": 42.0,
+      "total_detections": 95.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.9231124575605097,
+      "detection_drop": -3.619047619047619,
+      "interpretation": "Strong attack effect",
+      "run_name": "validate_blur_confidence_filter",
+      "seed": 42.0,
+      "total_detections": 97.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.9231124575605097,
+      "detection_drop": -3.619047619047619,
+      "interpretation": "Strong attack effect",
+      "run_name": "validate_gaussian_blur_confidence_filter",
+      "seed": 42.0,
+      "total_detections": 97.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.73854830048301,
+      "detection_drop": -3.7142857142857144,
+      "interpretation": "Moderate robustness",
+      "run_name": "tune_atk_pgd_001",
+      "seed": 42.0,
+      "total_detections": 99.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.7475327914304072,
+      "detection_drop": -3.8095238095238093,
+      "interpretation": "Moderate robustness",
+      "run_name": "tune_atk_pgd_003",
+      "seed": 42.0,
+      "total_detections": 101.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.9277069032637041,
+      "detection_drop": -11.761904761904763,
+      "interpretation": "Moderate robustness",
+      "run_name": "validate_pgd_confidence_filter",
+      "seed": 42.0,
+      "total_detections": 268.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7390141365908774,
+      "detection_drop": -27.333333333333332,
+      "interpretation": "Strong attack effect",
+      "run_name": "validate_blur_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 595.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7390141365908774,
+      "detection_drop": -27.333333333333332,
+      "interpretation": "Strong attack effect",
+      "run_name": "validate_gaussian_blur_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 595.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.746514024399221,
+      "detection_drop": -29.476190476190474,
+      "interpretation": "Strong attack effect",
+      "run_name": "validate_atk_blur",
+      "seed": 42.0,
+      "total_detections": 640.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.746514024399221,
+      "detection_drop": -29.476190476190474,
+      "interpretation": "Strong attack effect",
+      "run_name": "validate_atk_gaussian_blur",
+      "seed": 42.0,
+      "total_detections": 640.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.7563104547537101,
+      "detection_drop": -45.04761904761905,
+      "interpretation": "Moderate robustness",
+      "run_name": "validate_pgd_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 967.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.760744633384515,
+      "detection_drop": -54.57142857142857,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_pgd_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 1167.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7522034574717513,
+      "detection_drop": -54.666666666666664,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_blur_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 1169.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7522034574717513,
+      "detection_drop": -54.666666666666664,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_gaussian_blur_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 1169.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7546954316397508,
+      "detection_drop": -56.142857142857146,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_blur_confidence_filter",
+      "seed": 42.0,
+      "total_detections": 1200.0
+    },
+    {
+      "attack": "gaussian_blur",
+      "avg_confidence": 0.7546954316397508,
+      "detection_drop": -56.142857142857146,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_gaussian_blur_confidence_filter",
+      "seed": 42.0,
+      "total_detections": 1200.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.7638567651331666,
+      "detection_drop": -57.80952380952381,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_pgd_confidence_filter",
+      "seed": 42.0,
+      "total_detections": 1235.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.7674690972077179,
+      "detection_drop": -59.42857142857143,
+      "interpretation": "Moderate robustness",
+      "run_name": "validate_atk_pgd",
+      "seed": 42.0,
+      "total_detections": 1269.0
+    }
+  ],
+  "baseline": {
+    "avg_confidence": 0.7658032888457889,
+    "model": "yolo",
+    "run_name": "baseline_none",
+    "seed": 42.0,
+    "total_detections": 21.0
+  },
+  "report_root": "/home/lurch/YOLO-Bad-Triangle/outputs/framework_reports/cycle_20260323_023001",
+  "strongest_attack_by_detection_drop": {
+    "attack": "gaussian_blur",
+    "avg_confidence": 0.9375094845890999,
+    "detection_drop": 0.6190476190476191,
+    "interpretation": "Strong attack effect",
+    "run_name": "tune_def_confidence_filter_004",
+    "seed": 42.0,
+    "total_detections": 8.0
+  },
+  "total_attack_runs": 59,
+  "total_runs": 61
+}

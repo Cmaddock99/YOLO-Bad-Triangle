@@ -8,8 +8,10 @@ __pycache__/
 .venv/
 venv/
 
-# Experiment outputs
-outputs/
+# Experiment outputs — ignore raw run data but keep summaries and reports
+outputs/framework_runs/
+outputs/cycle_state.json
+outputs/.cycle.lock
 !outputs/dashboard.html
 runs/
 logs/

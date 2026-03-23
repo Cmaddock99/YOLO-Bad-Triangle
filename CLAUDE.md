@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code when working in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -33,8 +33,20 @@ PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
   --attacks fgsm,pgd,deepfool \
   --defenses c_dog,median_preprocess \
   --preset full \
-  --workers auto
+  --workers auto \
+  --validation-enabled
 ```
+
+Key sweep flags:
+
+| Flag | Description |
+|---|---|
+| `--attacks all` / `--defenses all` | Every registered plugin |
+| `--preset smoke` / `--preset full` | 8 images vs all 500 |
+| `--workers N` / `--workers auto` | Parallel subprocesses — use `--workers 1` on single-GPU to avoid OOM |
+| `--validation-enabled` | Compute mAP50 after each run |
+| `--resume` | Skip runs that already completed |
+| `--skip-errors` | Continue on failure, report at end |
 
 ### List plugins
 ```bash
@@ -44,11 +56,24 @@ PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py --list-plugins
 ### Run tests
 ```bash
 PYTHONPATH=src ./.venv/bin/python -m unittest discover -s tests -p 'test_*.py'
+# or
+pytest -q
 ```
 
 ### Single test file
 ```bash
 PYTHONPATH=src ./.venv/bin/python -m unittest tests/test_framework_output_contract.py
+```
+
+### Lint and type-check
+```bash
+ruff check src tests scripts
+mypy src tests scripts
+```
+
+### CI output validation
+```bash
+python scripts/ci/validate_outputs.py --output-root outputs/framework_runs/<run_name>
 ```
 
 ## Architecture
@@ -111,8 +136,25 @@ outputs/framework_runs/<run_name>/
 
 Use `<model>__<attack>__<defense>` (e.g. `yolo26n__fgsm__c_dog`) for defense matrix comparisons under `outputs/defense_eval/`.
 
+## Framework-first constraints
+
+These are hard rules — do not work around them:
+
+1. **No new registries.** Reuse the existing ones: `src/lab/{runners,attacks,defenses,models}/framework_registry.py`.
+2. **No ad-hoc entrypoints.** All lab workflows go through `scripts/run_unified.py` or `scripts/sweep_and_report.py`.
+3. **No duplicate contracts.** Schema definitions live only in `schemas/v1/` and `src/lab/config/contracts.py`.
+4. **Keep CI gates aligned.** Output validation must stay consistent with `scripts/ci/validate_outputs.py` and `src/lab/health_checks/`.
+
+**Preferred change pattern:**
+- Add derived metrics to `src/lab/eval/derived_metrics.py`, not inline in scripts.
+- Add or update report tables in `src/lab/reporting/framework_comparison.py`, not new one-off builders.
+- Update tests under `tests/` whenever behavior or output contracts change.
+
+**Adding a new attack or defense:** follow the templates in `docs/ATTACK_TEMPLATE.md` and `docs/DEFENSE_TEMPLATE.md`.
+
 ## Notes
 
 - `PYTHONPATH=src` is required. It's set in `.env` but must be explicit for direct script invocations.
-- `DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt` is set in `.env` — c_dog works without extra env setup.
+- `DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt` is set in `.env` — `c_dog` and `c_dog_ensemble` work without extra env setup.
 - The experiment runner implementation lives in `src/lab/runners/run_experiment.py`; invoke it only through `scripts/run_unified.py` or `scripts/sweep_and_report.py`.
+- Colab runs: open `colab_sweep.ipynb` on a T4 GPU runtime. Clear notebook outputs before committing to keep diffs small.

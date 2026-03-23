@@ -1,0 +1,10 @@
+run_name,run_dir,model,attack,defense,seed,objective_mode,target_class,attack_roi,prediction_count,images_with_detections,total_detections,avg_confidence,validation_status,precision,recall,mAP50,mAP50-95
+attack_blur,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260323_065549/attack_blur,yolo,blur,none,42,,,,8,8,16,0.7271771840751171,missing,,,,
+attack_deepfool,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260323_065549/attack_deepfool,yolo,deepfool,none,42,untargeted_conf_suppression,,,8,7,9,0.7515869471761916,missing,,,,
+attack_eot_pgd,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260323_065549/attack_eot_pgd,yolo,eot_pgd,none,42,untargeted_conf_suppression,,,8,7,13,0.8156093955039978,missing,,,,
+attack_fgsm,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260323_065549/attack_fgsm,yolo,fgsm,none,42,untargeted_conf_suppression,,,8,8,17,0.7522443392697502,missing,,,,
+attack_fgsm_center_mask,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260323_065549/attack_fgsm_center_mask,yolo,fgsm_center_mask,none,42,untargeted_conf_suppression,,,8,8,20,0.7540136307477951,missing,,,,
+attack_fgsm_edge_mask,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260323_065549/attack_fgsm_edge_mask,yolo,fgsm_edge_mask,none,42,untargeted_conf_suppression,,,8,8,19,0.7595884517619484,missing,,,,
+attack_gaussian_blur,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260323_065549/attack_gaussian_blur,yolo,gaussian_blur,none,42,,,,8,8,16,0.7271771840751171,missing,,,,
+attack_pgd,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260323_065549/attack_pgd,yolo,pgd,none,42,untargeted_conf_suppression,,,8,8,22,0.7373882315375588,missing,,,,
+baseline_none,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260323_065549/baseline_none,yolo,none,none,42,,,,8,8,21,0.7658032888457889,missing,,,,
