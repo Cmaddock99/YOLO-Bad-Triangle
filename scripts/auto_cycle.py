@@ -53,6 +53,7 @@ from pathlib import Path
 REPO = Path(__file__).parent.parent
 OUTPUTS = REPO / "outputs"
 STATE_FILE = OUTPUTS / "cycle_state.json"
+WARM_START_FILE = OUTPUTS / "cycle_warm_start.json"
 LOCK_FILE = OUTPUTS / ".cycle.lock"
 HISTORY_DIR = OUTPUTS / "cycle_history"
 LOG_DIR = REPO / "logs"
@@ -199,7 +200,7 @@ def get_map50(m: dict) -> float | None:
 
 def _env() -> dict:
     cpu_count = str(os.cpu_count() or 4)
-    return {
+    env = {
         **os.environ,
         "PYTHONPATH": str(REPO / "src"),
         # Use all available CPU cores for PyTorch / OpenMP / MKL
@@ -208,6 +209,15 @@ def _env() -> dict:
         "OPENBLAS_NUM_THREADS": cpu_count,
         "NUMEXPR_NUM_THREADS": cpu_count,
     }
+    # Ensure c_dog defense can find its checkpoint. Prefer the env var already
+    # set by the user; fall back to the standard filename in the repo root.
+    if not env.get("DPC_UNET_CHECKPOINT_PATH"):
+        for candidate in ("dpc_unet_adversarial_finetuned.pt", "dpc_unet_final_golden.pt"):
+            path = REPO / candidate
+            if path.exists():
+                env["DPC_UNET_CHECKPOINT_PATH"] = str(path)
+                break
+    return env
 
 
 def run_sweep(
@@ -471,7 +481,8 @@ def _run_and_score_defense(attack, defense, params, run_name, runs_root,
     drop = baseline_conf - attack_conf
     if drop < 1e-6:
         return 0.0
-    return (get_avg_conf(m) or attack_conf - attack_conf) / drop
+    conf = get_avg_conf(m) or attack_conf
+    return (conf - attack_conf) / drop
 
 
 def _coordinate_descent(label, param_space, score_fn, run_prefix,
@@ -792,6 +803,9 @@ def carry_forward_params(state: dict) -> None:
     Update ATTACK_PARAM_SPACE and DEFENSE_PARAM_SPACE init values with the
     best params found this cycle, so the next cycle's Phase 3 starts from
     the current optimum rather than factory defaults.
+
+    Also persists the warm-start values to WARM_START_FILE so they survive
+    process restarts — load_warm_start() reads this on every startup.
     """
     best_atk = state.get("best_attack_params", {})
     best_def = state.get("best_defense_params", {})
@@ -809,6 +823,43 @@ def carry_forward_params(state: dict) -> None:
             if key in space:
                 space[key]["init"] = val
                 log(f"  carry-forward: {defense} {key} init → {val}")
+
+    # Persist so the next process invocation picks up from here too
+    warm = {"attack_params": best_atk, "defense_params": best_def,
+            "saved_at": datetime.now().isoformat(),
+            "cycle_id": state.get("cycle_id")}
+    OUTPUTS.mkdir(parents=True, exist_ok=True)
+    WARM_START_FILE.write_text(json.dumps(warm, indent=2))
+    log(f"  carry-forward: warm-start saved to {WARM_START_FILE}")
+
+
+def load_warm_start() -> None:
+    """
+    Apply persisted warm-start params to ATTACK_PARAM_SPACE / DEFENSE_PARAM_SPACE
+    init values.  Called once at process startup so that a restarted process
+    continues from the best-found params rather than the hardcoded defaults.
+    """
+    if not WARM_START_FILE.exists():
+        return
+    try:
+        warm = json.loads(WARM_START_FILE.read_text())
+    except Exception:
+        return
+
+    for attack, params in warm.get("attack_params", {}).items():
+        space = ATTACK_PARAM_SPACE.get(attack, {})
+        for key, val in params.items():
+            if key in space:
+                space[key]["init"] = val
+
+    for defense, params in warm.get("defense_params", {}).items():
+        space = DEFENSE_PARAM_SPACE.get(defense, {})
+        for key, val in params.items():
+            if key in space:
+                space[key]["init"] = val
+
+    log(f"Warm-start loaded from {WARM_START_FILE} "
+        f"(cycle: {warm.get('cycle_id', 'unknown')})")
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -854,6 +905,9 @@ def main() -> None:
         return
 
     OUTPUTS.mkdir(parents=True, exist_ok=True)
+
+    # Apply warm-start params from previous run (survives process restarts)
+    load_warm_start()
 
     # Exclusive lock — prevents concurrent execution (cron restart safety)
     lock_fd = open(LOCK_FILE, "w")
