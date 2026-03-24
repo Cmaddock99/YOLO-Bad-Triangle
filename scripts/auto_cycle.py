@@ -828,8 +828,36 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
         )
         subprocess.run(["git", "push"], cwd=str(REPO), check=True)
         log(f"git_commit_phase: pushed phase {phase_num} snapshot for {cycle_id}")
+        _push_state_to_branch(state, phase_num)
     except subprocess.CalledProcessError as exc:
         log(f"git_commit_phase: failed — {exc} (continuing)")
+
+
+def _push_state_to_branch(state: dict, phase_num: int) -> None:
+    """Push cycle_state.json to nuc/sweep-results branch after each phase so
+    Mac Claude can track progress without polling the main branch."""
+    try:
+        cycle_id = state.get("cycle_id", "unknown")
+        subprocess.run(
+            ["git", "add", "outputs/cycle_state.json"],
+            cwd=str(REPO), check=True,
+        )
+        diff = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"], cwd=str(REPO)
+        )
+        if diff.returncode == 0:
+            return  # nothing new
+        subprocess.run(
+            ["git", "commit", "-m", f"nuc: phase {phase_num} complete [{cycle_id}]"],
+            cwd=str(REPO), check=True,
+        )
+        subprocess.run(
+            ["git", "push", "origin", "HEAD:nuc/sweep-results"],
+            cwd=str(REPO), check=True,
+        )
+        log(f"_push_state_to_branch: pushed phase {phase_num} to nuc/sweep-results")
+    except Exception as exc:
+        log(f"_push_state_to_branch: failed (non-fatal) — {exc}")
 
 
 def git_push_results(state: dict) -> None:
