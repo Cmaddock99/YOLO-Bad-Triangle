@@ -63,7 +63,7 @@ PYTHON = REPO / ".venv" / "bin" / "python"
 # ── Attack / defense catalogues ───────────────────────────────────────────────
 
 ALL_ATTACKS: list[str] = [
-    "blur", "deepfool", "eot_pgd", "fgsm", "jpeg_attack", "pgd",
+    "blur", "deepfool", "eot_pgd", "fgsm", "jpeg_attack", "pgd", "square",
 ]
 ALL_DEFENSES: list[str] = [
     "bit_depth", "c_dog", "c_dog_ensemble", "jpeg_preprocess",

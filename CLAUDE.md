@@ -152,6 +152,19 @@ These are hard rules — do not work around them:
 
 **Adding a new attack or defense:** follow the templates in `docs/ATTACK_TEMPLATE.md` and `docs/DEFENSE_TEMPLATE.md`.
 
+## Reproducibility
+
+The runner seeds all relevant RNG sources at the start of each run:
+
+- `random.seed(seed)` — Python stdlib random
+- `numpy.random.seed(seed)` — NumPy
+- `torch.manual_seed(seed)` — PyTorch CPU ops
+- `torch.cuda.manual_seed_all(seed)` — CUDA (when available)
+
+The default seed is `42`. Override with `--seed N` (shorthand) or `--set runner.seed=N`. The resolved seed is recorded in `run_summary.json` under the `"reproducibility"` key.
+
+**MPS note:** On Apple Silicon, MPS ops can produce small floating-point differences across PyTorch/MPS version updates even with seeding — results are deterministic within a run but may differ across environments.
+
 ## Notes
 
 - `PYTHONPATH=src` is required. It's set in `.env` but must be explicit for direct script invocations.

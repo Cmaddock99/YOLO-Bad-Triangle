@@ -279,6 +279,58 @@ def _fmt_pct(value: float | None) -> str:
     return "" if value is None else f"{value * 100:.1f}%"
 
 
+def build_per_class_rows(records: list[FrameworkRunRecord]) -> list[dict[str, Any]]:
+    """Per-class detection drop: baseline vs each attack (no defense)."""
+    from lab.eval.derived_metrics import compute_per_class_detection_drop
+
+    grouped: dict[tuple[str, int], list[FrameworkRunRecord]] = {}
+    for record in records:
+        grouped.setdefault((record.model, record.seed), []).append(record)
+
+    rows: list[dict[str, Any]] = []
+    for (model, seed), runs in grouped.items():
+        baseline = next(
+            (r for r in runs if is_none_like(r.attack) and is_none_like(r.defense)),
+            None,
+        )
+        if baseline is None:
+            continue
+        baseline_metrics = _read_json(baseline.run_dir / "metrics.json")
+        baseline_pc: dict[int, dict] = {
+            int(k): v
+            for k, v in (baseline_metrics.get("predictions", {}).get("per_class") or {}).items()
+        }
+        if not baseline_pc:
+            continue
+
+        for run in runs:
+            if is_none_like(run.attack) or not is_none_like(run.defense):
+                continue
+            attack_metrics = _read_json(run.run_dir / "metrics.json")
+            attack_pc: dict[int, dict] = {
+                int(k): v
+                for k, v in (attack_metrics.get("predictions", {}).get("per_class") or {}).items()
+            }
+            drops = compute_per_class_detection_drop(baseline_pc, attack_pc)
+            for class_id, drop in sorted(drops.items()):
+                b_count = baseline_pc.get(class_id, {}).get("count", 0)
+                a_count = attack_pc.get(class_id, {}).get("count", 0)
+                class_name = (baseline_pc.get(class_id) or attack_pc.get(class_id) or {}).get(
+                    "class_name", f"class_{class_id}"
+                )
+                rows.append({
+                    "model": model,
+                    "seed": seed,
+                    "attack": normalize_name(run.attack),
+                    "class_id": class_id,
+                    "class_name": class_name,
+                    "baseline_count": b_count,
+                    "attack_count": a_count,
+                    "detection_drop": drop,
+                })
+    return rows
+
+
 def render_markdown_report(records: list[FrameworkRunRecord]) -> str:
     lines = [
         "# Framework Run Comparison Report",
@@ -339,6 +391,24 @@ def render_markdown_report(records: list[FrameworkRunRecord]) -> str:
                 f"`{row['attack_roi'] or ''}` | "
                 f"{_fmt(row['attack_mAP50'])} | {_fmt(row['defended_mAP50'])} | "
                 f"{_fmt_pct(row['mAP50_recovery'])} |"
+            )
+
+    # Per-class detection drop
+    per_class_rows = build_per_class_rows(records)
+    lines += ["", "## Per-Class Detection Drop", ""]
+    if not per_class_rows:
+        lines.append("No per-class data available (run with validation or inspect predictions.jsonl).")
+    else:
+        lines += [
+            "| Model | Seed | Attack | Class ID | Class | Baseline count | Attack count | Drop |",
+            "|---|---:|---|---:|---|---:|---:|---:|",
+        ]
+        for row in per_class_rows:
+            lines.append(
+                f"| `{row['model']}` | {row['seed']} | `{row['attack']}` | "
+                f"{row['class_id']} | {row['class_name']} | "
+                f"{row['baseline_count']} | {row['attack_count']} | "
+                f"{_fmt_pct(row['detection_drop'])} |"
             )
 
     return "\n".join(lines)

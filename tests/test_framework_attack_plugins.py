@@ -65,5 +65,64 @@ class FrameworkAttackPluginTest(unittest.TestCase):
         self.assertEqual(meta["attack_roi"], [0.25, 0.25, 0.5, 0.5])
 
 
+class _DummyDetectionModel(torch.nn.Module):
+    """Returns a fixed high-confidence detection tensor for any input."""
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Shape (batch, anchors, 85): last dim has conf at index 4
+        batch = x.shape[0]
+        # 1 anchor, conf=0.9
+        out = torch.zeros(batch, 1, 85)
+        out[:, :, 4] = 0.9
+        return out
+
+
+class SquareAttackTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.image = np.full((64, 64, 3), 127, dtype=np.uint8)
+
+    def test_square_attack_registered(self) -> None:
+        available = set(list_available_attack_plugins())
+        self.assertIn("square", available)
+
+    def test_square_attack_output_shape_and_dtype(self) -> None:
+        model = _DummyDetectionModel()
+        attack = build_attack_plugin("square", eps=0.05, n_queries=10, p_init=0.1)
+        out_img, meta = attack.apply(self.image, model=model, seed=42)
+        self.assertEqual(out_img.shape, self.image.shape)
+        self.assertEqual(out_img.dtype, np.uint8)
+        self.assertEqual(meta["attack"], "square")
+        self.assertIn("queries_used", meta)
+
+    def test_square_attack_is_black_box(self) -> None:
+        """Square Attack must never call .backward() or access .grad."""
+        backward_called = []
+        grad_accessed = []
+
+        class _GradSentinelModel(torch.nn.Module):
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                # Record any gradient-related access
+                if x.requires_grad:
+                    backward_called.append(True)
+                out = torch.zeros(x.shape[0], 1, 85)
+                out[:, :, 4] = 0.9
+                return out
+
+        model = _GradSentinelModel()
+        attack = build_attack_plugin("square", eps=0.05, n_queries=5, p_init=0.1)
+        attack.apply(self.image, model=model, seed=0)
+
+        # A black-box attack never enables requires_grad on its input
+        self.assertEqual(backward_called, [],
+                         "Square Attack must not enable requires_grad on inputs")
+
+    def test_square_attack_is_deterministic_with_seed(self) -> None:
+        model = _DummyDetectionModel()
+        attack = build_attack_plugin("square", eps=0.05, n_queries=10, p_init=0.1)
+        img_a, _ = attack.apply(self.image, model=model, seed=123)
+        img_b, _ = attack.apply(self.image, model=model, seed=123)
+        np.testing.assert_array_equal(img_a, img_b)
+
+
 if __name__ == "__main__":
     unittest.main()
