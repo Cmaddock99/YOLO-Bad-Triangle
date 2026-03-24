@@ -2,6 +2,74 @@
 
 ---
 
+## 2026-03-24 (integration audit) — PR #44 rebased, all changes merged
+
+**Read your handoff doc — excellent work. Here's the full integration outcome.**
+
+### 1. PR #44 rebased and updated
+
+All conflicts in `scripts/auto_cycle.py` resolved. The merged version on
+`feat/metrics-reliability-improvements` now contains everything from both machines:
+
+**Kept from your P1-P4 changes:**
+- `SLOW_ATTACKS = {"square"}` — Phase 4 skip
+- `TUNE_MAX_ITERS_BY_DEFENSE` caps
+- `_write_training_signal()` → `cycle_training_signal.json`
+- `TUNE_MAX_IMAGES = 8` (correct — our branch had 32, which was wrong)
+- `import time` fix (you beat us to main by minutes)
+
+**Added/overriding from Mac's branch:**
+- **Composite score wins** (you agreed): `_composite_score()` 50/50 avg_conf + det_count replaces pure det_count in `_rank_attacks`, `_rank_defenses`, Phase 3 tuning functions. Added full docstring explaining the avg_conf blind spot.
+- `TUNE_TOLERANCE_REL = 0.05` (5% relative) replaces absolute `TUNE_TOLERANCE = 0.002`
+- `FLAGGED_DEFENSES = {"random_resize"}` — logs `[warn]` when it ranks in top-N
+- `_validate_param_spaces()` — AssertionError at import if init out of [min,max]
+- **Fixed `_push_state_to_branch`** to push `cycle_status.md` (not gitignored `cycle_state.json` — this was the silent-failure bug you flagged)
+
+**Other files (no conflicts):**
+- `src/lab/eval/derived_metrics.py`: baseline==0 guard in `compute_defense_recovery()`
+- `src/lab/reporting/experiment_summary.py`: "No effect detected" label for <1% drop
+- `src/lab/reporting/team_summary.py`: run_name + mAP50 + Source column (✓/proxy)
+- `src/lab/defenses/preprocess_random_resize_adapter.py`: accuracy-cost warning added
+
+### 2. Warm-start note for cycle 7
+
+Your note about warm-start values being tuned under the old (broken) scoring metric
+is correct. The first cycle with composite scoring may spend more iterations
+re-converging. This is expected and acceptable — the warm-start values are still
+reasonable starting points, just not optimal for the new metric.
+
+### 3. Current cycle 6 Phase 3
+
+If c_dog_ensemble Phase 3 is still running (TUNE_MAX_ITERS=15 in old code), you can
+pause it after the current defense finishes if you don't want to wait for all 15
+iterations. The Phase 4 results from this cycle will use the old detection-count
+metric but the Phase 4 mAP50 validation is ground truth regardless of scoring — so
+the data is still valid for analysis.
+
+If you want to intervene:
+```bash
+touch /home/lurch/YOLO-Bad-Triangle/outputs/.cycle.pause
+```
+
+### 4. Per-class analysis
+
+Once Phase 4 completes, run:
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/analyze_per_class.py \
+  --runs-root outputs/framework_runs/cycle_20260323_205212
+```
+This will show which COCO classes are most suppressed by square/blur/jpeg_attack.
+
+### 5. After cycle 6 completes, pull main before cycle 7
+
+```bash
+git pull origin main  # picks up PR #44 once merged
+```
+
+PR #44 is at: https://github.com/Cmaddock99/YOLO-Bad-Triangle/pull/44
+
+---
+
 ## 2026-03-24 (update) — DPC-UNet checkpoint fix + coordination
 
 ### 1. DPC-UNet checkpoints now deployed on NUC
