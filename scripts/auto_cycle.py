@@ -136,9 +136,24 @@ DEFENSE_PARAM_SPACE: dict[str, dict[str, dict]] = {
 # are in the catalogue. 8 matches Phase 1 smoke size for consistency.
 TUNE_MAX_IMAGES = 8
 
+# Attacks too slow for NUC Phase 4 (500-image full validation).
+# Skip these in Phase 4; Mac's standalone sweep handles their validation.
+SLOW_ATTACKS: set[str] = {"square"}
+
 # Coordinate descent settings
-TUNE_MAX_ITERS = 15       # max passes over all parameters
+TUNE_MAX_ITERS = 15       # max passes over all parameters (global default)
 TUNE_TOLERANCE = 0.002    # minimum improvement to count as a gain
+
+# Per-defense iteration cap. Small param spaces converge in 2-3 passes;
+# running 15 wastes hours when slow attacks are in the catalogue.
+TUNE_MAX_ITERS_BY_DEFENSE: dict[str, int] = {
+    "c_dog_ensemble":    3,   # 2 params, small ranges — converges fast
+    "bit_depth":         3,   # 1 param, 5 discrete values
+    "random_resize":     4,   # 1 param, float range
+    "jpeg_preprocess":   5,   # 1 param, moderate range
+    "median_preprocess": 6,   # 1 param, wide range
+    "c_dog":             8,   # 2 params, wider ranges
+}
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -194,6 +209,11 @@ def read_metrics(run_dir: Path) -> dict | None:
 
 def get_avg_conf(m: dict) -> float | None:
     return m.get("predictions", {}).get("confidence", {}).get("mean")
+
+
+def get_total_dets(m: dict) -> int | None:
+    v = m.get("predictions", {}).get("total_detections")
+    return int(v) if v is not None else None
 
 
 def get_map50(m: dict) -> float | None:
@@ -337,18 +357,20 @@ def _rank_attacks(state: dict) -> list[str]:
     if not baseline_m:
         log("  No baseline metrics found")
         return []
-    baseline_conf = get_avg_conf(baseline_m) or 0.0
+    baseline_dets = get_total_dets(baseline_m) or 0
 
     scores: list[tuple[float, str]] = []
     for attack in ALL_ATTACKS:
         m = read_metrics(runs_root / f"attack_{attack}")
         if not m:
             continue
-        conf = get_avg_conf(m) or baseline_conf
-        drop = baseline_conf - conf
-        log(f"  {attack:20s}  conf_drop={drop:+.4f}  "
-            f"(baseline={baseline_conf:.4f} → {conf:.4f})")
-        scores.append((drop, attack))
+        dets = get_total_dets(m)
+        if dets is None:
+            dets = baseline_dets
+        drop = baseline_dets - dets
+        log(f"  {attack:20s}  det_drop={drop:+d}  "
+            f"(baseline={baseline_dets} → {dets})")
+        scores.append((float(drop), attack))
 
     scores.sort(reverse=True)
     return [a for _, a in scores[:TOP_N_ATTACKS]]
@@ -386,7 +408,7 @@ def phase2(state: dict) -> bool:
 def _rank_defenses(state: dict) -> list[str]:
     runs_root = Path(state["runs_root"])
     baseline_m = read_metrics(runs_root / "baseline_none")
-    baseline_conf = (get_avg_conf(baseline_m) or 0.0) if baseline_m else 0.0
+    baseline_dets = (get_total_dets(baseline_m) or 0) if baseline_m else 0
 
     recovery_by_defense: dict[str, list[float]] = {d: [] for d in ALL_DEFENSES}
 
@@ -394,25 +416,30 @@ def _rank_defenses(state: dict) -> list[str]:
         attack_m = read_metrics(runs_root / f"attack_{attack}")
         if not attack_m:
             continue
-        attack_conf = get_avg_conf(attack_m) or baseline_conf
-        drop = baseline_conf - attack_conf
-        if drop < 1e-6:
-            continue  # attack had no measurable effect
+        attack_dets = get_total_dets(attack_m)
+        if attack_dets is None:
+            attack_dets = baseline_dets
+        drop = baseline_dets - attack_dets
+        if drop < 1:
+            continue  # attack had no measurable detection effect
 
         for defense in ALL_DEFENSES:
             def_m = read_metrics(runs_root / f"defended_{attack}_{defense}")
             if not def_m:
                 continue
-            def_conf = get_avg_conf(def_m) or attack_conf
-            recovery = (def_conf - attack_conf) / drop
-            log(f"  {attack:20s} + {defense:25s}  recovery={recovery:+.3f}")
+            def_dets = get_total_dets(def_m)
+            if def_dets is None:
+                def_dets = attack_dets
+            recovery = (def_dets - attack_dets) / drop
+            log(f"  {attack:20s} + {defense:25s}  det_recovery={recovery:+.3f}  "
+                f"({attack_dets} → {def_dets} / baseline={baseline_dets})")
             recovery_by_defense[defense].append(recovery)
 
     avg_scores: list[tuple[float, str]] = []
     for defense, vals in recovery_by_defense.items():
         avg = sum(vals) / len(vals) if vals else 0.0
         avg_scores.append((avg, defense))
-        log(f"  {defense:25s}  avg_recovery={avg:.3f}  (n={len(vals)})")
+        log(f"  {defense:25s}  avg_det_recovery={avg:.3f}  (n={len(vals)})")
 
     avg_scores.sort(reverse=True)
     return [d for _, d in avg_scores[:TOP_N_DEFENSES]]
@@ -465,42 +492,47 @@ def _candidates(spec: dict, current) -> list:
     return out
 
 
-def _run_and_score_attack(attack, params, run_name, runs_root, baseline_conf):
+def _run_and_score_attack(attack, params, run_name, runs_root, baseline_dets):
     run_single(attack=attack, defense="none", run_name=run_name,
                runs_root=runs_root, overrides=params, preset="tune")
     m = read_metrics(Path(runs_root) / run_name)
     if not m:
         return -1.0
-    conf = get_avg_conf(m) or baseline_conf
-    return baseline_conf - conf
+    dets = get_total_dets(m)
+    if dets is None:
+        return -1.0
+    return float(baseline_dets - dets)
 
 
 def _run_and_score_defense(attack, defense, params, run_name, runs_root,
-                            baseline_conf, attack_conf):
+                            baseline_dets, attack_dets):
     run_single(attack=attack, defense=defense, run_name=run_name,
                runs_root=runs_root, overrides=params, preset="tune")
     m = read_metrics(Path(runs_root) / run_name)
     if not m:
         return -1.0
-    drop = baseline_conf - attack_conf
-    if drop < 1e-6:
+    drop = baseline_dets - attack_dets
+    if drop < 1:
         return 0.0
-    conf = get_avg_conf(m) or attack_conf
-    return (conf - attack_conf) / drop
+    dets = get_total_dets(m)
+    if dets is None:
+        return -1.0
+    return (dets - attack_dets) / drop
 
 
 def _coordinate_descent(label, param_space, score_fn, run_prefix,
-                         existing_history=None):
+                         existing_history=None, max_iters: int | None = None):
     """
     Coordinate descent over param_space.
 
     Each iteration loops over every parameter, probes one step up and one step
     down, and commits to whichever direction improved the score by more than
     TUNE_TOLERANCE.  Stops when a full pass finds no improvement, or after
-    TUNE_MAX_ITERS passes.
+    max_iters passes (defaults to TUNE_MAX_ITERS).
 
     Returns (best_params, best_score, history).
     """
+    _max_iters = max_iters if max_iters is not None else TUNE_MAX_ITERS
     history = list(existing_history or [])
     counter = [len(history)]
 
@@ -515,7 +547,7 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
     history.append({"iter": 0, "param": "init", "value": None,
                     "score": current_score, "delta": 0.0, "improved": True})
 
-    for iteration in range(1, TUNE_MAX_ITERS + 1):
+    for iteration in range(1, _max_iters + 1):
         pass_improved = False
 
         for param_key, spec in param_space.items():
@@ -570,7 +602,7 @@ def phase3(state: dict) -> bool:
     tune_history = state.setdefault("tune_history", {})
 
     baseline_m = read_metrics(Path(runs_root) / "baseline_none")
-    baseline_conf = (get_avg_conf(baseline_m) or 1.0) if baseline_m else 1.0
+    baseline_dets = (get_total_dets(baseline_m) or 1) if baseline_m else 1
 
     # ── Step 1: Tune each top attack (no defense) ─────────────────────────────
     for attack in state["top_attacks"]:
@@ -582,8 +614,8 @@ def phase3(state: dict) -> bool:
 
         existing = tune_history.get(f"attack_{attack}", [])
 
-        def _atk_score(params, name, _a=attack, _bc=baseline_conf):
-            return _run_and_score_attack(_a, params, name, runs_root, _bc)
+        def _atk_score(params, name, _a=attack, _bd=baseline_dets):
+            return _run_and_score_attack(_a, params, name, runs_root, _bd)
 
         best_params, best_score, history = _coordinate_descent(
             label=attack, param_space=space,
@@ -593,7 +625,7 @@ def phase3(state: dict) -> bool:
         )
         tune_history[f"attack_{attack}"] = history
         state.setdefault("best_attack_params", {})[attack] = best_params
-        log(f"  {attack} → {best_params}  conf_drop={best_score:.4f}")
+        log(f"  {attack} → {best_params}  det_drop={best_score:.1f}")
         save_state(state)
 
     # ── Step 2: Baseline for defense tuning using best-tuned attack ───────────
@@ -606,9 +638,9 @@ def phase3(state: dict) -> bool:
                run_name=tuned_atk_run, runs_root=runs_root,
                overrides=best_atk_params, preset="tune")
     tuned_m = read_metrics(Path(runs_root) / tuned_atk_run)
-    attack_conf = (get_avg_conf(tuned_m) or baseline_conf) if tuned_m else baseline_conf
-    log(f"  Tuned attack conf={attack_conf:.4f}  "
-        f"(drop={baseline_conf - attack_conf:.4f} vs baseline={baseline_conf:.4f})")
+    attack_dets = (get_total_dets(tuned_m) or baseline_dets) if tuned_m else baseline_dets
+    log(f"  Tuned attack dets={attack_dets}  "
+        f"(drop={baseline_dets - attack_dets} vs baseline={baseline_dets})")
 
     # ── Step 3: Tune each top defense against the best attack ─────────────────
     for defense in state["top_defenses"]:
@@ -621,15 +653,16 @@ def phase3(state: dict) -> bool:
         existing = tune_history.get(f"defense_{defense}", [])
 
         def _def_score(params, name, _s=strongest, _d=defense,
-                       _bc=baseline_conf, _ac=attack_conf):
+                       _bd=baseline_dets, _ad=attack_dets):
             return _run_and_score_defense(_s, _d, params, name,
-                                          runs_root, _bc, _ac)
+                                          runs_root, _bd, _ad)
 
         best_params, best_score, history = _coordinate_descent(
             label=defense, param_space=space,
             score_fn=_def_score,
             run_prefix=f"tune_def_{defense}",
             existing_history=existing,
+            max_iters=TUNE_MAX_ITERS_BY_DEFENSE.get(defense, TUNE_MAX_ITERS),
         )
         tune_history[f"defense_{defense}"] = history
         state.setdefault("best_defense_params", {})[defense] = best_params
@@ -657,8 +690,11 @@ def phase4(state: dict) -> bool:
                run_name="validate_baseline",
                runs_root=runs_root, preset="full", validation=True)
 
-    # Best attack configs (no defense)
+    # Best attack configs (no defense) — skip slow attacks; Mac handles those
     for attack in state["top_attacks"]:
+        if attack in SLOW_ATTACKS:
+            log(f"  Skipping Phase 4 for {attack} (slow attack — Mac handles validation)")
+            continue
         run_single(
             attack=attack, defense="none",
             run_name=f"validate_atk_{attack}",
@@ -667,8 +703,10 @@ def phase4(state: dict) -> bool:
             preset="full", validation=True,
         )
 
-    # Best attack × defense combos
+    # Best attack × defense combos — skip slow attacks on NUC
     for attack in state["top_attacks"]:
+        if attack in SLOW_ATTACKS:
+            continue
         for defense in state["top_defenses"]:
             merged = {**(best_atk.get(attack) or {}), **(best_def.get(defense) or {})}
             run_single(
@@ -725,6 +763,86 @@ def save_cycle_history(state: dict) -> None:
     out = HISTORY_DIR / f"{state['cycle_id']}.json"
     out.write_text(json.dumps(summary, indent=2))
     log(f"Cycle history saved: {out}")
+
+    _write_training_signal(state, validation_results)
+
+
+def _write_training_signal(state: dict, validation_results: dict) -> None:
+    """Write outputs/cycle_training_signal.json identifying the attack/defense
+    pair most in need of adversarial retraining.
+
+    Signal format:
+      worst_attack:  the attack with the lowest average detection recovery across defenses
+      worst_attack_params: tuned params for that attack
+      weakest_defense: the defense that recovered least against worst_attack
+      weakest_defense_recovery: its recovery score (0.0 = no recovery, 1.0 = full)
+      cycle_id: which cycle produced this signal
+
+    Colab reads this file to generate adversarial training pairs with worst_attack
+    at worst_attack_params, targeting weakest_defense's training distribution.
+    """
+    try:
+        baseline_dets = None
+        attack_dets_map: dict[str, int] = {}
+        defense_recovery: dict[str, dict[str, float]] = {}  # attack → {defense: recovery}
+
+        # Extract baseline
+        for run_name, v in validation_results.items():
+            if v.get("attack") is None and v.get("defense") is None:
+                baseline_dets = v.get("detections")
+                break
+
+        if baseline_dets is None or baseline_dets == 0:
+            log("_write_training_signal: no baseline detections — skipping")
+            return
+
+        # Extract per-attack detection counts
+        for run_name, v in validation_results.items():
+            atk = v.get("attack")
+            dfn = v.get("defense")
+            dets = v.get("detections")
+            if dets is None:
+                continue
+            if atk and dfn is None:
+                attack_dets_map[atk] = dets
+            elif atk and dfn:
+                drop = baseline_dets - attack_dets_map.get(atk, baseline_dets)
+                if drop > 0:
+                    recovery = (dets - attack_dets_map.get(atk, dets)) / drop
+                    defense_recovery.setdefault(atk, {})[dfn] = recovery
+
+        if not defense_recovery:
+            log("_write_training_signal: no defense recovery data — skipping")
+            return
+
+        # Find attack with lowest average defense recovery (hardest to defend)
+        atk_avg: list[tuple[float, str]] = []
+        for atk, rmap in defense_recovery.items():
+            avg = sum(rmap.values()) / len(rmap) if rmap else 1.0
+            atk_avg.append((avg, atk))
+        atk_avg.sort()  # lowest recovery first
+        worst_attack = atk_avg[0][1]
+
+        # Find weakest defense against worst_attack
+        rmap = defense_recovery[worst_attack]
+        weakest_defense = min(rmap, key=lambda d: rmap[d])
+        weakest_recovery = rmap[weakest_defense]
+
+        signal = {
+            "cycle_id":               state["cycle_id"],
+            "generated_at":           state.get("finished_at"),
+            "worst_attack":           worst_attack,
+            "worst_attack_params":    state.get("best_attack_params", {}).get(worst_attack, {}),
+            "weakest_defense":        weakest_defense,
+            "weakest_defense_recovery": round(weakest_recovery, 4),
+            "all_attack_avg_recovery": {a: round(s, 4) for s, a in atk_avg},
+        }
+        sig_path = OUTPUTS / "cycle_training_signal.json"
+        sig_path.write_text(json.dumps(signal, indent=2))
+        log(f"Training signal: {worst_attack} bypassed {weakest_defense} "
+            f"(recovery={weakest_recovery:.3f}) → {sig_path}")
+    except Exception as exc:
+        log(f"_write_training_signal: failed (non-fatal) — {exc}")
 
 
 def wait_if_paused(after_phase: int) -> None:
