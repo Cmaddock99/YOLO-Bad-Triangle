@@ -1,6 +1,6 @@
 # Framework Run Comparison Report
 
-Total discovered framework runs: **8**
+Total discovered framework runs: **20**
 
 ## Run Inventory
 
@@ -14,6 +14,18 @@ Total discovered framework runs: **8**
 | `attack_pgd` | `yolo` | `pgd` | `none` | `missing` |  | 0.7646 |
 | `attack_square` | `yolo` | `square` | `none` | `missing` |  | 0.7183 |
 | `baseline_none` | `yolo` | `none` | `none` | `missing` |  | 0.7658 |
+| `defended_blur_bit_depth` | `yolo` | `blur` | `bit_depth` | `missing` |  | 0.6947 |
+| `defended_blur_jpeg_preprocess` | `yolo` | `blur` | `jpeg_preprocess` | `missing` |  | 0.7006 |
+| `defended_blur_median_preprocess` | `yolo` | `blur` | `median_preprocess` | `missing` |  | 0.7016 |
+| `defended_blur_random_resize` | `yolo` | `blur` | `random_resize` | `missing` |  | 0.7765 |
+| `defended_jpeg_attack_bit_depth` | `yolo` | `jpeg_attack` | `bit_depth` | `missing` |  | 0.7578 |
+| `defended_jpeg_attack_jpeg_preprocess` | `yolo` | `jpeg_attack` | `jpeg_preprocess` | `missing` |  | 0.7540 |
+| `defended_jpeg_attack_median_preprocess` | `yolo` | `jpeg_attack` | `median_preprocess` | `missing` |  | 0.7509 |
+| `defended_jpeg_attack_random_resize` | `yolo` | `jpeg_attack` | `random_resize` | `missing` |  | 0.7202 |
+| `defended_square_bit_depth` | `yolo` | `square` | `bit_depth` | `missing` |  | 0.7302 |
+| `defended_square_jpeg_preprocess` | `yolo` | `square` | `jpeg_preprocess` | `missing` |  | 0.7183 |
+| `defended_square_median_preprocess` | `yolo` | `square` | `median_preprocess` | `missing` |  | 0.7127 |
+| `defended_square_random_resize` | `yolo` | `square` | `random_resize` | `missing` |  | 0.7330 |
 
 ## Attack Effectiveness
 
@@ -29,7 +41,20 @@ Total discovered framework runs: **8**
 
 ## Defense Recovery
 
-No defended runs found. Run with `--defenses` to enable defense sweep.
+| Model | Attack | Defense | Objective | Target class | ROI | mAP50 attacked | mAP50 defended | Recovery |
+|---|---|---|---|---:|---|---:|---:|---:|
+| `yolo` | `blur` | `bit_depth` | `` |  | `` |  |  |  |
+| `yolo` | `blur` | `jpeg_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `blur` | `median_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `blur` | `random_resize` | `` |  | `` |  |  |  |
+| `yolo` | `jpeg_attack` | `bit_depth` | `` |  | `` |  |  |  |
+| `yolo` | `jpeg_attack` | `jpeg_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `jpeg_attack` | `median_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `jpeg_attack` | `random_resize` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `bit_depth` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `jpeg_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `median_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `random_resize` | `` |  | `` |  |  |  |
 
 ## Per-Class Detection Drop
 

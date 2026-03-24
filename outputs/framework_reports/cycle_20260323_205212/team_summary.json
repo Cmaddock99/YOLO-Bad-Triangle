@@ -10,6 +10,15 @@
       "total_detections": 9.0
     },
     {
+      "attack": "blur",
+      "avg_confidence": 0.7764825870593389,
+      "detection_drop": 0.42857142857142855,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_blur_random_resize",
+      "seed": 42.0,
+      "total_detections": 12.0
+    },
+    {
       "attack": "eot_pgd",
       "avg_confidence": 0.795614847115108,
       "detection_drop": 0.3333333333333333,
@@ -28,11 +37,65 @@
       "total_detections": 16.0
     },
     {
+      "attack": "blur",
+      "avg_confidence": 0.7016274966299534,
+      "detection_drop": 0.23809523809523808,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_blur_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 16.0
+    },
+    {
+      "attack": "square",
+      "avg_confidence": 0.712725356221199,
+      "detection_drop": 0.23809523809523808,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_square_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 16.0
+    },
+    {
+      "attack": "square",
+      "avg_confidence": 0.7330314628779888,
+      "detection_drop": 0.23809523809523808,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_square_random_resize",
+      "seed": 42.0,
+      "total_detections": 16.0
+    },
+    {
       "attack": "fgsm",
       "avg_confidence": 0.7520905627923853,
       "detection_drop": 0.19047619047619047,
       "interpretation": "Strong attack effect",
       "run_name": "attack_fgsm",
+      "seed": 42.0,
+      "total_detections": 17.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.6946808310116038,
+      "detection_drop": 0.19047619047619047,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_blur_bit_depth",
+      "seed": 42.0,
+      "total_detections": 17.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7005997861132902,
+      "detection_drop": 0.19047619047619047,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_blur_jpeg_preprocess",
+      "seed": 42.0,
+      "total_detections": 17.0
+    },
+    {
+      "attack": "square",
+      "avg_confidence": 0.7183016188004437,
+      "detection_drop": 0.19047619047619047,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_square_jpeg_preprocess",
       "seed": 42.0,
       "total_detections": 17.0
     },
@@ -56,12 +119,57 @@
     },
     {
       "attack": "jpeg_attack",
+      "avg_confidence": 0.7509145579840008,
+      "detection_drop": 0.09523809523809523,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_jpeg_attack_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 19.0
+    },
+    {
+      "attack": "square",
+      "avg_confidence": 0.7301563714679918,
+      "detection_drop": 0.09523809523809523,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_square_bit_depth",
+      "seed": 42.0,
+      "total_detections": 19.0
+    },
+    {
+      "attack": "jpeg_attack",
       "avg_confidence": 0.7484739167349679,
       "detection_drop": 0.0,
       "interpretation": "Moderate robustness",
       "run_name": "attack_jpeg_attack",
       "seed": 42.0,
       "total_detections": 21.0
+    },
+    {
+      "attack": "jpeg_attack",
+      "avg_confidence": 0.7577828055336362,
+      "detection_drop": 0.0,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_jpeg_attack_bit_depth",
+      "seed": 42.0,
+      "total_detections": 21.0
+    },
+    {
+      "attack": "jpeg_attack",
+      "avg_confidence": 0.753987417334602,
+      "detection_drop": 0.0,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_jpeg_attack_jpeg_preprocess",
+      "seed": 42.0,
+      "total_detections": 21.0
+    },
+    {
+      "attack": "jpeg_attack",
+      "avg_confidence": 0.7201719961383126,
+      "detection_drop": -0.047619047619047616,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_jpeg_attack_random_resize",
+      "seed": 42.0,
+      "total_detections": 22.0
     }
   ],
   "baseline": {
@@ -81,6 +189,6 @@
     "seed": 42.0,
     "total_detections": 9.0
   },
-  "total_attack_runs": 7,
-  "total_runs": 8
+  "total_attack_runs": 19,
+  "total_runs": 20
 }
