@@ -1,0 +1,6 @@
+run_name,run_dir,model,attack,defense,seed,objective_mode,target_class,attack_roi,prediction_count,images_with_detections,total_detections,avg_confidence,validation_status,precision,recall,mAP50,mAP50-95
+attack_cw,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260324T030639Z/attack_cw,yolo,cw,none,42,,,,8,8,21,0.7658033484504336,missing,,,,
+baseline_none,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260324T030639Z/baseline_none,yolo,none,none,42,,,,8,8,21,0.7658033484504336,missing,,,,
+defended_cw_c_dog,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260324T030639Z/defended_cw_c_dog,yolo,cw,c_dog,42,,,,8,8,20,0.72515187561512,missing,,,,
+defended_cw_jpeg_preprocess,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260324T030639Z/defended_cw_jpeg_preprocess,yolo,cw,jpeg_preprocess,42,,,,8,8,21,0.7484735818136306,missing,,,,
+defended_cw_median_preprocess,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260324T030639Z/defended_cw_median_preprocess,yolo,cw,median_preprocess,42,,,,8,8,18,0.7705349524815878,missing,,,,

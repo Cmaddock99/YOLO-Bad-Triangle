@@ -1,0 +1,38 @@
+model:
+  name: yolo
+  params:
+    model: yolo26n.pt
+
+data:
+  source_dir: coco/val2017_subset500/images
+
+attack:
+  name: cw
+  params:
+    max_iter: 100
+    device: mps
+    early_stop: true
+    confidence: 0.0
+
+defense:
+  name: none
+  params: {}
+
+predict:
+  conf: 0.5
+  iou: 0.7
+  imgsz: 640
+
+validation:
+  enabled: false
+  dataset: configs/coco_subset500.yaml
+  params: {}
+
+summary:
+  enabled: false
+
+runner:
+  seed: 42
+  max_images: 8
+  output_root: outputs/framework_runs
+  run_name: baseline_smoke
