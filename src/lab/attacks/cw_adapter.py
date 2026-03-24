@@ -116,7 +116,9 @@ class CWAttack(FGSMAttack):
                 optimizer.zero_grad()
 
                 # Map back to image space.
-                x_adv = torch.tanh(w_var) * 0.5 + 0.5
+                # .contiguous() required for MPS: tanh can produce non-contiguous
+                # tensors that break YOLO's internal .view() calls.
+                x_adv = (torch.tanh(w_var) * 0.5 + 0.5).contiguous()
 
                 # Forward pass with gradient tracking.
                 torch_model.zero_grad(set_to_none=True)
@@ -139,7 +141,7 @@ class CWAttack(FGSMAttack):
 
                 # Evaluate result with no_grad.
                 with torch.no_grad():
-                    x_check = torch.tanh(w_var) * 0.5 + 0.5
+                    x_check = (torch.tanh(w_var) * 0.5 + 0.5).contiguous()
                     l2_val = float(((x_check - x_orig) ** 2).sum().sqrt().item())
                     with torch.inference_mode(False):
                         check_out = torch_model(x_check)
