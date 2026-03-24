@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 DEFAULT_ATTACKS = ("bim", "blur", "deepfool", "fgsm", "gaussian_blur", "ifgsm", "pgd")
 DEFAULT_DEFENSES = ("median_preprocess",)
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _timestamp() -> str:
@@ -50,7 +51,7 @@ def _parse_phases(raw: str) -> set[int]:
 
 
 def _list_plugins() -> None:
-    sys.path.insert(0, str(Path("src").resolve()))
+    sys.path.insert(0, str((REPO_ROOT / "src").resolve()))
     from lab.attacks.framework_registry import list_available_attack_plugins
     from lab.defenses.framework_registry import list_available_defense_plugins
     attacks = list_available_attack_plugins()
@@ -67,7 +68,7 @@ def _resolve_all_plugins(value: str, kind: str) -> list[str]:
     """Expand 'all' to every registered plugin of the given kind."""
     if value.strip().lower() != "all":
         return None  # signal: not 'all', parse normally
-    sys.path.insert(0, str(Path("src").resolve()))
+    sys.path.insert(0, str((REPO_ROOT / "src").resolve()))
     if kind == "attack":
         from lab.attacks.framework_registry import list_available_attack_plugins
         return list_available_attack_plugins()
@@ -152,7 +153,7 @@ def _experiment_command(
 ) -> list[str]:
     command = [
         python_bin,
-        "src/lab/runners/run_experiment.py",
+        str(REPO_ROOT / "src/lab/runners/run_experiment.py"),
         "--config",
         str(config),
         "--set",
@@ -189,7 +190,7 @@ def _print_summary_command(
 ) -> list[str]:
     return [
         python_bin,
-        "scripts/print_summary.py",
+        str(REPO_ROOT / "scripts/print_summary.py"),
         "--baseline",
         str(baseline_dir),
         "--attack",
@@ -205,7 +206,7 @@ def _generate_framework_report_command(
 ) -> list[str]:
     return [
         python_bin,
-        "scripts/generate_framework_report.py",
+        str(REPO_ROOT / "scripts/generate_framework_report.py"),
         "--runs-root",
         str(runs_root),
         "--output-dir",
@@ -220,7 +221,7 @@ def _generate_team_summary_command(
 ) -> list[str]:
     return [
         python_bin,
-        "scripts/generate_team_summary.py",
+        str(REPO_ROOT / "scripts/generate_team_summary.py"),
         "--report-root",
         str(report_root),
     ]
@@ -579,7 +580,7 @@ def main() -> None:
             _run_command(
                 [
                     args.python_bin,
-                    "scripts/generate_dashboard.py",
+                    str(REPO_ROOT / "scripts/generate_dashboard.py"),
                     "--reports-root", str(report_root.parent),
                     "--output", str(dashboard_out),
                 ],

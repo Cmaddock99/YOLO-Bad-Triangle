@@ -39,9 +39,14 @@ Thumbs.db
 !.env.example
 .vscode/
 .mplconfig/
+.claude/scheduled_tasks.lock
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+
+# Local handoff artifacts (do not commit)
+outputs/*.zip
+outputs/*.pdf
 
 # Keep example configs and scripts tracked
 !configs/examples/

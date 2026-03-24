@@ -21,10 +21,14 @@ class PreprocessRandomResizeDefenseAdapter(BaseDefense):
 
     Breaks pixel-level attack alignment (FGSM/PGD perturbations assume fixed spatial positions).
 
-    WARNING: High inherent accuracy cost.  mAP50 typically drops 0.2+ even without an attack
-    because YOLO anchors are optimised for full-resolution inputs.  Phase 2 cycle ranking may
-    look favourable (avg_conf proxy doesn't capture the drop) but Phase 4 mAP50 validation
-    usually reveals the true cost.  Always verify Phase 4 results before using in production.
+    WARNING: High inherent accuracy cost. mAP50 typically drops 0.2+ even without an attack
+    because YOLO anchors are optimized for full-resolution inputs. Phase 2 cycle ranking may
+    look favorable (avg_conf proxy does not capture the drop), but Phase 4 mAP50 validation
+    usually reveals the true cost. Always verify Phase 4 results before using in production.
+
+    NOTE: Removed from ALL_DEFENSES in auto_cycle.py. The inherent mAP50 cost (~-0.25)
+    from padding-induced anchor misalignment exceeds any attack-recovery benefit in practice.
+    Available for direct use via --defenses random_resize if explicitly needed.
     """
 
     scale_factor_low: float = 0.9

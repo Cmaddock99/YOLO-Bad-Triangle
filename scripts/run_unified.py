@@ -54,8 +54,6 @@ def main() -> None:
     sweep.add_argument("--report-root", default=None)
     sweep.add_argument("--attacks", default=None)
     sweep.add_argument("--validation-enabled", action="store_true")
-    sweep.add_argument("--legacy-output-root", default=None)
-    sweep.add_argument("--no-legacy-compat", action="store_true")
 
     args = parser.parse_args()
     python_bin = resolve_python_bin(ROOT)
@@ -92,10 +90,6 @@ def main() -> None:
         command.extend(["--attacks", str(args.attacks)])
     if args.validation_enabled:
         command.append("--validation-enabled")
-    if args.legacy_output_root:
-        command.extend(["--legacy-output-root", str(args.legacy_output_root)])
-    if args.no_legacy_compat:
-        command.append("--no-legacy-compat")
     raise SystemExit(_run(command, component="run-unified", env=runtime_env))
 
 

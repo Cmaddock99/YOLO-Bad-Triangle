@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+"""A/B comparison of two DPC-UNet checkpoints before deploying a new one.
+
+Runs a quick validation sweep with each checkpoint and reports the mAP50 delta.
+Returns exit code 0 if checkpoint B is equal or better than A, 1 if worse.
+
+Usage:
+    PYTHONPATH=src ./.venv/bin/python scripts/evaluate_checkpoint.py \\
+        --checkpoint-a dpc_unet_final_golden.pt \\
+        --checkpoint-b dpc_unet_adversarial_finetuned.pt \\
+        --attack blur \\
+        --images 50
+
+Output (JSON to stdout + human summary):
+    {
+      "checkpoint_a": {"path": "...", "mAP50": 0.558, "detections": 1287},
+      "checkpoint_b": {"path": "...", "mAP50": 0.581, "detections": 1342},
+      "delta_mAP50": 0.023,
+      "verdict": "B is better — deploy"
+    }
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+REPO = Path(__file__).parent.parent
+PYTHON = REPO / ".venv" / "bin" / "python"
+
+
+def _env(checkpoint_path: str) -> dict:
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(REPO / "src"),
+        "DPC_UNET_CHECKPOINT_PATH": checkpoint_path,
+    }
+    return env
+
+
+def _run_validation(
+    *,
+    checkpoint_path: Path,
+    attack: str,
+    defense: str,
+    run_name: str,
+    runs_root: Path,
+    max_images: int,
+) -> dict | None:
+    """Run one validation experiment, return metrics dict or None on failure."""
+    run_dir = runs_root / run_name
+    metrics_file = run_dir / "metrics.json"
+
+    if not metrics_file.exists():
+        cmd = [
+            str(PYTHON), "scripts/run_unified.py", "run-one",
+            "--config", "configs/default.yaml",
+            "--set", f"attack.name={attack}",
+            "--set", f"defense.name={defense}",
+            "--set", f"runner.run_name={run_name}",
+            "--set", f"runner.output_root={runs_root}",
+            "--set", f"runner.max_images={max_images}",
+            "--set", "validation.enabled=true",
+        ]
+        result = subprocess.run(
+            cmd,
+            cwd=str(REPO),
+            env=_env(str(checkpoint_path)),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"  [error] run failed for {run_name}:", file=sys.stderr)
+            print(result.stderr[-2000:], file=sys.stderr)
+            return None
+
+    if not metrics_file.exists():
+        return None
+    return json.loads(metrics_file.read_text())
+
+
+def _extract(metrics: dict | None) -> tuple[float | None, int | None]:
+    if not metrics:
+        return None, None
+    map50 = metrics.get("validation", {}).get("mAP50")
+    dets = metrics.get("predictions", {}).get("total_detections")
+    return map50, dets
+
+
+def evaluate(
+    *,
+    checkpoint_a: Path,
+    checkpoint_b: Path,
+    attack: str,
+    defense: str,
+    images: int,
+    output_json: Path | None,
+) -> int:
+    """Run A/B evaluation. Returns 0 if B >= A, 1 if B is worse.
+
+    Raises:
+        FileNotFoundError: if either checkpoint path is missing.
+        RuntimeError: if validation metrics cannot be extracted.
+    """
+    checkpoint_a = checkpoint_a if checkpoint_a.is_absolute() else REPO / checkpoint_a
+    checkpoint_b = checkpoint_b if checkpoint_b.is_absolute() else REPO / checkpoint_b
+
+    for cp, label in ((checkpoint_a, "A"), (checkpoint_b, "B")):
+        if not cp.is_file():
+            raise FileNotFoundError(f"Checkpoint {label} not found: {cp}")
+
+    print(f"Evaluating A/B checkpoint comparison")
+    print(f"  Attack:  {attack}")
+    print(f"  Defense: {defense}")
+    print(f"  Images:  {images}")
+    print(f"  A: {checkpoint_a.name}")
+    print(f"  B: {checkpoint_b.name}")
+    print()
+
+    with tempfile.TemporaryDirectory(prefix="eval_checkpoint_") as tmpdir:
+        runs_root = Path(tmpdir)
+
+        print("Running checkpoint A...")
+        metrics_a = _run_validation(
+            checkpoint_path=checkpoint_a,
+            attack=attack,
+            defense=defense,
+            run_name="eval_a",
+            runs_root=runs_root,
+            max_images=images,
+        )
+        map50_a, dets_a = _extract(metrics_a)
+
+        print("Running checkpoint B...")
+        metrics_b = _run_validation(
+            checkpoint_path=checkpoint_b,
+            attack=attack,
+            defense=defense,
+            run_name="eval_b",
+            runs_root=runs_root,
+            max_images=images,
+        )
+        map50_b, dets_b = _extract(metrics_b)
+
+    if map50_a is None or map50_b is None:
+        raise RuntimeError("Could not extract mAP50 from one or both runs.")
+
+    delta = map50_b - map50_a
+
+    if abs(delta) < 0.001:
+        verdict = "B is equivalent — safe to deploy"
+    elif delta > 0:
+        verdict = "B is better — deploy"
+    else:
+        verdict = "B is worse — do NOT deploy"
+
+    result = {
+        "checkpoint_a": {"path": str(checkpoint_a), "mAP50": round(map50_a, 6), "detections": dets_a},
+        "checkpoint_b": {"path": str(checkpoint_b), "mAP50": round(map50_b, 6), "detections": dets_b},
+        "delta_mAP50": round(delta, 6),
+        "verdict": verdict,
+        "attack": attack,
+        "defense": defense,
+        "images_evaluated": images,
+    }
+
+    print()
+    print("─" * 50)
+    print(f"  Checkpoint A mAP50: {map50_a:.4f}  ({dets_a} detections)")
+    print(f"  Checkpoint B mAP50: {map50_b:.4f}  ({dets_b} detections)")
+    print(f"  Delta:              {delta:+.4f}")
+    print(f"  Verdict:            {verdict}")
+    print("─" * 50)
+
+    if output_json:
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        output_json.write_text(json.dumps(result, indent=2))
+        print(f"\nResult written to: {output_json}")
+
+    return 0 if delta >= -0.001 else 1
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="A/B compare two DPC-UNet checkpoints via mAP50 validation."
+    )
+    parser.add_argument(
+        "--checkpoint-a", required=True,
+        help="Baseline checkpoint (relative to repo root or absolute path).",
+    )
+    parser.add_argument(
+        "--checkpoint-b", required=True,
+        help="Candidate checkpoint to evaluate against baseline.",
+    )
+    parser.add_argument(
+        "--attack", default="blur",
+        help="Attack to use for evaluation (default: blur).",
+    )
+    parser.add_argument(
+        "--defense", default="c_dog",
+        help="Defense to use for evaluation (default: c_dog).",
+    )
+    parser.add_argument(
+        "--images", type=int, default=50,
+        help="Number of images to evaluate (default: 50). Use 8 for a quick smoke test.",
+    )
+    parser.add_argument(
+        "--output-json",
+        help="Write result JSON to this path (optional).",
+    )
+    args = parser.parse_args()
+
+    try:
+        exit_code = evaluate(
+            checkpoint_a=Path(args.checkpoint_a),
+            checkpoint_b=Path(args.checkpoint_b),
+            attack=args.attack,
+            defense=args.defense,
+            images=args.images,
+            output_json=Path(args.output_json) if args.output_json else None,
+        )
+    except (FileNotFoundError, RuntimeError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(2)
+
+    sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()

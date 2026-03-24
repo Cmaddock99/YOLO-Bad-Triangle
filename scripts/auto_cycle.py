@@ -8,14 +8,16 @@ resumable — re-invoke the script at any point to continue from where it
 left off.
 
   Phase 1  Characterize   All attacks vs no defense (smoke, 8 images).
-                           Ranks attacks by avg-confidence suppression.
+                           Ranks attacks by composite suppression
+                           (avg-confidence + detection-count health).
 
   Phase 2  Matrix         Top-N attacks × all defenses (smoke, 8 images).
-                           Ranks defenses by avg-confidence recovery.
+                           Ranks defenses by composite recovery
+                           (relative to composite suppression in Phase 1).
                            (smoke is enough for ranking — full runs in Phase 4)
 
   Phase 3  Tune           Adaptive coordinate descent for top attacks × top
-                           defenses (32 images).  After each run, assesses the
+                           defenses (8 images).  After each run, assesses the
                            result and probes the most promising direction until
                            gains fall below a tolerance threshold.
 
@@ -69,7 +71,8 @@ ALL_ATTACKS: list[str] = [
 ]
 ALL_DEFENSES: list[str] = [
     "bit_depth", "c_dog", "c_dog_ensemble", "jpeg_preprocess",
-    "median_preprocess", "random_resize",
+    "median_preprocess",
+    # random_resize removed — inherent mAP50 cost (−0.25) exceeds any attack-recovery benefit
 ]
 
 TOP_N_ATTACKS = 3
@@ -125,9 +128,6 @@ DEFENSE_PARAM_SPACE: dict[str, dict[str, dict]] = {
     "jpeg_preprocess": {
         "defense.params.quality": {"init": 75, "min": 40, "max": 95, "scale": "int", "step": 15},
     },
-    "random_resize": {
-        "defense.params.scale_factor_low": {"init": 0.9, "min": 0.7, "max": 0.98, "scale": "linear_float", "step": 0.05},
-    },
     "bit_depth": {
         "defense.params.bits": {"init": 5, "min": 3, "max": 7, "scale": "int", "step": 1},
     },
@@ -152,7 +152,6 @@ TUNE_TOLERANCE_REL = 0.05    # minimum *relative* improvement to count as a gain
 TUNE_MAX_ITERS_BY_DEFENSE: dict[str, int] = {
     "c_dog_ensemble":    3,   # 2 params, small ranges — converges fast
     "bit_depth":         3,   # 1 param, 5 discrete values
-    "random_resize":     4,   # 1 param, float range
     "jpeg_preprocess":   5,   # 1 param, moderate range
     "median_preprocess": 6,   # 1 param, wide range
     "c_dog":             8,   # 2 params, wider ranges
@@ -826,6 +825,23 @@ def save_cycle_history(state: dict) -> None:
     log(f"Cycle history saved: {out}")
 
     _write_training_signal(state, validation_results)
+    _update_cycle_report()
+
+
+def _update_cycle_report() -> None:
+    """Regenerate outputs/cycle_report.csv + outputs/cycle_report.md (non-fatal)."""
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "generate_cycle_report", REPO / "scripts" / "generate_cycle_report.py"
+        )
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)  # type: ignore[union-attr]
+            csv_path, md_path = mod.generate_reports()
+            log(f"Cycle report updated: {md_path}")
+    except Exception as exc:
+        log(f"[warn] _update_cycle_report failed (non-fatal): {exc}")
 
 
 def _write_training_signal(state: dict, validation_results: dict) -> None:

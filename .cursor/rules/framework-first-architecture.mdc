@@ -13,7 +13,7 @@ This repository is framework-first. Extend the existing runner, registries, and 
 ## Hard Constraints
 
 1. Do not add new registry systems if a registry already exists:
-   - `src/lab/runners/experiment_registry.py`
+   - `src/lab/runners/run_experiment.py` (runner orchestration)
    - `src/lab/attacks/framework_registry.py`
    - `src/lab/defenses/framework_registry.py`
    - `src/lab/models/framework_registry.py`

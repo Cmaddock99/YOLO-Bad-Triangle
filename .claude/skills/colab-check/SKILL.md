@@ -32,24 +32,54 @@ Compare the current timestamps to these baselines:
 ### Step 2 — Download the new checkpoint
 
 ```bash
-rclone copy gdrive:dpc_unet_adversarial_finetuned.pt /Users/lurch/ml-labs/YOLO-Bad-Triangle/ && echo "Downloaded"
+rclone copy gdrive:dpc_unet_adversarial_finetuned.pt /Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned_new.pt && echo "Downloaded"
 ```
 
-Verify the local file timestamp updated:
+Verify the local file exists:
 ```bash
-ls -lh /Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned.pt
+ls -lh /Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned_new.pt
 ```
 
-### Step 3 — Ask the user if they want to run the sweep
+### Step 3 — Evaluate the new checkpoint before deploying
+
+Run an A/B comparison against the current active checkpoint:
+
+```bash
+cd /Users/lurch/ml-labs/YOLO-Bad-Triangle
+PYTHONPATH=src ./.venv/bin/python scripts/evaluate_checkpoint.py \
+    --checkpoint-a dpc_unet_adversarial_finetuned.pt \
+    --checkpoint-b dpc_unet_adversarial_finetuned_new.pt \
+    --attack blur \
+    --defense c_dog \
+    --images 50 \
+    --output-json outputs/checkpoint_eval_latest.json
+```
+
+This runs 50-image mAP50 validation with both checkpoints and prints a verdict.
+
+**If verdict is "B is better" or "B is equivalent":**
+→ Deploy the new checkpoint:
+```bash
+mv /Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned_new.pt \
+   /Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned.pt
+echo "New checkpoint deployed"
+```
+
+**If verdict is "B is worse":**
+→ Do NOT deploy. Tell the user the delta and ask if they want to keep the old checkpoint or deploy anyway.
+→ Delete the new file: `rm dpc_unet_adversarial_finetuned_new.pt`
+
+### Step 4 — Ask the user if they want to run the sweep
 
 Tell the user:
 - Training is complete
-- New checkpoint downloaded (show file size and timestamp)
+- Checkpoint evaluation result (show delta_mAP50 and verdict)
+- Whether the checkpoint was deployed or rejected
 - Ask: "Run the defense sweep now? (phases 3+4, ~2 hours)"
 
 If they say yes, run the sweep using the same logic as the `/sweep` skill with `--phases 3,4`.
 
-### Step 4 — After sweep completes
+### Step 5 — After sweep completes
 
 Report results in a comparison table:
 

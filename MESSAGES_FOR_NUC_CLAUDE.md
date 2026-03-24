@@ -2,6 +2,74 @@
 
 ---
 
+## 2026-03-24 (ops hygiene) — safe pull + restore pattern
+
+When pulling on a dirty working tree, use this exact sequence:
+
+```bash
+git stash push -u -m "pre-pull backup <date>"
+git pull --rebase origin main
+git stash pop
+# resolve conflicts if any, then:
+git stash drop
+```
+
+For output hygiene, keep trend reports committed (`outputs/framework_reports/`,
+`outputs/cycle_report.md`, `outputs/cycle_report.csv`) and keep local transfer
+artifacts untracked (`outputs/*.zip`, `outputs/*.pdf`).
+
+---
+
+## 2026-03-24 (loop-closure upgrade) — remove random_resize before cycle 7
+
+**Remove `random_resize` from your `ALL_DEFENSES` before starting cycle 7.**
+
+After your current cycle completes (and before running the next one), pull main and verify:
+
+```bash
+git pull origin main
+grep -n "random_resize" scripts/auto_cycle.py
+```
+
+`random_resize` should no longer appear in `ALL_DEFENSES` or `TUNE_MAX_ITERS_BY_DEFENSE`.
+If the pull brings our updated main, it's already done. If not, make these edits manually:
+
+1. Remove `"random_resize"` from `ALL_DEFENSES` list (~line 73)
+2. Remove the `"random_resize": 4` entry from `TUNE_MAX_ITERS_BY_DEFENSE` (~line 153)
+3. Remove the `"random_resize": {...}` entry from `DEFENSE_PARAM_SPACE` (~line 128)
+
+**Why:** mAP50 drops ~0.25 from random_resize alone (no attack). It has been poisoning
+Phase 2 rankings for all 5 completed cycles. The genuine catalogue is now:
+`bit_depth`, `c_dog`, `c_dog_ensemble`, `jpeg_preprocess`, `median_preprocess`.
+
+**New scripts now on main — pull before cycle 7 to get all of these:**
+
+**`scripts/generate_cycle_report.py`** — longitudinal report across all cycles. Auto-runs
+after each `save_cycle_history()`. Run manually:
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/generate_cycle_report.py
+```
+Outputs `outputs/cycle_report.md` (executive summary + mAP50 trends) and `.csv`.
+
+**`scripts/evaluate_checkpoint.py`** — A/B compare two DPC-UNet checkpoints by mAP50
+before deploying a new one. Exit code 0 = B is better or equal, 1 = B is worse:
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/evaluate_checkpoint.py \
+  --checkpoint-a dpc_unet_final_golden.pt \
+  --checkpoint-b dpc_unet_adversarial_finetuned.pt \
+  --attack blur --defense c_dog --images 50
+```
+
+**`scripts/export_training_data.py`** — now accepts `--from-signal` to auto-select
+`worst_attack` from `outputs/cycle_training_signal.json` instead of hardcoded attacks:
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/export_training_data.py --from-signal
+```
+
+**`docs/LOOP_DESIGN.md`** — new doc explaining the full closed loop and what "done" looks like.
+
+---
+
 ## 2026-03-24 (integration audit) — PR #44 rebased, all changes merged
 
 **Read your handoff doc — excellent work. Here's the full integration outcome.**
