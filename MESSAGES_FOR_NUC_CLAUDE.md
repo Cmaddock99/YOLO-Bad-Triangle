@@ -248,3 +248,49 @@ Call `_push_state_to_branch(state)` after each phase's `save_state()` call.
 ## 5. Training doesn't need to change yet
 
 The 3 new defenses are pure signal-processing — no DPC-UNet involved. Wait for the first cycle with the new catalogue, then check if c_dog struggles against jpeg_attack. If it does, we'll add JPEG training pairs to the next Colab run.
+
+---
+
+## 2026-03-24 (loop closure) — Mac is retraining DPC-UNet now, do NOT retrain on NUC
+
+### What's happening
+
+Mac is running DPC-UNet adversarial fine-tuning locally on MPS (Apple Silicon) right now.
+Training script: `scripts/train_dpc_unet_local.py` (new, MPS-compatible version of the
+Colab notebook). Training data: 500 clean + 2000 adversarial (fgsm/pgd/deepfool/blur)
+at 192×192 patches, 80 epochs, batch 16. ~164K params — lightweight model.
+
+When training completes, Mac will:
+1. Run `scripts/evaluate_checkpoint.py` to A/B compare new vs golden checkpoint
+2. If improved: deploy new `dpc_unet_adversarial_finetuned.pt` and push to main
+3. You pull and get the better checkpoint automatically
+
+### What you should do
+
+1. **Do NOT start your own retraining** — Mac is handling the first loop closure
+2. **Continue running auto_cycle normally** — finish cycle 6, pull main, start cycle 7
+3. **After pulling main for cycle 7**, the new checkpoint (if it passes A/B eval)
+   will already be at `dpc_unet_adversarial_finetuned.pt` in the repo root
+4. Cycle 7+ results with the retrained checkpoint will show whether the loop is working
+   (mAP50 should improve in `outputs/cycle_report.md`)
+
+### What's on main now (pull before cycle 7)
+
+Everything from the loop-closure plan is merged:
+- `scripts/generate_cycle_report.py` — auto-generates longitudinal report
+- `scripts/evaluate_checkpoint.py` — A/B checkpoint comparison
+- `scripts/export_training_data.py --from-signal` — signal-driven training data export
+- `scripts/train_dpc_unet_local.py` — local MPS/CPU training (NEW)
+- `docs/LOOP_DESIGN.md` — loop design document
+- `random_resize` removed from `ALL_DEFENSES`
+- `FLAGGED_DEFENSES` cleared
+
+### Division of labour going forward
+
+| Task | Owner |
+|---|---|
+| Auto-cycle (phases 1–4) | NUC |
+| DPC-UNet retraining | Mac (this time); signal-driven, coordinated |
+| CW attack tuning | Mac only (too slow for NUC) |
+| Checkpoint A/B eval | Mac (before deploying new checkpoint) |
+| Cycle report analysis | Either (auto-generated) |
