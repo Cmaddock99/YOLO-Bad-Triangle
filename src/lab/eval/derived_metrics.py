@@ -46,6 +46,8 @@ def compute_defense_recovery(
 ) -> float | None:
     if baseline_detections is None or attack_detections is None or defense_detections is None:
         return None
+    if float(baseline_detections) == 0:
+        return None  # no baseline detections — recovery undefined
     return _safe_ratio(float(defense_detections) - float(attack_detections), baseline_detections)
 
 

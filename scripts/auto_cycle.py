@@ -142,8 +142,10 @@ TUNE_MAX_IMAGES = 8
 SLOW_ATTACKS: set[str] = {"square"}
 
 # Coordinate descent settings
-TUNE_MAX_ITERS = 15       # max passes over all parameters (global default)
-TUNE_TOLERANCE = 0.002    # minimum improvement to count as a gain
+TUNE_MAX_ITERS = 15          # max passes over all parameters (global default)
+TUNE_TOLERANCE_REL = 0.05    # minimum *relative* improvement to count as a gain
+                              # relative keeps weak attacks from accepting noise
+                              # and strong attacks from missing real gains
 
 # Per-defense iteration cap. Small param spaces converge in 2-3 passes;
 # running 15 wastes hours when slow attacks are in the catalogue.
@@ -155,6 +157,37 @@ TUNE_MAX_ITERS_BY_DEFENSE: dict[str, int] = {
     "median_preprocess": 6,   # 1 param, wide range
     "c_dog":             8,   # 2 params, wider ranges
 }
+
+# Defenses known to carry high inherent accuracy cost even without attacks.
+# auto_cycle logs a warning when these appear in the top-N ranked defenses so
+# the user knows to validate Phase 4 mAP50 before drawing conclusions.
+FLAGGED_DEFENSES: set[str] = {
+    "random_resize",  # mAP50 typically drops 0.2+ even without an attack
+}
+
+
+# ── Startup param-space validation ────────────────────────────────────────────
+
+def _validate_param_spaces() -> None:
+    """Assert that every 'init' value lies within [min, max] bounds.
+
+    Catches typos at import time rather than silently starting coord descent
+    out of range.
+    """
+    for space_name, space in (
+        ("ATTACK_PARAM_SPACE", ATTACK_PARAM_SPACE),
+        ("DEFENSE_PARAM_SPACE", DEFENSE_PARAM_SPACE),
+    ):
+        for item, params in space.items():
+            for param, cfg in params.items():
+                lo, hi, init = cfg["min"], cfg["max"], cfg["init"]
+                assert lo <= init <= hi, (
+                    f"{space_name}[{item}][{param}] init={init} "
+                    f"out of bounds [{lo}, {hi}]"
+                )
+
+_validate_param_spaces()
+
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -212,9 +245,28 @@ def get_avg_conf(m: dict) -> float | None:
     return m.get("predictions", {}).get("confidence", {}).get("mean")
 
 
-def get_total_dets(m: dict) -> int | None:
-    v = m.get("predictions", {}).get("total_detections")
-    return int(v) if v is not None else None
+def get_total_detections(m: dict) -> int:
+    return int(m.get("predictions", {}).get("total_detections", 0))
+
+
+def _composite_score(m: dict, baseline_conf: float, baseline_det: int) -> float:
+    """Model health score relative to baseline: 1.0 = no degradation, 0.0 = total suppression.
+
+    Weighted 50/50 between normalised avg_conf and normalised detection count.
+    Using both catches attacks that suppress detections without reducing confidence
+    (e.g. CW, high-eps square) as well as attacks that reduce confidence without
+    fully eliminating detections (e.g. FGSM at low epsilon).
+
+    Note: avg_conf is computed only over detections that were made — when a
+    strong attack suppresses 60% of detections the remaining detections may be
+    the most-confident ones, so avg_conf alone can *rise* under attack.  The
+    detection-count component prevents this blind spot.
+    """
+    conf = get_avg_conf(m) or 0.0
+    det = get_total_detections(m)
+    conf_ratio = conf / baseline_conf if baseline_conf > 0 else 1.0
+    det_ratio = det / baseline_det if baseline_det > 0 else 1.0
+    return 0.5 * conf_ratio + 0.5 * det_ratio
 
 
 def get_map50(m: dict) -> float | None:
@@ -358,20 +410,20 @@ def _rank_attacks(state: dict) -> list[str]:
     if not baseline_m:
         log("  No baseline metrics found")
         return []
-    baseline_dets = get_total_dets(baseline_m) or 0
+    baseline_conf = get_avg_conf(baseline_m) or 0.0
+    baseline_det = get_total_detections(baseline_m)
 
     scores: list[tuple[float, str]] = []
     for attack in ALL_ATTACKS:
         m = read_metrics(runs_root / f"attack_{attack}")
         if not m:
             continue
-        dets = get_total_dets(m)
-        if dets is None:
-            dets = baseline_dets
-        drop = baseline_dets - dets
-        log(f"  {attack:20s}  det_drop={drop:+d}  "
-            f"(baseline={baseline_dets} → {dets})")
-        scores.append((float(drop), attack))
+        health = _composite_score(m, baseline_conf, baseline_det)
+        suppression = 1.0 - health  # higher = attack more effective
+        log(f"  {attack:20s}  suppression={suppression:+.4f}  "
+            f"(conf={get_avg_conf(m) or 0.0:.4f}  "
+            f"det={get_total_detections(m)}/{baseline_det})")
+        scores.append((suppression, attack))
 
     scores.sort(reverse=True)
     return [a for _, a in scores[:TOP_N_ATTACKS]]
@@ -409,7 +461,8 @@ def phase2(state: dict) -> bool:
 def _rank_defenses(state: dict) -> list[str]:
     runs_root = Path(state["runs_root"])
     baseline_m = read_metrics(runs_root / "baseline_none")
-    baseline_dets = (get_total_dets(baseline_m) or 0) if baseline_m else 0
+    baseline_conf = (get_avg_conf(baseline_m) or 0.0) if baseline_m else 0.0
+    baseline_det = get_total_detections(baseline_m) if baseline_m else 0
 
     recovery_by_defense: dict[str, list[float]] = {d: [] for d in ALL_DEFENSES}
 
@@ -417,33 +470,39 @@ def _rank_defenses(state: dict) -> list[str]:
         attack_m = read_metrics(runs_root / f"attack_{attack}")
         if not attack_m:
             continue
-        attack_dets = get_total_dets(attack_m)
-        if attack_dets is None:
-            attack_dets = baseline_dets
-        drop = baseline_dets - attack_dets
-        if drop < 1:
-            continue  # attack had no measurable detection effect
+        attack_health = _composite_score(attack_m, baseline_conf, baseline_det)
+        suppression = 1.0 - attack_health
+        if suppression < 1e-4:
+            log(f"  {attack:20s}  skipping — no measurable composite suppression")
+            continue  # attack had no measurable effect
 
         for defense in ALL_DEFENSES:
             def_m = read_metrics(runs_root / f"defended_{attack}_{defense}")
             if not def_m:
                 continue
-            def_dets = get_total_dets(def_m)
-            if def_dets is None:
-                def_dets = attack_dets
-            recovery = (def_dets - attack_dets) / drop
-            log(f"  {attack:20s} + {defense:25s}  det_recovery={recovery:+.3f}  "
-                f"({attack_dets} → {def_dets} / baseline={baseline_dets})")
+            def_health = _composite_score(def_m, baseline_conf, baseline_det)
+            recovery = (def_health - attack_health) / suppression
+            log(f"  {attack:20s} + {defense:25s}  composite_recovery={recovery:+.3f}")
             recovery_by_defense[defense].append(recovery)
 
     avg_scores: list[tuple[float, str]] = []
     for defense, vals in recovery_by_defense.items():
         avg = sum(vals) / len(vals) if vals else 0.0
         avg_scores.append((avg, defense))
-        log(f"  {defense:25s}  avg_det_recovery={avg:.3f}  (n={len(vals)})")
+        log(f"  {defense:25s}  avg_composite_recovery={avg:.3f}  (n={len(vals)})")
 
     avg_scores.sort(reverse=True)
-    return [d for _, d in avg_scores[:TOP_N_DEFENSES]]
+    top = [d for _, d in avg_scores[:TOP_N_DEFENSES]]
+
+    for d in top:
+        if d in FLAGGED_DEFENSES:
+            log(
+                f"  [warn] '{d}' is in FLAGGED_DEFENSES — it has high inherent accuracy cost "
+                f"(mAP50 typically drops 0.2+ even without attack). "
+                f"Validate Phase 4 mAP50 before drawing conclusions."
+            )
+
+    return top
 
 
 # ── Adaptive tuner ────────────────────────────────────────────────────────────
@@ -493,32 +552,29 @@ def _candidates(spec: dict, current) -> list:
     return out
 
 
-def _run_and_score_attack(attack, params, run_name, runs_root, baseline_dets):
+def _run_and_score_attack(attack, params, run_name, runs_root,
+                          baseline_conf, baseline_det):
     run_single(attack=attack, defense="none", run_name=run_name,
                runs_root=runs_root, overrides=params, preset="tune")
     m = read_metrics(Path(runs_root) / run_name)
     if not m:
         return -1.0
-    dets = get_total_dets(m)
-    if dets is None:
-        return -1.0
-    return float(baseline_dets - dets)
+    # suppression: higher = attack was more effective (composite score closer to 0)
+    return 1.0 - _composite_score(m, baseline_conf, baseline_det)
 
 
 def _run_and_score_defense(attack, defense, params, run_name, runs_root,
-                            baseline_dets, attack_dets):
+                            baseline_conf, baseline_det, attack_composite):
     run_single(attack=attack, defense=defense, run_name=run_name,
                runs_root=runs_root, overrides=params, preset="tune")
     m = read_metrics(Path(runs_root) / run_name)
     if not m:
         return -1.0
-    drop = baseline_dets - attack_dets
-    if drop < 1:
-        return 0.0
-    dets = get_total_dets(m)
-    if dets is None:
-        return -1.0
-    return (dets - attack_dets) / drop
+    suppression = 1.0 - attack_composite
+    if suppression < 1e-4:
+        return 0.0  # attack had negligible composite effect — recovery undefined
+    def_composite = _composite_score(m, baseline_conf, baseline_det)
+    return (def_composite - attack_composite) / suppression
 
 
 def _coordinate_descent(label, param_space, score_fn, run_prefix,
@@ -572,7 +628,8 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
                     best_candidate = candidate
 
             if (best_candidate is not None and
-                    best_candidate_score - current_score > TUNE_TOLERANCE):
+                    best_candidate_score - current_score
+                    > abs(current_score) * TUNE_TOLERANCE_REL):
                 log(f"  [{label}] ✓ commit  {param_key.split('.')[-1]}  "
                     f"{current[param_key]} → {best_candidate}  "
                     f"({current_score:.4f} → {best_candidate_score:.4f})")
@@ -603,7 +660,8 @@ def phase3(state: dict) -> bool:
     tune_history = state.setdefault("tune_history", {})
 
     baseline_m = read_metrics(Path(runs_root) / "baseline_none")
-    baseline_dets = (get_total_dets(baseline_m) or 1) if baseline_m else 1
+    baseline_conf = (get_avg_conf(baseline_m) or 1.0) if baseline_m else 1.0
+    baseline_det = get_total_detections(baseline_m) if baseline_m else 0
 
     # ── Step 1: Tune each top attack (no defense) ─────────────────────────────
     for attack in state["top_attacks"]:
@@ -615,8 +673,8 @@ def phase3(state: dict) -> bool:
 
         existing = tune_history.get(f"attack_{attack}", [])
 
-        def _atk_score(params, name, _a=attack, _bd=baseline_dets):
-            return _run_and_score_attack(_a, params, name, runs_root, _bd)
+        def _atk_score(params, name, _a=attack, _bc=baseline_conf, _bd=baseline_det):
+            return _run_and_score_attack(_a, params, name, runs_root, _bc, _bd)
 
         best_params, best_score, history = _coordinate_descent(
             label=attack, param_space=space,
@@ -626,7 +684,7 @@ def phase3(state: dict) -> bool:
         )
         tune_history[f"attack_{attack}"] = history
         state.setdefault("best_attack_params", {})[attack] = best_params
-        log(f"  {attack} → {best_params}  det_drop={best_score:.1f}")
+        log(f"  {attack} → {best_params}  suppression={best_score:.4f}")
         save_state(state)
 
     # ── Step 2: Baseline for defense tuning using best-tuned attack ───────────
@@ -639,9 +697,11 @@ def phase3(state: dict) -> bool:
                run_name=tuned_atk_run, runs_root=runs_root,
                overrides=best_atk_params, preset="tune")
     tuned_m = read_metrics(Path(runs_root) / tuned_atk_run)
-    attack_dets = (get_total_dets(tuned_m) or baseline_dets) if tuned_m else baseline_dets
-    log(f"  Tuned attack dets={attack_dets}  "
-        f"(drop={baseline_dets - attack_dets} vs baseline={baseline_dets})")
+    attack_composite = (
+        _composite_score(tuned_m, baseline_conf, baseline_det) if tuned_m else 1.0
+    )
+    log(f"  Tuned attack composite={attack_composite:.4f}  "
+        f"(suppression={1.0 - attack_composite:.4f} vs baseline)")
 
     # ── Step 3: Tune each top defense against the best attack ─────────────────
     for defense in state["top_defenses"]:
@@ -654,9 +714,9 @@ def phase3(state: dict) -> bool:
         existing = tune_history.get(f"defense_{defense}", [])
 
         def _def_score(params, name, _s=strongest, _d=defense,
-                       _bd=baseline_dets, _ad=attack_dets):
+                       _bc=baseline_conf, _bd=baseline_det, _ac=attack_composite):
             return _run_and_score_defense(_s, _d, params, name,
-                                          runs_root, _bd, _ad)
+                                          runs_root, _bc, _bd, _ac)
 
         best_params, best_score, history = _coordinate_descent(
             label=defense, param_space=space,
@@ -970,12 +1030,16 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
 
 
 def _push_state_to_branch(state: dict, phase_num: int) -> None:
-    """Push cycle_state.json to nuc/sweep-results branch after each phase so
-    Mac Claude can track progress without polling the main branch."""
+    """Push cycle_status.md to nuc/sweep-results branch after each phase so
+    the other machine can track progress without polling the main branch.
+
+    Note: cycle_state.json is in .gitignore — use cycle_status.md (tracked).
+    """
     try:
         cycle_id = state.get("cycle_id", "unknown")
+        status_file = OUTPUTS / "cycle_status.md"
         subprocess.run(
-            ["git", "add", "outputs/cycle_state.json"],
+            ["git", "add", str(status_file)],
             cwd=str(REPO), check=True,
         )
         diff = subprocess.run(
@@ -984,7 +1048,7 @@ def _push_state_to_branch(state: dict, phase_num: int) -> None:
         if diff.returncode == 0:
             return  # nothing new
         subprocess.run(
-            ["git", "commit", "-m", f"nuc: phase {phase_num} complete [{cycle_id}]"],
+            ["git", "commit", "-m", f"nuc: phase {phase_num} status [{cycle_id}]"],
             cwd=str(REPO), check=True,
         )
         subprocess.run(

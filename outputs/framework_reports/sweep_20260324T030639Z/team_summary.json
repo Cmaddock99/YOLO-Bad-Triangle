@@ -1,0 +1,59 @@
+{
+  "attacks_ranked": [
+    {
+      "attack": "cw",
+      "avg_confidence": 0.7705349524815878,
+      "detection_drop": 0.14285714285714285,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_cw_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 18.0
+    },
+    {
+      "attack": "cw",
+      "avg_confidence": 0.72515187561512,
+      "detection_drop": 0.047619047619047616,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_cw_c_dog",
+      "seed": 42.0,
+      "total_detections": 20.0
+    },
+    {
+      "attack": "cw",
+      "avg_confidence": 0.7658033484504336,
+      "detection_drop": 0.0,
+      "interpretation": "Moderate robustness",
+      "run_name": "attack_cw",
+      "seed": 42.0,
+      "total_detections": 21.0
+    },
+    {
+      "attack": "cw",
+      "avg_confidence": 0.7484735818136306,
+      "detection_drop": 0.0,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_cw_jpeg_preprocess",
+      "seed": 42.0,
+      "total_detections": 21.0
+    }
+  ],
+  "baseline": {
+    "avg_confidence": 0.7658033484504336,
+    "model": "yolo",
+    "run_name": "baseline_none",
+    "seed": 42.0,
+    "total_detections": 21.0
+  },
+  "report_root": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_reports/sweep_20260324T030639Z",
+  "strongest_attack_by_detection_drop": {
+    "attack": "cw",
+    "avg_confidence": 0.7705349524815878,
+    "detection_drop": 0.14285714285714285,
+    "interpretation": "Moderate robustness",
+    "run_name": "defended_cw_median_preprocess",
+    "seed": 42.0,
+    "total_detections": 18.0
+  },
+  "total_attack_runs": 4,
+  "total_runs": 5
+}

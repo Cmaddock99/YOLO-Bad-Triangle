@@ -1,0 +1,167 @@
+{
+  "attacks_ranked": [
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.6859684586524963,
+      "detection_drop": 0.9846903270702854,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_deepfool_c_dog_ensemble",
+      "seed": 42.0,
+      "total_detections": 22.0
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7091791046702344,
+      "detection_drop": 0.9679888656924147,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_deepfool_c_dog",
+      "seed": 42.0,
+      "total_detections": 46.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.6909961982439923,
+      "detection_drop": 0.9352818371607515,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_pgd_c_dog_ensemble",
+      "seed": 42.0,
+      "total_detections": 93.0
+    },
+    {
+      "attack": "fgsm",
+      "avg_confidence": 0.7051437510287061,
+      "detection_drop": 0.9053583855254002,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_fgsm_c_dog_ensemble",
+      "seed": 42.0,
+      "total_detections": 136.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.6896913973044376,
+      "detection_drop": 0.8636047320807237,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_blur_c_dog_ensemble",
+      "seed": 42.0,
+      "total_detections": 196.0
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7479641363708252,
+      "detection_drop": 0.848295059151009,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_deepfool_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 218.0
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7481705845354464,
+      "detection_drop": 0.7821851078636047,
+      "interpretation": "Strong attack effect",
+      "run_name": "attack_deepfool",
+      "seed": 42.0,
+      "total_detections": 313.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.7308053393621703,
+      "detection_drop": 0.7425191370911621,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_pgd_c_dog",
+      "seed": 42.0,
+      "total_detections": 370.0
+    },
+    {
+      "attack": "fgsm",
+      "avg_confidence": 0.7439552811351983,
+      "detection_drop": 0.6910229645093946,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_fgsm_c_dog",
+      "seed": 42.0,
+      "total_detections": 444.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7409702113023389,
+      "detection_drop": 0.6478775226165623,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_blur_c_dog",
+      "seed": 42.0,
+      "total_detections": 506.0
+    },
+    {
+      "attack": "fgsm",
+      "avg_confidence": 0.7591981771515637,
+      "detection_drop": 0.2011134307585247,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_fgsm_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 1148.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.7602769414960004,
+      "detection_drop": 0.19137091162143355,
+      "interpretation": "Moderate robustness",
+      "run_name": "defended_pgd_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 1162.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7522030019984478,
+      "detection_drop": 0.18649965205288796,
+      "interpretation": "Strong attack effect",
+      "run_name": "defended_blur_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 1169.0
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.754694989323616,
+      "detection_drop": 0.1649269311064718,
+      "interpretation": "Strong attack effect",
+      "run_name": "attack_blur",
+      "seed": 42.0,
+      "total_detections": 1200.0
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.7667348303972038,
+      "detection_drop": 0.13848295059151008,
+      "interpretation": "Moderate robustness",
+      "run_name": "attack_pgd",
+      "seed": 42.0,
+      "total_detections": 1238.0
+    },
+    {
+      "attack": "fgsm",
+      "avg_confidence": 0.762134217790195,
+      "detection_drop": 0.12317327766179541,
+      "interpretation": "Moderate robustness",
+      "run_name": "attack_fgsm",
+      "seed": 42.0,
+      "total_detections": 1260.0
+    }
+  ],
+  "baseline": {
+    "avg_confidence": 0.7647724414585196,
+    "model": "yolo",
+    "run_name": "baseline_none",
+    "seed": 42.0,
+    "total_detections": 1437.0
+  },
+  "report_root": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_reports/sweep_20260321T033240Z",
+  "strongest_attack_by_detection_drop": {
+    "attack": "deepfool",
+    "avg_confidence": 0.6859684586524963,
+    "detection_drop": 0.9846903270702854,
+    "interpretation": "Strong attack effect",
+    "run_name": "defended_deepfool_c_dog_ensemble",
+    "seed": 42.0,
+    "total_detections": 22.0
+  },
+  "total_attack_runs": 16,
+  "total_runs": 17
+}
