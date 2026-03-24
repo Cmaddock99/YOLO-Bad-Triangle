@@ -10,8 +10,9 @@ left off.
   Phase 1  Characterize   All attacks vs no defense (smoke, 8 images).
                            Ranks attacks by avg-confidence suppression.
 
-  Phase 2  Matrix         Top-N attacks × all defenses (full, 500 images).
+  Phase 2  Matrix         Top-N attacks × all defenses (smoke, 8 images).
                            Ranks defenses by avg-confidence recovery.
+                           (smoke is enough for ranking — full runs in Phase 4)
 
   Phase 3  Tune           Adaptive coordinate descent for top attacks × top
                            defenses (32 images).  After each run, assesses the
@@ -70,7 +71,7 @@ ALL_DEFENSES: list[str] = [
 ]
 
 TOP_N_ATTACKS = 3
-TOP_N_DEFENSES = 2
+TOP_N_DEFENSES = 3   # bumped from 2 — catalogue now has 6 defenses
 
 # ── Adaptive tuning: parameter spaces ─────────────────────────────────────────
 # Each param spec: init (starting value), min/max (bounds), and one of:
@@ -721,13 +722,125 @@ def save_cycle_history(state: dict) -> None:
     log(f"Cycle history saved: {out}")
 
 
+def git_pull() -> None:
+    """Pull latest changes from remote. Called at the start of each new cycle
+    so new plugins, param-space tweaks, and bug fixes are picked up automatically."""
+    try:
+        result = subprocess.run(
+            ["git", "pull", "--ff-only", "origin", "main"],
+            cwd=str(REPO), capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            msg = result.stdout.strip() or "already up to date"
+            log(f"git_pull: {msg}")
+        else:
+            log(f"git_pull: skipped (non-fast-forward or network issue) — "
+                f"{result.stderr.strip()}")
+    except Exception as exc:
+        log(f"git_pull: error — {exc} (continuing)")
+
+
+def _write_cycle_status(state: dict, phase_num: int) -> Path:
+    """Write outputs/cycle_status.md — a human-readable snapshot tracked by git."""
+    lines = [
+        "# Auto-cycle status",
+        "",
+        f"cycle_id   : {state['cycle_id']}",
+        f"phase      : {phase_num}/4 complete",
+        f"updated_at : {datetime.now().isoformat()}",
+        "",
+        f"top_attacks  : {state.get('top_attacks', [])}",
+        f"top_defenses : {state.get('top_defenses', [])}",
+        "",
+        "best_attack_params:",
+    ]
+    for atk, params in state.get("best_attack_params", {}).items():
+        lines.append(f"  {atk}: {params}")
+    lines.append("best_defense_params:")
+    for dfn, params in state.get("best_defense_params", {}).items():
+        lines.append(f"  {dfn}: {params}")
+    lines += [
+        "",
+        f"P1={state['phase1_complete']}  P2={state['phase2_complete']}  "
+        f"P3={state['phase3_complete']}  P4={state['phase4_complete']}",
+        "",
+        ("*** CYCLE COMPLETE ***"
+         if phase_num == 4
+         else f"*** PARTIAL — phases {phase_num+1}–4 still pending ***"),
+    ]
+    status_file = OUTPUTS / "cycle_status.md"
+    OUTPUTS.mkdir(parents=True, exist_ok=True)
+    status_file.write_text("\n".join(lines) + "\n")
+    return status_file
+
+
+def git_commit_phase(state: dict, phase_num: int) -> None:
+    """Commit a lightweight phase-complete snapshot so other sessions can track
+    progress without waiting for a full cycle to finish."""
+    phase_labels = {1: "characterize", 2: "matrix", 3: "tune", 4: "validate"}
+    phase_label  = phase_labels.get(phase_num, str(phase_num))
+    cycle_id     = state["cycle_id"]
+
+    status_file = _write_cycle_status(state, phase_num)
+    report_dir  = Path(state.get("report_root", ""))
+
+    paths_to_add = [str(status_file)]
+    if report_dir.exists():
+        paths_to_add.append(str(report_dir))
+
+    try:
+        subprocess.run(["git", "add"] + paths_to_add, cwd=str(REPO), check=True)
+        diff = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"], cwd=str(REPO)
+        )
+        if diff.returncode == 0:
+            log(f"git_commit_phase {phase_num}: nothing new to commit")
+            return
+
+        top_atk = state.get("top_attacks", [])
+        top_def = state.get("top_defenses", [])
+
+        msg_lines = [
+            f"auto_cycle: {cycle_id} phase {phase_num}/{phase_label} complete",
+            "",
+        ]
+        if top_atk:
+            msg_lines.append(f"Top attacks : {', '.join(top_atk)}")
+        if top_def:
+            msg_lines.append(f"Top defenses: {', '.join(top_def)}")
+        if phase_num >= 3:
+            for atk, params in state.get("best_attack_params", {}).items():
+                for k, v in params.items():
+                    msg_lines.append(f"  {atk} {k.split('.')[-1]}={v}")
+            for dfn, params in state.get("best_defense_params", {}).items():
+                for k, v in params.items():
+                    msg_lines.append(f"  {dfn} {k.split('.')[-1]}={v}")
+        if phase_num < 4:
+            msg_lines += [
+                "",
+                f"*** PARTIAL — phases {phase_num+1}–4 still pending ***",
+                "See outputs/cycle_status.md for live status.",
+            ]
+
+        subprocess.run(
+            ["git", "commit", "-m", "\n".join(msg_lines)],
+            cwd=str(REPO), check=True,
+        )
+        subprocess.run(["git", "push"], cwd=str(REPO), check=True)
+        log(f"git_commit_phase: pushed phase {phase_num} snapshot for {cycle_id}")
+    except subprocess.CalledProcessError as exc:
+        log(f"git_commit_phase: failed — {exc} (continuing)")
+
+
 def git_push_results(state: dict) -> None:
     """Commit cycle_history and framework_reports for this cycle and push."""
     cycle_id = state["cycle_id"]
     history_file = HISTORY_DIR / f"{cycle_id}.json"
     report_dir = Path(state.get("report_root", ""))
 
-    paths_to_add: list[str] = []
+    status_file = _write_cycle_status(state, 4)
+
+    paths_to_add: list[str] = [str(status_file)]
     if history_file.exists():
         paths_to_add.append(str(history_file))
     if report_dir.exists():
@@ -937,6 +1050,7 @@ def main() -> None:
                 git_push_results(state)
                 carry_forward_params(state)
                 STATE_FILE.unlink()
+                git_pull()  # pick up any changes before the next cycle
                 continue
 
             if not state["phase1_complete"]:
@@ -944,17 +1058,20 @@ def main() -> None:
                     break
                 save_state(state)
                 generate_report(state)
+                git_commit_phase(state, 1)
 
             if not state["phase2_complete"]:
                 if not phase2(state):
                     break
                 save_state(state)
                 generate_report(state)
+                git_commit_phase(state, 2)
 
             if not state["phase3_complete"]:
                 if not phase3(state):
                     break
                 save_state(state)
+                git_commit_phase(state, 3)
 
             if not state["phase4_complete"]:
                 if not phase4(state):
@@ -974,6 +1091,7 @@ def main() -> None:
             STATE_FILE.unlink()
             log("─" * 60)
             log(f"Starting cycle #{cycle_num + 1} with carried-forward params...")
+            git_pull()  # pick up any changes pushed by other sessions
 
     finally:
         fcntl.flock(lock_fd, fcntl.LOCK_UN)
