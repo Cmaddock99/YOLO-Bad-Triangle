@@ -160,9 +160,8 @@ TUNE_MAX_ITERS_BY_DEFENSE: dict[str, int] = {
 # Defenses known to carry high inherent accuracy cost even without attacks.
 # auto_cycle logs a warning when these appear in the top-N ranked defenses so
 # the user knows to validate Phase 4 mAP50 before drawing conclusions.
-FLAGGED_DEFENSES: set[str] = {
-    "random_resize",  # mAP50 typically drops 0.2+ even without an attack
-}
+# random_resize removed from catalogue entirely — no longer needs flagging.
+FLAGGED_DEFENSES: set[str] = set()
 
 
 # ── Startup param-space validation ────────────────────────────────────────────
