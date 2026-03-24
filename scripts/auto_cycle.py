@@ -102,6 +102,10 @@ ATTACK_PARAM_SPACE: dict[str, dict[str, dict]] = {
     "jpeg_attack": {
         "attack.params.quality": {"init": 75, "min": 10, "max": 95, "scale": "int", "step": 15},
     },
+    "square": {
+        "attack.params.eps":       {"init": 0.05,  "min": 0.01, "max": 0.3,  "scale": "log", "factor": 2.0},
+        "attack.params.n_queries": {"init": 200,   "min": 50,   "max": 1000, "scale": "int",  "step": 100},
+    },
 }
 
 DEFENSE_PARAM_SPACE: dict[str, dict[str, dict]] = {
