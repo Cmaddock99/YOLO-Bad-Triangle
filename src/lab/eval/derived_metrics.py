@@ -49,6 +49,20 @@ def compute_defense_recovery(
     return _safe_ratio(float(defense_detections) - float(attack_detections), baseline_detections)
 
 
+def compute_per_class_detection_drop(
+    baseline_per_class: dict[int, dict],
+    attacked_per_class: dict[int, dict],
+) -> dict[int, float | None]:
+    """Per-class detection drop fraction: (baseline_count - attack_count) / baseline_count."""
+    all_ids = set(baseline_per_class) | set(attacked_per_class)
+    result: dict[int, float | None] = {}
+    for class_id in all_ids:
+        baseline_count = baseline_per_class.get(class_id, {}).get("count")
+        attack_count = attacked_per_class.get(class_id, {}).get("count", 0)
+        result[class_id] = compute_detection_drop(baseline_count, attack_count)
+    return result
+
+
 def compute_confidence_drop(
     baseline_avg_conf: float | int | None,
     attack_avg_conf: float | int | None,

@@ -16,7 +16,21 @@
         "image_count",
         "images_with_detections",
         "total_detections"
-      ]
+      ],
+      "properties": {
+        "per_class": {
+          "type": "object",
+          "description": "Per-class detection counts and confidence (optional, keyed by string class ID)",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "count": {"type": "integer"},
+              "mean_confidence": {"type": ["number", "null"]},
+              "class_name": {"type": "string"}
+            }
+          }
+        }
+      }
     },
     "validation": {
       "type": "object",

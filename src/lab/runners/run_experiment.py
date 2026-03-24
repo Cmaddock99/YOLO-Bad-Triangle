@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform as _platform
 import random
 import sys
 from copy import deepcopy
@@ -13,6 +14,7 @@ from typing import Any, cast
 
 import cv2
 import numpy as np
+import torch
 from tqdm import tqdm
 import yaml
 
@@ -444,6 +446,9 @@ class UnifiedExperimentRunner:
         seed = int(runner_cfg.get("seed", 42))
         random.seed(seed)
         np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
 
         source_dir = Path(str(source_dir_raw)).expanduser().resolve()
         if not source_dir.exists():
@@ -553,6 +558,12 @@ class UnifiedExperimentRunner:
             "validation": metrics_payload["validation"],
             "metrics_path": str(metrics_file),
             "seed": seed,
+            "reproducibility": {
+                "seed": seed,
+                "torch_version": torch.__version__,
+                "platform": f"{sys.platform}-{_platform.machine()}",
+                "torch_seeded": True,
+            },
         }
         summary_file = run_dir / "run_summary.json"
         summary_file.write_text(json.dumps(run_summary, indent=2, sort_keys=True), encoding="utf-8")

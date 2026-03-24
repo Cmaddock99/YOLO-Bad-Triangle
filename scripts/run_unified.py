@@ -45,6 +45,8 @@ def main() -> None:
     )
     run_one.add_argument("--dry-run", action="store_true")
     run_one.add_argument("--list-plugins", action="store_true")
+    run_one.add_argument("--seed", type=int, default=None,
+        help="Random seed (overrides config). Shorthand for --set runner.seed=N.")
 
     sweep = subparsers.add_parser("sweep", help="Run baseline + attack sweep with reports.")
     sweep.add_argument("--config", default="configs/default.yaml")
@@ -68,6 +70,8 @@ def main() -> None:
         ]
         for override in args.overrides:
             command.extend(["--set", override])
+        if args.seed is not None:
+            command.extend(["--set", f"runner.seed={args.seed}"])
         if args.dry_run:
             command.append("--dry-run")
         if args.list_plugins:

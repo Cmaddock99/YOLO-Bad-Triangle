@@ -3,6 +3,7 @@ from __future__ import annotations
 from statistics import median
 from typing import Any
 
+from .coco_labels import COCO_CLASS_NAMES
 from .derived_metrics import to_finite_float
 from .prediction_schema import PredictionRecord
 
@@ -53,6 +54,25 @@ def summarize_prediction_metrics(records: list[PredictionRecord]) -> dict[str, A
             "max": max(scores),
         }
 
+    per_class_raw: dict[int, dict] = {}
+    for record in records:
+        for class_id, raw_score in zip(record.get("class_ids", []), record.get("scores", [])):
+            cid = int(class_id)
+            entry = per_class_raw.setdefault(cid, {"count": 0, "scores": []})
+            entry["count"] += 1
+            score = to_finite_float(raw_score)
+            if score is not None:
+                entry["scores"].append(score)
+
+    per_class: dict[str, Any] = {}
+    for cid, entry in sorted(per_class_raw.items()):
+        class_scores = entry["scores"]
+        per_class[str(cid)] = {
+            "count": entry["count"],
+            "mean_confidence": (sum(class_scores) / len(class_scores)) if class_scores else None,
+            "class_name": COCO_CLASS_NAMES.get(cid, f"class_{cid}"),
+        }
+
     return {
         "image_count": image_count,
         "images_with_detections": images_with_detections,
@@ -60,4 +80,5 @@ def summarize_prediction_metrics(records: list[PredictionRecord]) -> dict[str, A
         "total_detections": total_detections,
         "detections_per_image_mean": (total_detections / image_count) if image_count else 0.0,
         "confidence": confidence,
+        "per_class": per_class,
     }
