@@ -73,6 +73,8 @@ def _build_attack_rows(rows: list[dict[str, str]]) -> tuple[dict[str, str], list
                 "total_detections": detections,
                 "avg_confidence": _to_optional_float(row.get("avg_confidence")),
                 "detection_drop": drop,
+                "validation_status": row.get("validation_status", ""),
+                "map50": _to_optional_float(row.get("mAP50")),
             }
         )
     attack_rows.sort(
@@ -144,8 +146,8 @@ def render_team_summary_markdown(payload: dict[str, Any]) -> str:
         [
             "## Attack Ranking",
             "",
-            "| Attack | Detection drop | Avg confidence | Interpretation |",
-            "|---|---:|---:|---|",
+            "| Run | Attack | Det drop | Avg conf | mAP50 | Source | Interpretation |",
+            "|---|---|---:|---:|---:|---|---|",
         ]
     )
     for row in attack_rows:
@@ -153,8 +155,14 @@ def render_team_summary_markdown(payload: dict[str, Any]) -> str:
         drop_text = "n/a" if drop is None else f"{float(drop) * 100:.1f}%"
         conf = row.get("avg_confidence")
         conf_text = "n/a" if conf is None else f"{float(conf):.4f}"
+        map50 = row.get("map50")
+        map50_text = "n/a" if map50 is None else f"{float(map50):.4f}"
+        v_status = str(row.get("validation_status") or "")
+        source = "✓ mAP50" if v_status == "success" else "proxy (avg_conf)"
         lines.append(
-            f"| `{row.get('attack')}` | {drop_text} | {conf_text} | {row.get('interpretation') or 'n/a'} |"
+            f"| `{row.get('run_name')}` | `{row.get('attack')}` | "
+            f"{drop_text} | {conf_text} | {map50_text} | {source} | "
+            f"{row.get('interpretation') or 'n/a'} |"
         )
     return "\n".join(lines)
 

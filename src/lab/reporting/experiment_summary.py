@@ -34,7 +34,9 @@ def _extract_avg_confidence(metrics: dict[str, Any] | None) -> float | None:
 def _interpretation(detection_drop: float | None, defense_recovery: float | None) -> str:
     if detection_drop is None:
         return "Insufficient data for robustness interpretation"
-    strong_attack = detection_drop is not None and detection_drop > 0.15
+    if detection_drop < 0.01:
+        return "No effect detected (verify metric or params)"
+    strong_attack = detection_drop > 0.15
     weak_defense = defense_recovery is not None and defense_recovery < 0.05
     if strong_attack and weak_defense:
         return "Strong attack effect, weak defense"
