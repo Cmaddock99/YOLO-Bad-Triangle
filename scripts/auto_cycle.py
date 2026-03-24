@@ -62,11 +62,11 @@ PYTHON = REPO / ".venv" / "bin" / "python"
 # ── Attack / defense catalogues ───────────────────────────────────────────────
 
 ALL_ATTACKS: list[str] = [
-    "blur", "deepfool", "eot_pgd", "fgsm",
-    "fgsm_center_mask", "fgsm_edge_mask", "gaussian_blur", "pgd",
+    "blur", "deepfool", "eot_pgd", "fgsm", "jpeg_attack", "pgd",
 ]
 ALL_DEFENSES: list[str] = [
-    "c_dog", "c_dog_ensemble", "confidence_filter", "median_preprocess",
+    "bit_depth", "c_dog", "c_dog_ensemble", "jpeg_preprocess",
+    "median_preprocess", "random_resize",
 ]
 
 TOP_N_ATTACKS = 3
@@ -95,19 +95,11 @@ ATTACK_PARAM_SPACE: dict[str, dict[str, dict]] = {
         "attack.params.epsilon":    {"init": 0.016, "min": 0.002, "max": 0.25, "scale": "log", "factor": 2.0},
         "attack.params.eot_samples":{"init": 4,     "min": 2,     "max": 16,   "scale": "int",  "step": 2},
     },
-    "fgsm_center_mask": {
-        "attack.params.epsilon":         {"init": 0.008, "min": 0.001, "max": 0.15, "scale": "log",          "factor": 2.0},
-        "attack.params.radius_fraction": {"init": 0.35,  "min": 0.1,   "max": 0.7,  "scale": "linear_float", "step": 0.1},
-    },
-    "fgsm_edge_mask": {
-        "attack.params.epsilon":        {"init": 0.008, "min": 0.001, "max": 0.15, "scale": "log", "factor": 2.0},
-        "attack.params.edge_threshold": {"init": 40,    "min": 10,    "max": 100,  "scale": "int",  "step": 15},
-    },
     "blur": {
         "attack.params.kernel_size": {"init": 25, "min": 3, "max": 51, "scale": "odd_int", "step": 4},
     },
-    "gaussian_blur": {
-        "attack.params.kernel_size": {"init": 25, "min": 3, "max": 51, "scale": "odd_int", "step": 4},
+    "jpeg_attack": {
+        "attack.params.quality": {"init": 75, "min": 10, "max": 95, "scale": "int", "step": 15},
     },
 }
 
@@ -123,8 +115,14 @@ DEFENSE_PARAM_SPACE: dict[str, dict[str, dict]] = {
         "defense.params.sharpen_alpha": {"init": 0.3,  "min": 0.0,  "max": 0.7,  "scale": "linear_float", "step": 0.15},
         "defense.params.median_kernel": {"init": 3,    "min": 3,    "max": 11,   "scale": "odd_int",      "step": 2},
     },
-    "confidence_filter": {
-        "defense.params.threshold": {"init": 0.5, "min": 0.1, "max": 0.9, "scale": "linear_float", "step": 0.1},
+    "jpeg_preprocess": {
+        "defense.params.quality": {"init": 75, "min": 40, "max": 95, "scale": "int", "step": 15},
+    },
+    "random_resize": {
+        "defense.params.scale_factor_low": {"init": 0.9, "min": 0.7, "max": 0.98, "scale": "linear_float", "step": 0.05},
+    },
+    "bit_depth": {
+        "defense.params.bits": {"init": 5, "min": 3, "max": 7, "scale": "int", "step": 1},
     },
 }
 
