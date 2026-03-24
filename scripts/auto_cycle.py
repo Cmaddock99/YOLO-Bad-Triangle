@@ -139,7 +139,7 @@ TUNE_MAX_IMAGES = 8
 
 # Attacks too slow for NUC Phase 4 (500-image full validation).
 # Skip these in Phase 4; Mac's standalone sweep handles their validation.
-SLOW_ATTACKS: set[str] = {"square"}
+SLOW_ATTACKS: set[str] = {"square", "eot_pgd"}  # ~126s/img and ~48s/img on NUC CPU
 
 # Coordinate descent settings
 TUNE_MAX_ITERS = 15          # max passes over all parameters (global default)
