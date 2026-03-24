@@ -55,7 +55,8 @@ REPO = Path(__file__).parent.parent
 OUTPUTS = REPO / "outputs"
 STATE_FILE = OUTPUTS / "cycle_state.json"
 WARM_START_FILE = OUTPUTS / "cycle_warm_start.json"
-LOCK_FILE = OUTPUTS / ".cycle.lock"
+LOCK_FILE  = OUTPUTS / ".cycle.lock"
+PAUSE_FILE = OUTPUTS / ".cycle.pause"
 HISTORY_DIR = OUTPUTS / "cycle_history"
 LOG_DIR = REPO / "logs"
 PYTHON = REPO / ".venv" / "bin" / "python"
@@ -726,6 +727,18 @@ def save_cycle_history(state: dict) -> None:
     log(f"Cycle history saved: {out}")
 
 
+def wait_if_paused(after_phase: int) -> None:
+    """Block until outputs/.cycle.pause is removed. Called between phases so
+    the user can inspect results before the next phase begins.
+    Create the file to pause: touch outputs/.cycle.pause
+    Remove it to resume:      rm outputs/.cycle.pause"""
+    if PAUSE_FILE.exists():
+        log(f"PAUSED after phase {after_phase} — remove outputs/.cycle.pause to resume")
+        while PAUSE_FILE.exists():
+            time.sleep(10)
+        log(f"Resuming from phase {after_phase + 1}")
+
+
 def git_pull() -> None:
     """Pull latest changes from remote. Called at the start of each new cycle
     so new plugins, param-space tweaks, and bug fixes are picked up automatically."""
@@ -1091,6 +1104,7 @@ def main() -> None:
                 save_state(state)
                 generate_report(state)
                 git_commit_phase(state, 1)
+                wait_if_paused(1)
 
             if not state["phase2_complete"]:
                 if not phase2(state):
@@ -1098,12 +1112,14 @@ def main() -> None:
                 save_state(state)
                 generate_report(state)
                 git_commit_phase(state, 2)
+                wait_if_paused(2)
 
             if not state["phase3_complete"]:
                 if not phase3(state):
                     break
                 save_state(state)
                 git_commit_phase(state, 3)
+                wait_if_paused(3)
 
             if not state["phase4_complete"]:
                 if not phase4(state):
