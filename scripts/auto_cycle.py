@@ -105,7 +105,7 @@ ATTACK_PARAM_SPACE: dict[str, dict[str, dict]] = {
     },
     "square": {
         "attack.params.eps":       {"init": 0.05,  "min": 0.01, "max": 0.3,  "scale": "log", "factor": 2.0},
-        "attack.params.n_queries": {"init": 200,   "min": 50,   "max": 1000, "scale": "int",  "step": 100},
+        "attack.params.n_queries": {"init": 100,   "min": 50,   "max": 500,  "scale": "int",  "step": 50},
     },
 }
 
@@ -132,9 +132,9 @@ DEFENSE_PARAM_SPACE: dict[str, dict[str, dict]] = {
     },
 }
 
-# Images used during tuning — more than smoke (8) for reliable signal,
-# less than full (500) to keep each evaluation fast.
-TUNE_MAX_IMAGES = 32
+# Images used during tuning — keep small when slow attacks (e.g. square)
+# are in the catalogue. 8 matches Phase 1 smoke size for consistency.
+TUNE_MAX_IMAGES = 8
 
 # Coordinate descent settings
 TUNE_MAX_ITERS = 15       # max passes over all parameters
