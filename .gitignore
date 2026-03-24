@@ -11,7 +11,9 @@ venv/
 # Experiment outputs — ignore raw run data but keep summaries and reports
 outputs/framework_runs/
 outputs/cycle_state.json
+outputs/cw_tune_state.json
 outputs/.cycle.lock
+outputs/.cw_tune.lock
 !outputs/dashboard.html
 runs/
 logs/
