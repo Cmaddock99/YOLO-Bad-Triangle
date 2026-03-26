@@ -45,6 +45,83 @@
       "validation_status": "missing"
     },
     {
+      "attack": "blur",
+      "avg_confidence": 0.7626296401023864,
+      "detection_drop": 0.7619047619047619,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_blur_004",
+      "seed": 42.0,
+      "total_detections": 5.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8412075757980346,
+      "detection_drop": 0.7619047619047619,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_jpeg_preprocess_001",
+      "seed": 42.0,
+      "total_detections": 5.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8588173747062683,
+      "detection_drop": 0.7619047619047619,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_jpeg_preprocess_002",
+      "seed": 42.0,
+      "total_detections": 5.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8412075757980346,
+      "detection_drop": 0.7619047619047619,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_jpeg_preprocess_004",
+      "seed": 42.0,
+      "total_detections": 5.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8165155529975892,
+      "detection_drop": 0.7619047619047619,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_random_resize_001",
+      "seed": 42.0,
+      "total_detections": 5.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8669601798057556,
+      "detection_drop": 0.7619047619047619,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_random_resize_002",
+      "seed": 42.0,
+      "total_detections": 5.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8165155529975892,
+      "detection_drop": 0.7619047619047619,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_random_resize_004",
+      "seed": 42.0,
+      "total_detections": 5.0,
+      "validation_status": "missing"
+    },
+    {
       "attack": "deepfool",
       "avg_confidence": 0.783487876256307,
       "detection_drop": 0.7142857142857143,
@@ -67,12 +144,232 @@
       "validation_status": "missing"
     },
     {
+      "attack": "blur",
+      "avg_confidence": 0.7259889543056488,
+      "detection_drop": 0.7142857142857143,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_blur_002",
+      "seed": 42.0,
+      "total_detections": 6.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8441576858361562,
+      "detection_drop": 0.7142857142857143,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_deepfool_006",
+      "seed": 42.0,
+      "total_detections": 6.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.8672713836034139,
+      "detection_drop": 0.7142857142857143,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_016",
+      "seed": 42.0,
+      "total_detections": 6.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.8672713836034139,
+      "detection_drop": 0.7142857142857143,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_019",
+      "seed": 42.0,
+      "total_detections": 6.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.830067495505015,
+      "detection_drop": 0.7142857142857143,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_bit_depth_002",
+      "seed": 42.0,
+      "total_detections": 6.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8662092685699463,
+      "detection_drop": 0.7142857142857143,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_random_resize_003",
+      "seed": 42.0,
+      "total_detections": 6.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8134201268355051,
+      "detection_drop": 0.7142857142857143,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_random_resize_005",
+      "seed": 42.0,
+      "total_detections": 6.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7701365692274911,
+      "detection_drop": 0.6666666666666666,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_deepfool_002",
+      "seed": 42.0,
+      "total_detections": 7.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7729748742921012,
+      "detection_drop": 0.6666666666666666,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_deepfool_004",
+      "seed": 42.0,
+      "total_detections": 7.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7729748742921012,
+      "detection_drop": 0.6666666666666666,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_deepfool_008",
+      "seed": 42.0,
+      "total_detections": 7.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7701365692274911,
+      "detection_drop": 0.6666666666666666,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_deepfool_best",
+      "seed": 42.0,
+      "total_detections": 7.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7797583341598511,
+      "detection_drop": 0.6666666666666666,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_bit_depth_003",
+      "seed": 42.0,
+      "total_detections": 7.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8050973755972726,
+      "detection_drop": 0.6666666666666666,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_jpeg_preprocess_005",
+      "seed": 42.0,
+      "total_detections": 7.0,
+      "validation_status": "missing"
+    },
+    {
       "attack": "deepfool",
       "avg_confidence": 0.7955008670687675,
       "detection_drop": 0.6190476190476191,
       "interpretation": "Strong attack effect",
       "map50": null,
       "run_name": "defended_deepfool_bit_depth",
+      "seed": 42.0,
+      "total_detections": 8.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7346398681402206,
+      "detection_drop": 0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_deepfool_005",
+      "seed": 42.0,
+      "total_detections": 8.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7346398681402206,
+      "detection_drop": 0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_deepfool_009",
+      "seed": 42.0,
+      "total_detections": 8.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7955447435379028,
+      "detection_drop": 0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_014",
+      "seed": 42.0,
+      "total_detections": 8.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7953547537326813,
+      "detection_drop": 0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_017",
+      "seed": 42.0,
+      "total_detections": 8.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7953547537326813,
+      "detection_drop": 0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_020",
+      "seed": 42.0,
+      "total_detections": 8.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7955008670687675,
+      "detection_drop": 0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_bit_depth_001",
+      "seed": 42.0,
+      "total_detections": 8.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7779199406504631,
+      "detection_drop": 0.6190476190476191,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_def_jpeg_preprocess_003",
       "seed": 42.0,
       "total_detections": 8.0,
       "validation_status": "missing"
@@ -89,12 +386,89 @@
       "validation_status": "missing"
     },
     {
+      "attack": "deepfool",
+      "avg_confidence": 0.7549481458134122,
+      "detection_drop": 0.5714285714285714,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_deepfool_001",
+      "seed": 42.0,
+      "total_detections": 9.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8024581538306342,
+      "detection_drop": 0.5714285714285714,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_deepfool_003",
+      "seed": 42.0,
+      "total_detections": 9.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7549481458134122,
+      "detection_drop": 0.5714285714285714,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_deepfool_007",
+      "seed": 42.0,
+      "total_detections": 9.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.826884580983056,
+      "detection_drop": 0.5714285714285714,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_010",
+      "seed": 42.0,
+      "total_detections": 9.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.8090351025263468,
+      "detection_drop": 0.5714285714285714,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_012",
+      "seed": 42.0,
+      "total_detections": 9.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.8046423395474752,
+      "detection_drop": 0.5714285714285714,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_018",
+      "seed": 42.0,
+      "total_detections": 9.0,
+      "validation_status": "missing"
+    },
+    {
       "attack": "eot_pgd",
       "avg_confidence": 0.8200460255146027,
       "detection_drop": 0.5238095238095238,
       "interpretation": "Strong attack effect",
       "map50": null,
       "run_name": "defended_eot_pgd_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 10.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7965655148029327,
+      "detection_drop": 0.5238095238095238,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_013",
       "seed": 42.0,
       "total_detections": 10.0,
       "validation_status": "missing"
@@ -123,6 +497,39 @@
     },
     {
       "attack": "blur",
+      "avg_confidence": 0.7239191586321051,
+      "detection_drop": 0.47619047619047616,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_blur_001",
+      "seed": 42.0,
+      "total_detections": 11.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7239191586321051,
+      "detection_drop": 0.47619047619047616,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_blur_005",
+      "seed": 42.0,
+      "total_detections": 11.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.8219646107066761,
+      "detection_drop": 0.47619047619047616,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_011",
+      "seed": 42.0,
+      "total_detections": 11.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "blur",
       "avg_confidence": 0.7764825870593389,
       "detection_drop": 0.42857142857142855,
       "interpretation": "Strong attack effect",
@@ -130,6 +537,94 @@
       "run_name": "defended_blur_random_resize",
       "seed": 42.0,
       "total_detections": 12.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.8228679398695627,
+      "detection_drop": 0.42857142857142855,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_002",
+      "seed": 42.0,
+      "total_detections": 12.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7823077986637751,
+      "detection_drop": 0.42857142857142855,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_006",
+      "seed": 42.0,
+      "total_detections": 12.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7596779565016428,
+      "detection_drop": 0.42857142857142855,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_008",
+      "seed": 42.0,
+      "total_detections": 12.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7596779565016428,
+      "detection_drop": 0.42857142857142855,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_015",
+      "seed": 42.0,
+      "total_detections": 12.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7434408435454736,
+      "detection_drop": 0.38095238095238093,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_blur_003",
+      "seed": 42.0,
+      "total_detections": 13.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7687824001679053,
+      "detection_drop": 0.38095238095238093,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_004",
+      "seed": 42.0,
+      "total_detections": 13.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.8036994842382578,
+      "detection_drop": 0.38095238095238093,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_007",
+      "seed": 42.0,
+      "total_detections": 13.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7731657945192777,
+      "detection_drop": 0.38095238095238093,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_009",
+      "seed": 42.0,
+      "total_detections": 13.0,
       "validation_status": "missing"
     },
     {
@@ -188,6 +683,28 @@
       "validation_status": "missing"
     },
     {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.795614847115108,
+      "detection_drop": 0.3333333333333333,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_001",
+      "seed": 42.0,
+      "total_detections": 14.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7906030257542928,
+      "detection_drop": 0.2857142857142857,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_005",
+      "seed": 42.0,
+      "total_detections": 15.0,
+      "validation_status": "missing"
+    },
+    {
       "attack": "blur",
       "avg_confidence": 0.7271771840751171,
       "detection_drop": 0.23809523809523808,
@@ -243,6 +760,17 @@
       "validation_status": "missing"
     },
     {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7815793752670288,
+      "detection_drop": 0.19047619047619047,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "tune_atk_eot_pgd_003",
+      "seed": 42.0,
+      "total_detections": 17.0,
+      "validation_status": "missing"
+    },
+    {
       "attack": "pgd",
       "avg_confidence": 0.7646069924036661,
       "detection_drop": 0.14285714285714285,
@@ -274,6 +802,127 @@
       "seed": 42.0,
       "total_detections": 21.0,
       "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7447915130881901,
+      "detection_drop": -9.047619047619047,
+      "interpretation": "Strong attack effect",
+      "map50": 0.1184940449968921,
+      "run_name": "validate_deepfool_random_resize",
+      "seed": 42.0,
+      "total_detections": 211.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7517907253976138,
+      "detection_drop": -9.095238095238095,
+      "interpretation": "Strong attack effect",
+      "map50": 0.18365147833842493,
+      "run_name": "validate_deepfool_jpeg_preprocess",
+      "seed": 42.0,
+      "total_detections": 212.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7561992535224328,
+      "detection_drop": -11.380952380952381,
+      "interpretation": "Strong attack effect",
+      "map50": 0.21841389286273205,
+      "run_name": "validate_atk_deepfool",
+      "seed": 42.0,
+      "total_detections": 260.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7472459837680555,
+      "detection_drop": -11.476190476190476,
+      "interpretation": "Strong attack effect",
+      "map50": 0.22760173407061274,
+      "run_name": "validate_deepfool_bit_depth",
+      "seed": 42.0,
+      "total_detections": 262.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7384173551578479,
+      "detection_drop": -20.476190476190474,
+      "interpretation": "Strong attack effect",
+      "map50": 0.1489459622915079,
+      "run_name": "validate_blur_random_resize",
+      "seed": 42.0,
+      "total_detections": 451.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7300802530529343,
+      "detection_drop": -24.476190476190474,
+      "interpretation": "Strong attack effect",
+      "map50": 0.2602695901615396,
+      "run_name": "validate_blur_jpeg_preprocess",
+      "seed": 42.0,
+      "total_detections": 535.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7345892564014153,
+      "detection_drop": -24.714285714285715,
+      "interpretation": "Strong attack effect",
+      "map50": 0.26359023462953907,
+      "run_name": "validate_atk_blur",
+      "seed": 42.0,
+      "total_detections": 540.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7336420886410998,
+      "detection_drop": -24.80952380952381,
+      "interpretation": "Strong attack effect",
+      "map50": 0.261521090762956,
+      "run_name": "validate_blur_bit_depth",
+      "seed": 42.0,
+      "total_detections": 542.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.746970711309557,
+      "detection_drop": -25.38095238095238,
+      "interpretation": "Strong attack effect",
+      "map50": 0.22837274976827354,
+      "run_name": "validate_eot_pgd_jpeg_preprocess",
+      "seed": 42.0,
+      "total_detections": 554.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7501957190516811,
+      "detection_drop": -27.38095238095238,
+      "interpretation": "Strong attack effect",
+      "map50": 0.255519133036382,
+      "run_name": "validate_eot_pgd_bit_depth",
+      "seed": 42.0,
+      "total_detections": 596.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7481217658224185,
+      "detection_drop": -27.80952380952381,
+      "interpretation": "Strong attack effect",
+      "map50": 0.25291902516009873,
+      "run_name": "validate_atk_eot_pgd",
+      "seed": 42.0,
+      "total_detections": 605.0,
+      "validation_status": "complete"
     }
   ],
   "baseline": {
@@ -295,6 +944,6 @@
     "total_detections": 3.0,
     "validation_status": "missing"
   },
-  "total_attack_runs": 25,
-  "total_runs": 26
+  "total_attack_runs": 84,
+  "total_runs": 86
 }

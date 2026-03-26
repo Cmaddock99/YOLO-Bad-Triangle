@@ -1,0 +1,161 @@
+{
+  "cycle_id": "cycle_20260324_094635",
+  "started_at": "2026-03-24T09:46:35.980746",
+  "finished_at": "2026-03-25T22:38:49.027836",
+  "top_attacks": [
+    "deepfool",
+    "eot_pgd",
+    "blur"
+  ],
+  "top_defenses": [
+    "jpeg_preprocess",
+    "bit_depth",
+    "random_resize"
+  ],
+  "best_attack_params": {
+    "deepfool": {
+      "attack.params.epsilon": 0.1,
+      "attack.params.steps": 50
+    },
+    "eot_pgd": {
+      "attack.params.epsilon": 0.25,
+      "attack.params.eot_samples": 8
+    },
+    "blur": {
+      "attack.params.kernel_size": 29
+    }
+  },
+  "best_defense_params": {
+    "jpeg_preprocess": {
+      "defense.params.quality": 60
+    },
+    "bit_depth": {
+      "defense.params.bits": 5
+    },
+    "random_resize": {
+      "defense.params.scale_factor_low": 0.85
+    }
+  },
+  "validation_results": {
+    "validate_atk_blur": {
+      "attack": "blur",
+      "defense": "none",
+      "avg_conf": 0.7345892564014153,
+      "mAP50": 0.26359023462953907,
+      "mAP50_95": 0.17826414450562555,
+      "precision": 0.39168249243871006,
+      "recall": 0.25128322154872873,
+      "detections": 540
+    },
+    "validate_atk_deepfool": {
+      "attack": "deepfool",
+      "defense": "none",
+      "avg_conf": 0.7561992535224328,
+      "mAP50": 0.21841389286273205,
+      "mAP50_95": 0.15188651425180733,
+      "precision": 0.5318993803174947,
+      "recall": 0.1857739750543085,
+      "detections": 260
+    },
+    "validate_atk_eot_pgd": {
+      "attack": "eot_pgd",
+      "defense": "none",
+      "avg_conf": 0.7481217658224185,
+      "mAP50": 0.25291902516009873,
+      "mAP50_95": 0.17033711235387922,
+      "precision": 0.4697314156649175,
+      "recall": 0.24406766850687797,
+      "detections": 605
+    },
+    "validate_baseline": {
+      "attack": "none",
+      "defense": "none",
+      "avg_conf": 0.7647722675805301,
+      "mAP50": 0.6001591766396535,
+      "mAP50_95": 0.4391872274604919,
+      "precision": 0.7134261496087755,
+      "recall": 0.5369307233682217,
+      "detections": 1437
+    },
+    "validate_blur_bit_depth": {
+      "attack": "blur",
+      "defense": "bit_depth",
+      "avg_conf": 0.7336420886410998,
+      "mAP50": 0.261521090762956,
+      "mAP50_95": 0.17772512412779234,
+      "precision": 0.36501212964549457,
+      "recall": 0.2560927298053636,
+      "detections": 542
+    },
+    "validate_blur_jpeg_preprocess": {
+      "attack": "blur",
+      "defense": "jpeg_preprocess",
+      "avg_conf": 0.7300802530529343,
+      "mAP50": 0.2602695901615396,
+      "mAP50_95": 0.17551837878609783,
+      "precision": 0.3783168336203603,
+      "recall": 0.2515730675855644,
+      "detections": 535
+    },
+    "validate_blur_random_resize": {
+      "attack": "blur",
+      "defense": "random_resize",
+      "avg_conf": 0.7384173551578479,
+      "mAP50": 0.1489459622915079,
+      "mAP50_95": 0.06542579562823063,
+      "precision": 0.303636209394066,
+      "recall": 0.15619134192711734,
+      "detections": 451
+    },
+    "validate_deepfool_bit_depth": {
+      "attack": "deepfool",
+      "defense": "bit_depth",
+      "avg_conf": 0.7472459837680555,
+      "mAP50": 0.22760173407061274,
+      "mAP50_95": 0.1538488890215202,
+      "precision": 0.4682475381688033,
+      "recall": 0.18866469835110197,
+      "detections": 262
+    },
+    "validate_deepfool_jpeg_preprocess": {
+      "attack": "deepfool",
+      "defense": "jpeg_preprocess",
+      "avg_conf": 0.7517907253976138,
+      "mAP50": 0.18365147833842493,
+      "mAP50_95": 0.12491598260207676,
+      "precision": 0.4635975477211562,
+      "recall": 0.1540994103566383,
+      "detections": 212
+    },
+    "validate_deepfool_random_resize": {
+      "attack": "deepfool",
+      "defense": "random_resize",
+      "avg_conf": 0.7447915130881901,
+      "mAP50": 0.1184940449968921,
+      "mAP50_95": 0.049203101521081476,
+      "precision": 0.46549441698029836,
+      "recall": 0.10460651303899106,
+      "detections": 211
+    },
+    "validate_eot_pgd_bit_depth": {
+      "attack": "eot_pgd",
+      "defense": "bit_depth",
+      "avg_conf": 0.7501957190516811,
+      "mAP50": 0.255519133036382,
+      "mAP50_95": 0.17235923393454378,
+      "precision": 0.4587323095095927,
+      "recall": 0.24526996521834926,
+      "detections": 596
+    },
+    "validate_eot_pgd_jpeg_preprocess": {
+      "attack": "eot_pgd",
+      "defense": "jpeg_preprocess",
+      "avg_conf": 0.746970711309557,
+      "mAP50": 0.22837274976827354,
+      "mAP50_95": 0.15010679864542806,
+      "precision": 0.4198648073054011,
+      "recall": 0.22407957375883306,
+      "detections": 554
+    }
+  }
+}
