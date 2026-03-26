@@ -63,7 +63,7 @@
 
 <h1>YOLO Adversarial Robustness Dashboard</h1>
 <div class="subtitle">Model: yolo26n &nbsp;·&nbsp; Dataset: 500 COCO val images
-  &nbsp;·&nbsp; 4 sweep(s) &nbsp;·&nbsp; Generated: 2026-03-23 02:58 UTC</div>
+  &nbsp;·&nbsp; 5 sweep(s) &nbsp;·&nbsp; Generated: 2026-03-26 06:05 UTC</div>
 
 <details>
   <summary>About this research</summary>
@@ -131,26 +131,26 @@
 <div class="cards">
         <div class="card">
             <div class="card-title">Total Sweeps</div>
-            <div class="card-value" style="color:#4C72B0">4</div>
+            <div class="card-value" style="color:#4C72B0">5</div>
             <div class="card-sub">runs recorded</div>
         </div>
         <div class="card">
             <div class="card-title">Baseline Detections</div>
-            <div class="card-value" style="color:#2ca02c">1437</div>
+            <div class="card-value" style="color:#2ca02c">21</div>
             <div class="card-sub">clean images, no attack</div>
         </div>
         <div class="card">
             <div class="card-title">Strongest Attack</div>
-            <div class="card-value" style="color:#C44E52">DEEPFOOL</div>
-            <div class="card-sub">−78.2% detections</div>
+            <div class="card-value" style="color:#C44E52">CW</div>
+            <div class="card-sub">−0.0% detections</div>
         </div>
         <div class="card">
             <div class="card-title">Best Defense (latest)</div>
-            <div class="card-value" style="color:#E377C2">median_preprocess</div>
-            <div class="card-sub">vs pgd: −17.6%</div>
+            <div class="card-value" style="color:#E377C2">jpeg_preprocess</div>
+            <div class="card-sub">vs cw: −0.0%</div>
         </div></div>
 
-<h2>Latest Sweep — Defense Heatmap (Mar 21 18:37)</h2>
+<h2>Latest Sweep — Defense Heatmap (Mar 24 03:06)</h2>
 <div class="chart-box">
   <div id="heatmap" style="height:320px"></div>
 </div>
@@ -175,60 +175,25 @@
         </thead>
         <tbody>
         <tr>
-            <td><span class="badge attack">pgd</span></td>
-            <td><span class="badge defense">Median Filter</span></td>
-            <td style="color:#27ae60; font-weight:600">17.6%</td>
-            <td>1184</td>
-            <td>0.7573</td>
+            <td><span class="badge attack">cw</span></td>
+            <td><span class="badge defense">jpeg_preprocess</span></td>
+            <td style="color:#27ae60; font-weight:600">0.0%</td>
+            <td>21</td>
+            <td>0.7485</td>
         </tr>
         <tr>
-            <td><span class="badge attack">blur</span></td>
-            <td><span class="badge defense">Median Filter</span></td>
-            <td style="color:#27ae60; font-weight:600">18.6%</td>
-            <td>1169</td>
-            <td>0.7522</td>
-        </tr>
-        <tr>
-            <td><span class="badge attack">fgsm</span></td>
-            <td><span class="badge defense">Median Filter</span></td>
-            <td style="color:#27ae60; font-weight:600">20.1%</td>
-            <td>1148</td>
-            <td>0.7592</td>
-        </tr>
-        <tr>
-            <td><span class="badge attack">pgd</span></td>
+            <td><span class="badge attack">cw</span></td>
             <td><span class="badge defense">DPC-UNet (c_dog)</span></td>
-            <td style="color:#e67e22; font-weight:600">34.0%</td>
-            <td>948</td>
-            <td>0.7549</td>
+            <td style="color:#27ae60; font-weight:600">4.8%</td>
+            <td>20</td>
+            <td>0.7252</td>
         </tr>
         <tr>
-            <td><span class="badge attack">fgsm</span></td>
-            <td><span class="badge defense">DPC-UNet (c_dog)</span></td>
-            <td style="color:#e67e22; font-weight:600">35.2%</td>
-            <td>931</td>
-            <td>0.7578</td>
-        </tr>
-        <tr>
-            <td><span class="badge attack">blur</span></td>
-            <td><span class="badge defense">DPC-UNet (c_dog)</span></td>
-            <td style="color:#e67e22; font-weight:600">37.0%</td>
-            <td>906</td>
-            <td>0.7566</td>
-        </tr>
-        <tr>
-            <td><span class="badge attack">deepfool</span></td>
+            <td><span class="badge attack">cw</span></td>
             <td><span class="badge defense">Median Filter</span></td>
-            <td style="color:#c0392b; font-weight:600">84.8%</td>
-            <td>218</td>
-            <td>0.748</td>
-        </tr>
-        <tr>
-            <td><span class="badge attack">deepfool</span></td>
-            <td><span class="badge defense">DPC-UNet (c_dog)</span></td>
-            <td style="color:#c0392b; font-weight:600">91.2%</td>
-            <td>127</td>
-            <td>0.7408</td>
+            <td style="color:#27ae60; font-weight:600">14.3%</td>
+            <td>18</td>
+            <td>0.7705</td>
         </tr></tbody>
     </table>
     </div>
@@ -250,7 +215,7 @@ const dark = {
   margin: { t: 20, r: 20, b: 50, l: 140 },
 };
 
-Plotly.newPlot("heatmap", [{"type": "heatmap", "x": ["blur", "deepfool", "fgsm", "pgd"], "y": ["DPC-UNet (c_dog)", "Median Filter"], "z": [[37.0, 91.2, 35.2, 34.0], [18.6, 84.8, 20.1, 17.6]], "text": [["37.0%<br>906 detections", "91.2%<br>127 detections", "35.2%<br>931 detections", "34.0%<br>948 detections"], ["18.6%<br>1169 detections", "84.8%<br>218 detections", "20.1%<br>1148 detections", "17.6%<br>1184 detections"]], "hovertemplate": "<b>%{x}</b> + <b>%{y}</b><br>Drop: %{z}%<extra></extra>", "colorscale": [[0, "#27ae60"], [0.5, "#f39c12"], [1, "#c0392b"]], "zmin": 0, "zmax": 100, "showscale": true, "colorbar": {"title": "Detection Drop %"}, "texttemplate": "%{text}", "textfont": {"size": 12, "color": "white"}}],
+Plotly.newPlot("heatmap", [{"type": "heatmap", "x": ["cw"], "y": ["DPC-UNet (c_dog)", "jpeg_preprocess", "Median Filter"], "z": [[4.8], [0.0], [14.3]], "text": [["4.8%<br>20 detections"], ["0.0%<br>21 detections"], ["14.3%<br>18 detections"]], "hovertemplate": "<b>%{x}</b> + <b>%{y}</b><br>Drop: %{z}%<extra></extra>", "colorscale": [[0, "#27ae60"], [0.5, "#f39c12"], [1, "#c0392b"]], "zmin": 0, "zmax": 100, "showscale": true, "colorbar": {"title": "Detection Drop %"}, "texttemplate": "%{text}", "textfont": {"size": 12, "color": "white"}}],
   Object.assign({}, dark, {
     margin: { t: 20, r: 120, b: 60, l: 160 },
     xaxis: Object.assign({}, dark.xaxis, { title: "Attack" }),
@@ -259,7 +224,7 @@ Plotly.newPlot("heatmap", [{"type": "heatmap", "x": ["blur", "deepfool", "fgsm",
   {responsive: true, displayModeBar: false}
 );
 
-Plotly.newPlot("attack-bars", [{"x": ["blur", "deepfool", "fgsm", "pgd"], "y": [16.5, 78.2, 12.3, 13.4], "type": "bar", "marker": {"color": ["#55A868", "#C44E52", "#4C72B0", "#DD8452"]}, "text": ["16.5%", "78.2%", "12.3%", "13.4%"], "textposition": "outside"}],
+Plotly.newPlot("attack-bars", [{"x": ["cw"], "y": [0.0], "type": "bar", "marker": {"color": ["#999999"]}, "text": ["0.0%"], "textposition": "outside"}],
   Object.assign({}, dark, {
     margin: { t: 20, r: 20, b: 50, l: 60 },
     yaxis: Object.assign({}, dark.yaxis, {
@@ -271,7 +236,7 @@ Plotly.newPlot("attack-bars", [{"x": ["blur", "deepfool", "fgsm", "pgd"], "y": [
   {responsive: true, displayModeBar: false}
 );
 
-Plotly.newPlot("trend", [{"x": ["Mar 21 03:32", "Mar 21 18:37"], "y": [64.8, 37.0], "name": "blur + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#55A868", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 03:32"], "y": [86.4], "name": "blur + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#55A868", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 03:32", "Mar 21 18:37"], "y": [18.6, 18.6, 18.6], "name": "blur + Median Filter", "mode": "lines+markers", "line": {"color": "#55A868", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [94.8, 96.8, 91.2], "name": "deepfool + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32"], "y": [96.9, 98.5], "name": "deepfool + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [4.5, 83.5, 84.8, 84.8], "name": "deepfool + Median Filter", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [69.1, 69.1, 35.2], "name": "fgsm + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#4C72B0", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32"], "y": [92.8, 90.5], "name": "fgsm + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#4C72B0", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [20.1, 26.8, 20.1, 20.1], "name": "fgsm + Median Filter", "mode": "lines+markers", "line": {"color": "#4C72B0", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [69.1, 74.3, 34.0], "name": "pgd + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#DD8452", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32"], "y": [95.9, 93.5], "name": "pgd + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#DD8452", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [19.4, 23.7, 19.1, 17.6], "name": "pgd + Median Filter", "mode": "lines+markers", "line": {"color": "#DD8452", "width": 2}, "marker": {"size": 8, "symbol": "square"}}],
+Plotly.newPlot("trend", [{"x": ["Mar 21 03:32", "Mar 21 18:37"], "y": [64.8, 37.0], "name": "blur + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#55A868", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 03:32"], "y": [86.4], "name": "blur + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#55A868", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 03:32", "Mar 21 18:37"], "y": [18.6, 18.6, 18.6], "name": "blur + Median Filter", "mode": "lines+markers", "line": {"color": "#55A868", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 24 03:06"], "y": [4.8], "name": "cw + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 24 03:06"], "y": [0.0], "name": "cw + jpeg_preprocess", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 24 03:06"], "y": [14.3], "name": "cw + Median Filter", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [94.8, 96.8, 91.2], "name": "deepfool + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32"], "y": [96.9, 98.5], "name": "deepfool + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [4.5, 83.5, 84.8, 84.8], "name": "deepfool + Median Filter", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [69.1, 69.1, 35.2], "name": "fgsm + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#4C72B0", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32"], "y": [92.8, 90.5], "name": "fgsm + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#4C72B0", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [20.1, 26.8, 20.1, 20.1], "name": "fgsm + Median Filter", "mode": "lines+markers", "line": {"color": "#4C72B0", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [69.1, 74.3, 34.0], "name": "pgd + DPC-UNet (c_dog)", "mode": "lines+markers", "line": {"color": "#DD8452", "width": 2}, "marker": {"size": 8, "symbol": "circle"}}, {"x": ["Mar 21 01:23", "Mar 21 03:32"], "y": [95.9, 93.5], "name": "pgd + c_dog_ensemble", "mode": "lines+markers", "line": {"color": "#DD8452", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Mar 20 22:00", "Mar 21 01:23", "Mar 21 03:32", "Mar 21 18:37"], "y": [19.4, 23.7, 19.1, 17.6], "name": "pgd + Median Filter", "mode": "lines+markers", "line": {"color": "#DD8452", "width": 2}, "marker": {"size": 8, "symbol": "square"}}],
   Object.assign({}, dark, {
     margin: { t: 20, r: 20, b: 60, l: 60 },
     yaxis: Object.assign({}, dark.yaxis, {
