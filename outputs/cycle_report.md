@@ -1,6 +1,6 @@
 # Cycle Report
 
-Generated from 6 completed cycle(s) in `outputs/cycle_history/`.
+Generated from 7 completed cycle(s) in `outputs/cycle_history/`.
 
 ## Executive Summary
 
@@ -12,6 +12,7 @@ Generated from 6 completed cycle(s) in `outputs/cycle_history/`.
 | 4 | 2026-03-23 | 0.6002 | 0.5511 | pgd+confidence_filter | blur |
 | 5 | 2026-03-23 | 0.6002 | 0.5511 | pgd+confidence_filter | blur |
 | 6 | 2026-03-25 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
+| 7 | 2026-03-26 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
 
 ## Baseline mAP50 Trend
 
@@ -26,6 +27,7 @@ Upward trend = model fortification is working.
 | 4 | 0.6002 | +0.0000 |
 | 5 | 0.6002 | +0.0000 |
 | 6 | 0.6002 | +0.0000 |
+| 7 | 0.6002 | +0.0000 |
 
 ## Attack × Defense mAP50 Trends
 
@@ -41,17 +43,19 @@ Defended mAP50 for each attack+defense pair across cycles. Higher = better defen
 | 4 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
 | 5 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
 | 6 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | n/a | 0.1489 |
+| 7 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
 
 ### Attack: deepfool
 
-| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | random_resize |
-|---|---:|---:|---:|---:|---:|
-| 1 | n/a | n/a | n/a | n/a | n/a |
-| 2 | 0.6002 | n/a | n/a | n/a | n/a |
-| 3 | 0.6002 | n/a | n/a | n/a | n/a |
-| 4 | 0.6002 | n/a | n/a | n/a | n/a |
-| 5 | 0.6002 | n/a | n/a | n/a | n/a |
-| 6 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1185 |
+| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | median_preprocess | random_resize |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 2 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
+| 3 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
+| 4 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
+| 5 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
+| 6 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | n/a | 0.1185 |
+| 7 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 | n/a |
 
 ### Attack: eot_pgd
 
@@ -63,6 +67,7 @@ Defended mAP50 for each attack+defense pair across cycles. Higher = better defen
 | 4 | 0.6002 | n/a | n/a | n/a |
 | 5 | 0.6002 | n/a | n/a | n/a |
 | 6 | 0.6002 | 0.2529 | 0.2555 | 0.2284 |
+| 7 | 0.6002 | n/a | n/a | n/a |
 
 ### Attack: gaussian_blur
 
@@ -74,6 +79,7 @@ Defended mAP50 for each attack+defense pair across cycles. Higher = better defen
 | 4 | 0.6002 | 0.3160 | 0.3160 | 0.2724 |
 | 5 | 0.6002 | 0.3160 | 0.3160 | 0.2724 |
 | 6 | 0.6002 | n/a | n/a | n/a |
+| 7 | 0.6002 | n/a | n/a | n/a |
 
 ### Attack: pgd
 
@@ -85,6 +91,7 @@ Defended mAP50 for each attack+defense pair across cycles. Higher = better defen
 | 4 | 0.6002 | 0.5511 | 0.5511 | 0.3854 |
 | 5 | 0.6002 | 0.5511 | 0.5511 | 0.3854 |
 | 6 | 0.6002 | n/a | n/a | n/a |
+| 7 | 0.6002 | n/a | n/a | n/a |
 
 ## Training Signal History
 
@@ -98,3 +105,4 @@ The worst_attack identified after each cycle drives DPC-UNet retraining in Colab
 | 4 | pgd | confidence_filter | -5.958 |
 | 5 | pgd | confidence_filter | -5.958 |
 | 6 | eot_pgd | jpeg_preprocess | -0.061 |
+| 7 | deepfool | median_preprocess | -0.134 |
