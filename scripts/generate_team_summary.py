@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""Generate team-facing summary JSON and markdown from framework report artifacts.
+
+Reads the output of generate_framework_report.py and produces a condensed
+team_summary.json and team_summary.md showing run names, mAP50, and source
+provenance (direct measurement vs proxy).
+
+Usage:
+    PYTHONPATH=src ./.venv/bin/python scripts/generate_team_summary.py \\
+        --report-root outputs/framework_reports/sweep_20260320T220057Z
+"""
 from __future__ import annotations
 
 import argparse

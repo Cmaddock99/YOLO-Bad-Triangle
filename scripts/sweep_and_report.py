@@ -1,4 +1,19 @@
 #!/usr/bin/env python3
+"""Multi-attack × multi-defense sweep with reporting.
+
+Runs all requested attack/defense combinations in parallel subprocesses and
+generates a comparison report under outputs/framework_reports/<sweep_id>/.
+
+Usage:
+    PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \\
+        --attacks fgsm,pgd,deepfool \\
+        --defenses c_dog,median_preprocess \\
+        --preset full \\
+        --workers auto \\
+        --validation-enabled
+
+Use --list-plugins to see all registered attacks and defenses.
+"""
 from __future__ import annotations
 
 import argparse

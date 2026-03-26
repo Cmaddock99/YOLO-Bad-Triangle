@@ -77,19 +77,23 @@ team_summary.json / .md     # high-level summary
 
 | Name | Type |
 |---|---|
-| `fgsm` | Gradient — fast, single-step |
-| `pgd` / `bim` / `ifgsm` | Gradient — iterative, stronger |
-| `deepfool` | Gradient — minimal-perturbation |
-| `blur` / `gaussian_blur` | Non-gradient — image degradation |
+| `fgsm` | Gradient — fast, single-step L∞ |
+| `pgd` | Gradient — iterative L∞ |
+| `deepfool` | Gradient — minimal perturbation |
+| `eot_pgd` | Gradient — expectation over transformations |
+| `blur` | Non-gradient — Gaussian blur |
+| `jpeg_attack` | Non-gradient — JPEG compression |
+| `square` | Query-based black-box L∞ |
 
 ## Defenses
 
 | Name | Description |
 |---|---|
-| `median_preprocess` | Median blur — fast, removes pixel-level noise |
-| `c_dog` | DPC-UNet neural denoiser — strong against structured attacks |
-| `c_dog_ensemble` | Median blur → DPC-UNet → sharpening — strongest overall |
-| `confidence_filter` | Drop detections below a confidence threshold |
+| `c_dog` | DPC-UNet learned denoiser |
+| `c_dog_ensemble` | Median blur → DPC-UNet → sharpening |
+| `median_preprocess` | Median blur preprocessing |
+| `jpeg_preprocess` | JPEG re-encode preprocessing |
+| `bit_depth` | Bit-depth reduction preprocessing |
 
 `c_dog` and `c_dog_ensemble` require a checkpoint. Set once in `.env` (already configured):
 ```bash
@@ -112,10 +116,11 @@ Config: `configs/default.yaml`. Override anything with `--set key=value` (dotted
 
 ## Colab (GPU)
 
-Open `colab_sweep.ipynb` in Google Colab, switch runtime to T4 GPU, then run all cells. Downloads repo, dataset, and weights automatically. Before committing notebook changes from Colab, clear outputs (or strip cells) so git diffs stay small.
+Open `notebooks/finetune_dpc_unet.ipynb` in Google Colab, switch runtime to T4 GPU, then run all cells. Used for DPC-UNet adversarial fine-tuning after each cycle. See `docs/LOOP_DESIGN.md` for the full retraining workflow. Before committing notebook changes from Colab, clear outputs (or strip cells) so git diffs stay small.
 
 ## Docs
 
+- `docs/LOOP_DESIGN.md` — closed adversarial loop design and what "done" looks like
 - `docs/PIPELINE_IN_PLAIN_ENGLISH.md` — how it all fits together
 - `docs/ATTACK_TEMPLATE.md` — adding a new attack
 - `docs/DEFENSE_TEMPLATE.md` — adding a new defense

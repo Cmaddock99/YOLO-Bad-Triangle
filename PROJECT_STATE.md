@@ -32,13 +32,25 @@ PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py --list-plugins
 
 ## Registered Attacks
 
-`bim`, `blur`, `deepfool`, `fgsm`, `gaussian_blur`, `ifgsm`, `pgd`
+`blur`, `cw`, `deepfool`, `eot_pgd`, `fgsm`, `jpeg_attack`, `pgd`, `square`
+
+Run `scripts/sweep_and_report.py --list-plugins` for the live list.
+
+## Active Auto-Cycle Attacks (ALL_ATTACKS in auto_cycle.py)
+
+`blur`, `deepfool`, `eot_pgd`, `fgsm`, `jpeg_attack`, `pgd`, `square`
+
+(`cw` is registered but excluded from auto_cycle — too slow for CPU; 0% effective against YOLO detection.)
 
 ## Registered Defenses
 
-`c_dog`, `c_dog_ensemble`, `confidence_filter`, `median_preprocess`, `none`
+`bit_depth`, `c_dog`, `c_dog_ensemble`, `jpeg_preprocess`, `median_preprocess`, `none`, `random_resize`
 
-(`preprocess_dpc_unet`, `preprocess_median_blur`, `preprocess_ensemble_c_dog` are aliases.)
+## Active Auto-Cycle Defenses (ALL_DEFENSES in auto_cycle.py)
+
+`bit_depth`, `c_dog`, `c_dog_ensemble`, `jpeg_preprocess`, `median_preprocess`
+
+(`random_resize` is registered but excluded — inherent mAP50 cost of −0.25 from padding-induced anchor misalignment exceeds any attack-recovery benefit.)
 
 ## Config System
 

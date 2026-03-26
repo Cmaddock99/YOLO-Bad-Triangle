@@ -6,7 +6,7 @@ This document is written for both:
 
 If you only read one section, read **Section 3: 10-minute Quick Start**.
 
-For live team presentation flow, use `docs/WEEK1_DEMO_RUNBOOK.md`.
+For project design and loop closure goals, see `docs/LOOP_DESIGN.md`.
 
 ## Templates for new modules
 
@@ -55,13 +55,13 @@ Use the repo virtual environment to avoid missing package issues:
 
 Dry run resolves config only:
 
-- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/default.yaml --dry-run`
+- `PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one --config configs/default.yaml --dry-run`
 
 You should see a resolved summary and runner config.
 
 ## Step 2: Run a small framework test experiment
 
-- `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/default.yaml --set attack.name=blur --set runner.max_images=12 --set validation.enabled=false`
+- `PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one --config configs/default.yaml --set attack.name=blur --set runner.max_images=12 --set validation.enabled=false`
 
 ## Step 3: Check outputs
 
@@ -76,285 +76,154 @@ That is enough to prove your environment and workflow are working.
 
 Use this table (framework-first):
 
-- **I want the canonical framework command**  
-  Use: `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config configs/default.yaml`
+- **Single run with overrides**
+  Use: `PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one --config configs/default.yaml --set attack.name=fgsm`
 
-- **I want to run framework config with overrides**  
-  Use: `PYTHONPATH=src ./.venv/bin/python src/lab/runners/run_experiment.py --config <yaml> --set key=value`
+- **Multi-attack × multi-defense sweep**
+  Use: `PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py --attacks fgsm,pgd --defenses c_dog,median_preprocess --preset full --validation-enabled`
 
-- **I need legacy compatibility CLI for old scripts**  
-  Use: `run_experiment.py` or `run_experiment_api.py` (**deprecated compatibility only**)
+- **Automated cycle (recommended for iterative tuning)**
+  Use: `PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py --loop` — runs all 4 phases continuously, tracks warm-start params, writes training signal. See `docs/LOOP_DESIGN.md`.
 
-- **I already ran inference and only want to append metrics**  
-  Use: this is automatic in `run_experiment.py`/`scripts/run_framework.py`; no separate collector step is required.
+- **List all available plugins**
+  Use: `PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py --list-plugins`
 
 ## 5) Typical usage examples
 
-## A) One-command run (best default)
+## A) Single run with attack + defense
 
-- `./.venv/bin/python run_experiment.py attack=deepfool defense=denoise conf=0.25,0.5`
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
+  --config configs/default.yaml \
+  --set attack.name=deepfool \
+  --set defense.name=c_dog \
+  --set validation.enabled=true
+```
 
-Useful overrides:
-- `model=yolo26 dataset=coco_subset`
-- fallback options: `model=yolo11` or `model=yolo8`
-- `attack.kernel_size=11`
-- `defense.h=12`
-- `iou=0.7 imgsz=640 seed=42`
-- `validate=true`
-- `output_root=outputs/custom`
+## B) Multi-attack × multi-defense sweep
 
-## B) Modular YAML runner
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
+  --attacks fgsm,pgd,deepfool,blur \
+  --defenses c_dog,c_dog_ensemble,median_preprocess,jpeg_preprocess,bit_depth \
+  --preset full \
+  --workers auto \
+  --validation-enabled
+```
 
-- `./.venv/bin/python scripts/run_framework.py --config configs/modular_experiments.yaml`
-- `./.venv/bin/python scripts/run_framework.py --config configs/modular_experiments.yaml --confs 0.25,0.5 --output_root outputs/custom`
+## C) Smoke test (fast, 8 images)
 
-## C) API wrappers
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
+  --attacks fgsm,blur \
+  --defenses median_preprocess \
+  --preset smoke
+```
 
-- `./.venv/bin/python run_experiment_api.py --help`
-- `./.venv/bin/python run_experiment_api.py --list-attacks`
+## D) FGSM epsilon sweep
 
-## D) FGSM epsilon sweep (recommended)
+```bash
+for eps in 0.002 0.004 0.008 0.016; do
+  PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
+    --config configs/default.yaml \
+    --set attack.name=fgsm \
+    --set attack.params.epsilon=${eps} \
+    --set runner.run_name=fgsm_eps${eps}
+done
+```
 
-Use FGSM with a fixed seed and compare against `attack=none`:
+## E) Automated cycle loop
 
-- Baseline:
-  - `./.venv/bin/python run_experiment.py conf=0.25 seed=42 run_name=baseline_fgsm_ref`
-- FGSM examples:
-  - `./.venv/bin/python run_experiment.py attack=fgsm attack.epsilon=0.002 conf=0.25 seed=42 run_name=fgsm_e002`
-  - `./.venv/bin/python run_experiment.py attack=fgsm attack.epsilon=0.004 conf=0.25 seed=42 run_name=fgsm_e004`
-  - `./.venv/bin/python run_experiment.py attack=fgsm attack.epsilon=0.008 conf=0.25 seed=42 run_name=fgsm_e008`
-  - `./.venv/bin/python run_experiment.py attack=fgsm attack.epsilon=0.016 conf=0.25 seed=42 run_name=fgsm_e016`
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py --loop
+```
 
-## E) Week1 rerun and verify (single command)
-
-Use the canonical week1 matrix runner to produce a fresh, timestamped output root:
-
-- `./scripts/run_week1_stabilization.sh --profile week1-demo --mode demo`
-
-What this does:
-
-1. runs baseline + FGSM (`0.0005`, `0.006`, `0.01`) from `configs/week1_stabilization_demo_matrix.yaml`,
-2. writes outputs to `outputs/week1_<UTC timestamp>/`,
-3. validates metrics integrity with `scripts/check_metrics_integrity.py`,
-4. checks FGSM sanity (`warn+continue` in `--mode demo`, `fail` in `--mode strict`),
-5. generates `experiment_table.md` and all week1 plots in that same output root.
-
-Current canonical fallback demo root:
-
-- `outputs/demo-reference`
-
-## F) Five diverse attack variants (new)
-
-These variants were added to diversify both attack strength and spatial behavior:
-
-- `fgsm_center_mask` (center-localized FGSM)
-  - `attack.epsilon=0.008 attack.radius_fraction=0.35`
-- `fgsm_edge_mask` (edge-localized FGSM)
-  - `attack.epsilon=0.008 attack.edge_threshold=40 attack.edge_dilate=1`
-- `blur_anisotropic` (directional blur)
-  - `attack.kernel_x=17 attack.kernel_y=3`
-- `noise_blockwise` (coarse spatially-varying noise)
-  - `attack.stddev=10.0 attack.block_size=32 attack.scale_jitter=0.5`
-- `deepfool_band_limited` (striped/band-limited iterative perturbation)
-  - `attack.epsilon=0.9 attack.steps=3 attack.stripe_period=32 attack.stripe_width=12 attack.blur_kernel=7`
-
-Quick examples:
-
-- `./.venv/bin/python run_experiment.py attack=fgsm_center_mask conf=0.25 validate=true`
-- `./.venv/bin/python run_experiment.py attack=blur_anisotropic attack.kernel_x=21 attack.kernel_y=3 conf=0.25 validate=true`
-- `./.venv/bin/python scripts/run_framework.py --config configs/five_attack_variants_matrix.yaml`
+Runs 4-phase cycles continuously: characterize → matrix → tune → validate. Results accumulate in `outputs/cycle_history/`. See `docs/LOOP_DESIGN.md` for full documentation.
 
 ## 6) What happens inside one run?
 
 Pipeline:
 
-`CLI/YAML settings -> registry resolution -> runner build -> attack apply -> defense apply -> YOLO predict/validate -> metrics append`
+`CLI/YAML settings → UnifiedExperimentRunner → attack plugin → defense plugin → YOLO predict/validate → outputs written`
 
 More detail:
-1. `ExperimentRegistry` resolves aliases and merges overrides.
-2. `ExperimentRunner` creates a run name and output paths.
-3. Attack module transforms source images (or passes through).
-4. Defense module transforms attacked images (or passes through).
-5. `YOLOModel` runs prediction and optional validation.
-6. `append_run_metrics` parses labels/metrics and appends a CSV row.
+1. `scripts/run_unified.py run-one` loads `configs/default.yaml` + `--set` overrides.
+2. `UnifiedExperimentRunner` builds the attack, defense, and YOLO model from registered plugins.
+3. Attack plugin's `apply(image)` is called per image.
+4. Defense plugin's `preprocess(image)` is called before prediction; `postprocess(predictions)` after.
+5. `YOLOModel` runs prediction and optional mAP50 validation.
+6. Outputs written to `outputs/framework_runs/<run_name>/` (metrics.json, predictions.jsonl, run_summary.json).
 
 ## 7) Output files and how to read them
 
-Common outputs:
-- `output_root/<run_name>/...` (prediction outputs)
-- `output_root/_intermediates/<run_name>/attacked/...`
-- `output_root/_intermediates/<run_name>/defended/...`
-- `output_root/metrics_summary.csv` (one row per run)
-- `output_root/<run_name>/val/metrics.json` (if validation is on)
+Each run writes to `outputs/framework_runs/<run_name>/`:
+- `metrics.json` — detection counts, avg confidence, mAP50 (schema: `framework_metrics/v1`)
+- `predictions.jsonl` — per-image predictions
+- `run_summary.json` — run metadata (attack, defense, model, config)
 
-In `metrics_summary.csv`, important columns include:
-- `attack`, `defense`, `conf`, `iou`, `imgsz`, `seed`
-- `images_with_detections`, `total_detections`
-- `avg_conf`, `median_conf`, `p25_conf`, `p75_conf`
-- `precision`, `recall`, `mAP50`, `mAP50-95`
+Sweep reports land in `outputs/framework_reports/<sweep_id>/`:
+- `framework_run_report.md` — attack effectiveness + defense recovery table
+- `framework_run_summary.csv` — same data as CSV
+- `team_summary.json/.md` — high-level summary
+
+Longitudinal tracking across cycles:
+- `outputs/cycle_history/*.json` — one file per completed cycle
+- `outputs/cycle_report.md` — trend table across all cycles (auto-generated)
 
 ## 8) Project layout (quick map)
 
-- `src/lab/attacks`: attack interface + attack implementations
-- `src/lab/defenses`: defense interface + defense implementations
-- `src/lab/models`: YOLO wrapper
-- `src/lab/runners`: registry + experiment orchestration
-- `src/lab/eval`: metrics parsing/writing
-- `configs/`: dataset and experiment YAMLs
-- `scripts/`: helper CLIs
-- root scripts: `run_experiment.py`, `run_experiment_api.py`
+- `src/lab/attacks/` — attack plugins (`*_adapter.py` files, registered via `@register_attack_plugin`)
+- `src/lab/defenses/` — defense plugins (`*_adapter.py` files, registered via `@register_defense_plugin`)
+- `src/lab/models/` — YOLO model wrapper
+- `src/lab/runners/` — `UnifiedExperimentRunner` and CLI utilities
+- `src/lab/eval/` — metrics parsing, prediction schema, derived metrics
+- `src/lab/reporting/` — sweep report generation
+- `configs/` — YAML configs (`default.yaml`, `coco_subset500.yaml`)
+- `scripts/` — all user-facing scripts
+- `docs/` — documentation
 
-### Canonical entrypoints (authoritative)
+### Canonical entrypoints
 
-- `run_experiment.py`: easiest one-command operator flow with `key=value` overrides.
-- `run_experiment_api.py`: explicit-arg one-run wrapper for script/tool integrations.
-- `scripts/run_framework.py`: YAML batch runner backed by `src/lab/runners/cli.py`.
-- `scripts/demo/run_demo_package.sh`: demo/rehearsal orchestration (preflight, live run, artifacts, gates, summary).
+- `scripts/run_unified.py run-one` — single run with `--set` overrides
+- `scripts/sweep_and_report.py` — multi-attack × multi-defense sweep
+- `scripts/auto_cycle.py --loop` — automated 4-phase robustness cycle
 
 Where to add new modules:
-- attacks: `src/lab/attacks/` (+ registration in `configs/experiment_lab.yaml`)
-- defenses: `src/lab/defenses/` (+ registration in `configs/experiment_lab.yaml`)
+- Attacks: `src/lab/attacks/<name>_adapter.py` (see `docs/ATTACK_TEMPLATE.md`)
+- Defenses: `src/lab/defenses/<name>_adapter.py` (see `docs/DEFENSE_TEMPLATE.md`)
 
 ## 9) Known gotchas (important)
 
-- If you see `ModuleNotFoundError: ultralytics`, use `./.venv/bin/python ...`.
-- `attack=none` and `defense=none` are valid explicit values in `run_experiment.py`.
-- Missing/empty metrics usually means no label files were produced in the run output.
-- Validation metrics only appear when validation is enabled (`validate=true` or `run_validation: true`).
+- Always use `PYTHONPATH=src ./.venv/bin/python` — not plain `python`. See `CLAUDE.md`.
+- `attack.name=none` and `defense.name=none` are valid explicit values.
+- Missing/empty metrics usually means YOLO produced no label files during the run.
+- Validation metrics only appear when `--validation-enabled` (sweep) or `--set validation.enabled=true` (single run).
 
 ## 10) How to extend the framework (developer notes)
 
-## Add a new attack
+### Add a new attack
 
-1. Create a class in `src/lab/attacks/` that subclasses `Attack`.
-2. Implement `apply(source_dir, output_dir, seed=...)`.
-3. Register it with `@register_attack("your_name", "alias2")`.
-4. Add alias/config defaults in `configs/experiment_lab.yaml` under `attacks`.
-5. Run with `attack=your_name`.
+1. Create `src/lab/attacks/<name>_adapter.py` subclassing `BaseAttack`.
+2. Implement `apply(self, image: np.ndarray, model=None, **kwargs) -> (np.ndarray, dict)`.
+3. Decorate with `@register_attack_plugin("your_name")`.
+4. Follow `docs/ATTACK_TEMPLATE.md` for the full checklist.
 
-## Add a new defense
+### Add a new defense
 
-1. Create a class in `src/lab/defenses/` that subclasses `Defense`.
-2. Implement `apply(source_dir, output_dir, seed=...)`.
-3. Register it with `@register_defense("your_name", "alias2")`.
-4. Add alias/config defaults in `configs/experiment_lab.yaml` under `defenses`.
-5. Run with `defense=your_name`.
+1. Create `src/lab/defenses/<name>_adapter.py` subclassing `BaseDefense`.
+2. Implement `preprocess(image, **kwargs)` and `postprocess(predictions, **kwargs)`.
+3. Decorate with `@register_defense_plugin("your_name")`.
+4. Follow `docs/DEFENSE_TEMPLATE.md` for the full checklist.
 
-## Add a new model/dataset alias
+### Key module locations
 
-Edit `configs/experiment_lab.yaml`:
-- add entry under `models` or `datasets`,
-- then call it using `model=<alias>` or `dataset=<alias>`.
+See `PROJECT_STATE.md` for a concise module map or `CLAUDE.md` for the canonical reference.
 
-## 11) Full function and class reference (current code)
+## 11) Recommended team workflow
 
-This is the full callable index as of now.
-
-## Root scripts
-
-- `run_experiment.py`
-  - `main()`: parse key/value overrides, resolve aliases, optionally dry-run, run experiments.
-- `run_experiment_api.py`
-  - `main()`: explicit CLI wrapper that builds a one-experiment config.
-
-## `scripts/`
-
-- `scripts/run_framework.py`
-  - no top-level function (imports and runs `lab.runners.cli.main`).
-- `scripts/convert_coco_to_yolo.py`
-  - script-style converter (no function) from COCO JSON boxes to YOLO labels.
-
-## `src/lab/attacks/`
-
-- `base.py`
-  - `class Attack`: abstract `apply(...)`.
-  - `register_attack(*names)`: registry decorator.
-  - `get_attack_class(name)`: lookup by key.
-  - `list_registered_attacks()`: list keys.
-- `registry.py`
-  - `_load_builtin_attacks()`: lazy-load modules to register implementations.
-  - `build_attack(name, params=None)`: construct attack instance.
-- `utils.py`
-  - `iter_images(source_dir)`: recursively yield supported image files.
-- `none.py`
-  - `class NoAttack(Attack).apply(...)`: identity pass-through.
-- `blur.py`
-  - `class GaussianBlurAttack(Attack)`
-    - `__post_init__()`: validates kernel.
-    - `apply(...)`: Gaussian blur transform.
-- `noise.py`
-  - `class GaussianNoiseAttack(Attack).apply(...)`: Gaussian noise transform.
-- `deepfool.py`
-  - `class DeepFoolAttack(Attack)`
-    - `__post_init__()`: validates epsilon/steps.
-    - `apply(...)`: iterative gradient-style perturbation approximation.
-
-## `src/lab/defenses/`
-
-- `base.py`
-  - `class Defense`: abstract `apply(...)`.
-  - `register_defense(*names)`: registry decorator.
-  - `get_defense_class(name)`: lookup by key.
-  - `list_registered_defenses()`: list keys.
-- `registry.py`
-  - `_load_builtin_defenses()`: lazy-load defense modules.
-  - `build_defense(name, params=None)`: construct defense instance.
-- `none.py`
-  - `class NoDefense(Defense).apply(...)`: identity pass-through.
-- `median_blur.py`
-  - `class MedianBlurDefense(Defense)`
-    - `__post_init__()`: validates kernel.
-    - `apply(...)`: median blur defense.
-- `denoise.py`
-  - `class DenoiseDefense(Defense).apply(...)`: OpenCV NLM denoise defense.
-
-## `src/lab/models/`
-
-- `yolo_model.py`
-  - `class YOLOModel`
-    - `__post_init__()`: loads Ultralytics model.
-    - `predict(**kwargs)`: runs prediction.
-    - `validate(**kwargs)`: runs validation.
-
-## `src/lab/eval/`
-
-- `metrics.py`
-  - `_git_metadata()`: reads git commit/branch metadata.
-  - `_read_json(path)`: safe JSON load.
-  - `_find_label_files(run_dir)`: locate YOLO label text files.
-  - `_parse_detection_stats(run_dir)`: compute detection count/confidence stats.
-  - `_read_val_metrics(run_dir)`: parse validation metrics JSON.
-  - `append_run_metrics(...)`: append run metrics row to CSV.
-
-## `src/lab/runners/`
-
-- `cli.py`
-  - `main()`: argparse entrypoint for modular YAML runs.
-- `experiment_registry.py`
-  - `_parse_scalar(value)`: scalar parser for CLI tokens.
-  - `parse_key_value_overrides(tokens)`: parse `key=value` tokens.
-  - `_prefixed(overrides, prefix)`: extract namespaced overrides.
-  - `_coerce_float_list(value)`: normalize to float list.
-  - `_merge_dict(base, extra)`: recursive merge utility.
-  - `class ResolvedExperiment`: container with `runner_config` and summary.
-  - `class ExperimentRegistry`
-    - `from_yaml(path)`: load alias config.
-    - `resolve(overrides)`: produce executable runner config.
-- `experiment_runner.py`
-  - `class ExperimentSpec`: per-experiment spec object.
-  - `class ExperimentRunner`
-    - `from_yaml(config_path)`: build runner from YAML.
-    - `from_dict(config)`: build runner from dict.
-    - `_conf_token(conf)`: convert confidence to short token.
-    - `_run_name_for(spec, conf)`: render run name template.
-    - `_write_val_metrics(run_dir, validation_results)`: write validation summary.
-    - `_prepare_source(spec, run_name)`: run attack+defense preprocessing.
-    - `run()`: execute all configured runs and append metrics.
-
-## 12) Recommended team workflow
-
-1. Use `.venv`.
-2. Run `./.venv/bin/python run_experiment.py dry_run=true`.
-3. Run a small experiment (`attack=blur conf=0.25`).
-4. Review `metrics_summary.csv`.
-5. Iterate on attack/defense and thresholds.
+1. Activate `.venv`: `source .venv/bin/activate`.
+2. Verify environment: `PYTHONPATH=src ./.venv/bin/python scripts/check_environment.py`.
+3. Smoke test: `PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one --config configs/default.yaml --set attack.name=blur --set runner.max_images=4`.
+4. Check outputs in `outputs/framework_runs/`.
+5. Run a full sweep and review `outputs/framework_reports/`.
+6. For iterative robustness improvement, run `scripts/auto_cycle.py --loop` and track `outputs/cycle_report.md`.

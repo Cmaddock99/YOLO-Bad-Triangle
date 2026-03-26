@@ -22,10 +22,9 @@ Each experiment run does the same sequence:
 
 For each run, you get:
 
-- Predictions and label text files in `outputs/<run_name>/...`
-- Intermediate attacked/defended images in `outputs/_intermediates/<run_name>/...`
-- Validation summary in `outputs/<run_name>/val/metrics.json`
-- A CSV row in `outputs/metrics_summary.csv` (or `<custom_output_root>/metrics_summary.csv`)
+- `outputs/framework_runs/<run_name>/metrics.json` — detection counts, avg confidence, mAP50
+- `outputs/framework_runs/<run_name>/predictions.jsonl` — per-image predictions
+- `outputs/framework_runs/<run_name>/run_summary.json` — run metadata (attack, defense, config)
 
 ## Why two types of metrics exist
 
@@ -43,34 +42,31 @@ If validation is missing or disabled, those final four fields can be empty.
 
 ## Where to edit behavior
 
-- Add new attacks in `src/lab/attacks/`
-- Add new defenses in `src/lab/defenses/`
-- Experiment orchestration is in `src/lab/runners/experiment_runner.py`
-- CSV writing is in `src/lab/eval/metrics.py`
-- Plotting is in `scripts/plot_results.py`
+- Add new attacks in `src/lab/attacks/` (follow `docs/ATTACK_TEMPLATE.md`)
+- Add new defenses in `src/lab/defenses/` (follow `docs/DEFENSE_TEMPLATE.md`)
+- Experiment orchestration is in `src/lab/runners/run_experiment.py`
+- Metrics parsing is in `src/lab/eval/`
+- Report generation is in `src/lab/reporting/`
 
 ## Typical "add a new method" workflow
 
 1. Copy the attack or defense template file in this repo.
 2. Create your module under `src/lab/attacks/` or `src/lab/defenses/`.
-3. Register it with `@register_attack(...)` or `@register_defense(...)`.
-4. Reference it in experiment YAML via `attack`/`defense` and params.
-5. Run:
-   - `./.venv/bin/python run_experiment.py attack=blur conf=0.25`
-   - `./.venv/bin/python scripts/plot_results.py --csv outputs/metrics_summary.csv`
+3. Register it with `@register_attack_plugin(...)` or `@register_defense_plugin(...)`.
+4. Reference it with `--set attack.name=your_name` or `--set defense.name=your_name`.
+5. Run a smoke test:
+   ```bash
+   PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
+     --config configs/default.yaml \
+     --set attack.name=your_name \
+     --set runner.max_images=4
+   ```
 
 ## How to think about results
 
-- If confidence stats change but validation metrics do not, the model is still robust.
-- If both degrade, the attack is likely hurting real detection quality.
-- If defense recovers validation metrics, the defense is helping.
+- If confidence stats change but mAP50 does not, the model is still robust.
+- If both degrade, the attack is hurting real detection quality.
+- If defense recovers mAP50, the defense is helping.
 
-That is the entire loop: change attack/defense, rerun, inspect CSV + plots, iterate.
-
-For week1 demo artifact regeneration from one known output root, use:
-
-- `bash scripts/generate_week1_demo_artifacts.sh --output-root outputs/week1_<timestamp>`
-
-Current canonical fallback root for presentation:
-
-- `outputs/demo-reference`
+That is the entire loop: change attack/defense, rerun, inspect outputs, iterate. For
+automated iterative cycles with warm-start and training feedback, see `docs/LOOP_DESIGN.md`.
