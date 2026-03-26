@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""Print human-readable experiment summary for a single framework run.
+
+Reads metrics.json and run_summary.json from a completed run directory and
+prints a concise summary of attack, defense, detection counts, mAP50, and
+composite health score to stdout.
+
+Usage:
+    PYTHONPATH=src ./.venv/bin/python scripts/print_summary.py \\
+        outputs/framework_runs/my_run
+"""
 from __future__ import annotations
 
 import argparse

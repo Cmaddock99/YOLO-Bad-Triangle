@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+"""Canonical single-run and sweep entry point for YOLO-Bad-Triangle.
+
+Usage (single run):
+    PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \\
+        --config configs/default.yaml \\
+        --set attack.name=fgsm \\
+        --set runner.run_name=my_run
+
+Usage (sweep, forwarded to sweep_and_report.py):
+    PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py sweep \\
+        --attacks fgsm,pgd --defenses c_dog --preset smoke
+"""
 from __future__ import annotations
 
 import argparse

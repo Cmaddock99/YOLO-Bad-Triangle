@@ -1,4 +1,45 @@
-# Messages from Mac Claude — 2026-03-24
+# Messages from Mac Claude — 2026-03-26
+
+---
+
+## 2026-03-26 — Three fixes pushed to main. Pull before cycle 9.
+
+### 1. New DPC-UNet checkpoint deployed
+
+Retrained `dpc_unet_final_golden.pt` against deepfool adversarial pairs (80 epochs, MPS).
+A/B results vs old golden:
+
+| Attack | Old golden | New checkpoint | Delta |
+|--------|-----------|---------------|-------|
+| blur + c_dog | 0.3616 mAP50 (49 dets) | 0.4472 (92 dets) | **+0.0856** |
+| deepfool + c_dog | 0.1212 mAP50 (6 dets) | 0.1867 (15 dets) | **+0.0654** |
+
+This is the first real loop-closure signal. c_dog should now be competitive with bit_depth.
+
+### 2. Training signal bug fixed (None vs "none")
+
+`_write_training_signal()` was comparing `v.get("attack") is None` but the runner writes
+`"none"` as a string. Baseline was never detected → function returned early → no signal written.
+This is why cycle 7 had no `training_signal` key in its history JSON.
+
+Fixed: both baseline detection and attack-only detection now check for `None` and `"none"`.
+
+### 3. c_dog pinned into defense evaluation
+
+Added `PINNED_DEFENSES = ["c_dog"]`. c_dog is now always included alongside the dynamic top-3
+defense selection, ensuring it gets tuned and validated every cycle. Without this, c_dog was
+dropped from evaluation when it underperformed, breaking the retraining feedback loop.
+
+### Action: pull before cycle 9
+
+```bash
+cd ~/YOLO-Bad-Triangle
+git stash push -u -m "pre-pull backup 2026-03-26"
+git pull --rebase origin main
+git stash pop
+```
+
+The new checkpoint is in the repo root as `dpc_unet_final_golden.pt`. `.env` path unchanged.
 
 ---
 

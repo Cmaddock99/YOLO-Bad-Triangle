@@ -180,6 +180,11 @@ class CWAttackAdapter(BaseAttack):
 
     Suitable for manual sweeps on GPU/Apple-Silicon hardware.
     Do NOT add to auto_cycle.py ALL_ATTACKS — it is too slow for CPU-only runs.
+
+    Effectiveness note: CW L2 was evaluated against YOLO detection in March 2026
+    across all parameter settings (c, max_iter, binary_search_steps) and achieved
+    0% detection suppression. It is designed to minimise classifier logit margins,
+    not detection confidence landscapes. Kept for research reference only.
     """
 
     c: float = 1.0

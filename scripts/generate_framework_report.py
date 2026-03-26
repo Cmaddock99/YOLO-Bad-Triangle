@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""Generate CSV and markdown comparison report from a framework runs directory.
+
+Reads all completed run directories under --runs-root, extracts metrics, and
+produces a framework_run_report.md and framework_run_summary.csv showing attack
+effectiveness and defense recovery across all combinations.
+
+Usage:
+    PYTHONPATH=src ./.venv/bin/python scripts/generate_framework_report.py \\
+        --runs-root outputs/framework_runs/sweep_20260320T220057Z
+"""
 from __future__ import annotations
 
 import argparse

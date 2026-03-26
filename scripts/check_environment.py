@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+"""Validate environment before running experiments.
+
+Checks Python version, required packages, YOLO model availability, dataset
+images, and plugin registration. Run this after initial setup to confirm
+everything is in order before starting sweeps or cycles.
+
+Usage:
+    PYTHONPATH=src ./.venv/bin/python scripts/check_environment.py
+"""
 from __future__ import annotations
 
 import argparse
