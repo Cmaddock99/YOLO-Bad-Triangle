@@ -2,6 +2,109 @@
 
 ---
 
+## 2026-03-25 — Cycle 7 COMPLETE — your turn
+
+**Written by NUC Claude | cycle finished 2026-03-25 22:38 UTC**
+
+Cycle 7 (`cycle_20260324_094635`) has completed all Phase 4 validation. Full results below.
+
+---
+
+### 1. Cycle 7 Phase 4 validation mAP50 results
+
+**Baseline mAP50: 0.600**
+
+| Attack | Attack mAP50 | Drop from baseline |
+|--------|-------------|-------------------|
+| deepfool (ε=0.1, steps=50) | 0.218 | −0.382 |
+| eot_pgd (ε=0.25, eot_samples=8) | 0.253 | −0.347 |
+| blur (kernel_size=29) | 0.264 | −0.336 |
+
+**deepfool is the most damaging attack** under composite scoring and confirmed by mAP50.
+
+**Defense recovery (mAP50):**
+
+| Attack | Defense | Defended mAP50 | Recovery |
+|--------|---------|---------------|----------|
+| deepfool | bit_depth (bits=5) | 0.228 | +0.010 |
+| deepfool | jpeg_preprocess (quality=60) | 0.184 | −0.034 (made worse!) |
+| deepfool | random_resize (scale=0.85) | 0.118 | −0.100 (made worse!) |
+| eot_pgd | bit_depth (bits=5) | 0.256 | +0.003 |
+| eot_pgd | jpeg_preprocess (quality=60) | 0.228 | −0.025 |
+| blur | bit_depth (bits=5) | 0.262 | −0.002 |
+| blur | jpeg_preprocess (quality=60) | 0.260 | −0.004 |
+| blur | random_resize (scale=0.85) | 0.149 | −0.115 (made worse!) |
+
+**Critical finding:** No defense provides meaningful mAP50 recovery in this cycle. bit_depth is the least-bad option. jpeg_preprocess and random_resize are actively making things worse against deepfool. This is the clearest signal yet that c_dog/c_dog_ensemble need to be in the validation mix — the signal-processing-only defenses don't help against gradient-based attacks at these epsilon values.
+
+---
+
+### 2. Training signal
+
+`outputs/cycle_training_signal.json` was NOT written by this cycle — the running process was loaded before `_write_training_signal` was fully integrated. **Worst attack is clearly deepfool** based on the mAP50 data above.
+
+When you run `export_training_data.py --from-signal`, if the signal file is missing, generate training data for deepfool manually:
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/export_training_data.py \
+  --attacks deepfool \
+  --attack-params epsilon=0.1,steps=50
+```
+
+---
+
+### 3. Your action items (in priority order)
+
+**A. Generate adversarial training data for deepfool:**
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/export_training_data.py --from-signal
+# if --from-signal fails (no signal file), use manual params above
+```
+
+**B. Run DPC-UNet adversarial fine-tuning on MPS:**
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/train_dpc_unet_local.py
+```
+
+**C. A/B compare new checkpoint before deploying:**
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/evaluate_checkpoint.py \
+  --checkpoint-a dpc_unet_final_golden.pt \
+  --checkpoint-b dpc_unet_adversarial_finetuned.pt \
+  --attack deepfool --defense c_dog --images 50
+```
+
+**D. Run square Phase 4 validation (NUC skips square in SLOW_ATTACKS):**
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
+  --attacks square \
+  --defenses bit_depth,c_dog,c_dog_ensemble,jpeg_preprocess,median_preprocess \
+  --preset full --validation-enabled
+```
+
+**E. Run eot_pgd Phase 4 validation (now also in SLOW_ATTACKS for cycle 8+):**
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
+  --attacks eot_pgd \
+  --defenses bit_depth,c_dog,c_dog_ensemble,jpeg_preprocess,median_preprocess \
+  --preset full --validation-enabled \
+  --set attack.params.epsilon=0.25 --set attack.params.eot_samples=8
+```
+
+**F. Note on random_resize:** It was still in the cycle 7 catalogue (removed for cycle 8). Its Phase 4 numbers confirm it is harmful — ignore random_resize results when drawing conclusions.
+
+---
+
+### 4. Cycle 8 will start automatically
+
+NUC's `auto_cycle.py --loop` will git pull at the start of cycle 8 and pick up:
+- random_resize removed from ALL_DEFENSES ✓
+- eot_pgd added to SLOW_ATTACKS ✓
+- _update_cycle_report() auto-wired ✓
+
+First fully clean cycle: composite scoring + correct catalogue + eot_pgd/square handed off to Mac.
+
+---
+
 ## 2026-03-24 — Cycle 7 results + CW finding + eot_pgd Phase 4 problem
 
 **Written by NUC Claude**
