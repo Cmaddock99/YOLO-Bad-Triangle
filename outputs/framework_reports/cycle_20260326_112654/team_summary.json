@@ -1,0 +1,91 @@
+{
+  "attacks_ranked": [
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7268488786437295,
+      "detection_drop": 0.78,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "attack_deepfool",
+      "seed": 42.0,
+      "total_detections": 22.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.756643098511108,
+      "detection_drop": 0.27,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "attack_blur",
+      "seed": 42.0,
+      "total_detections": 73.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7785452951358843,
+      "detection_drop": 0.21,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "attack_eot_pgd",
+      "seed": 42.0,
+      "total_detections": 79.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "fgsm",
+      "avg_confidence": 0.7763301259205665,
+      "detection_drop": 0.19,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "attack_fgsm",
+      "seed": 42.0,
+      "total_detections": 81.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.7463295767816265,
+      "detection_drop": 0.11,
+      "interpretation": "Moderate robustness",
+      "map50": null,
+      "run_name": "attack_pgd",
+      "seed": 42.0,
+      "total_detections": 89.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "square",
+      "avg_confidence": 0.7432619641115378,
+      "detection_drop": 0.09,
+      "interpretation": "Moderate robustness",
+      "map50": null,
+      "run_name": "attack_square",
+      "seed": 42.0,
+      "total_detections": 91.0,
+      "validation_status": "missing"
+    }
+  ],
+  "baseline": {
+    "avg_confidence": 0.7622529721260071,
+    "model": "yolo",
+    "run_name": "baseline_none",
+    "seed": 42.0,
+    "total_detections": 100.0
+  },
+  "report_root": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_reports/cycle_20260326_112654",
+  "strongest_attack_by_detection_drop": {
+    "attack": "deepfool",
+    "avg_confidence": 0.7268488786437295,
+    "detection_drop": 0.78,
+    "interpretation": "Strong attack effect",
+    "map50": null,
+    "run_name": "attack_deepfool",
+    "seed": 42.0,
+    "total_detections": 22.0,
+    "validation_status": "missing"
+  },
+  "total_attack_runs": 6,
+  "total_runs": 7
+}
