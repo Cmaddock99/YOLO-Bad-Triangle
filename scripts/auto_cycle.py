@@ -163,6 +163,11 @@ TUNE_MAX_ITERS_BY_DEFENSE: dict[str, int] = {
 # random_resize removed from catalogue entirely — no longer needs flagging.
 FLAGGED_DEFENSES: set[str] = set()
 
+# Defenses always included in top-N selection regardless of ranking.
+# Ensures the learned denoiser (c_dog) is always tuned and validated
+# so the retraining loop can measure improvement across cycles.
+PINNED_DEFENSES: list[str] = ["c_dog"]
+
 
 # ── Startup param-space validation ────────────────────────────────────────────
 
@@ -491,6 +496,12 @@ def _rank_defenses(state: dict) -> list[str]:
 
     avg_scores.sort(reverse=True)
     top = [d for _, d in avg_scores[:TOP_N_DEFENSES]]
+
+    # Ensure pinned defenses are always included (e.g. c_dog for retraining loop)
+    for pd in PINNED_DEFENSES:
+        if pd not in top and pd in ALL_DEFENSES:
+            top.append(pd)
+            log(f"  {pd:25s}  pinned — always included for retraining loop evaluation")
 
     for d in top:
         if d in FLAGGED_DEFENSES:
@@ -862,9 +873,11 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
         attack_dets_map: dict[str, int] = {}
         defense_recovery: dict[str, dict[str, float]] = {}  # attack → {defense: recovery}
 
-        # Extract baseline
+        # Extract baseline — attack/defense can be None or the string "none"
         for run_name, v in validation_results.items():
-            if v.get("attack") is None and v.get("defense") is None:
+            atk = v.get("attack")
+            dfn = v.get("defense")
+            if atk in (None, "none") and dfn in (None, "none"):
                 baseline_dets = v.get("detections")
                 break
 
@@ -879,9 +892,11 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
             dets = v.get("detections")
             if dets is None:
                 continue
-            if atk and dfn is None:
+            atk_is_real = atk and atk != "none"
+            dfn_is_real = dfn and dfn != "none"
+            if atk_is_real and not dfn_is_real:
                 attack_dets_map[atk] = dets
-            elif atk and dfn:
+            elif atk_is_real and dfn_is_real:
                 drop = baseline_dets - attack_dets_map.get(atk, baseline_dets)
                 if drop > 0:
                     recovery = (dets - attack_dets_map.get(atk, dets)) / drop
