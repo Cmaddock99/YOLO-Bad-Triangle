@@ -1,0 +1,131 @@
+{
+  "cycle_id": "cycle_20260327_025659",
+  "started_at": "2026-03-27T02:56:59.639786",
+  "finished_at": "2026-03-27T12:11:33.226150",
+  "top_attacks": [
+    "deepfool",
+    "eot_pgd",
+    "blur"
+  ],
+  "top_defenses": [
+    "jpeg_preprocess",
+    "bit_depth",
+    "median_preprocess"
+  ],
+  "best_attack_params": {
+    "deepfool": {
+      "attack.params.epsilon": 0.1,
+      "attack.params.steps": 50
+    },
+    "eot_pgd": {
+      "attack.params.epsilon": 0.25,
+      "attack.params.eot_samples": 8
+    },
+    "blur": {
+      "attack.params.kernel_size": 29
+    }
+  },
+  "best_defense_params": {
+    "jpeg_preprocess": {
+      "defense.params.quality": 60
+    },
+    "bit_depth": {
+      "defense.params.bits": 5
+    },
+    "median_preprocess": {
+      "defense.params.kernel_size": 5
+    }
+  },
+  "validation_results": {
+    "validate_atk_blur": {
+      "attack": "blur",
+      "defense": "none",
+      "avg_conf": 0.7345892564014153,
+      "mAP50": 0.26359023462953907,
+      "mAP50_95": 0.17826414450562555,
+      "precision": 0.39168249243871006,
+      "recall": 0.25128322154872873,
+      "detections": 540
+    },
+    "validate_atk_deepfool": {
+      "attack": "deepfool",
+      "defense": "none",
+      "avg_conf": 0.7561992535224328,
+      "mAP50": 0.21841389286273205,
+      "mAP50_95": 0.15188651425180733,
+      "precision": 0.5318993803174947,
+      "recall": 0.1857739750543085,
+      "detections": 260
+    },
+    "validate_baseline": {
+      "attack": "none",
+      "defense": "none",
+      "avg_conf": 0.7647722675805301,
+      "mAP50": 0.6001591766396535,
+      "mAP50_95": 0.4391872274604919,
+      "precision": 0.7134261496087755,
+      "recall": 0.5369307233682217,
+      "detections": 1437
+    },
+    "validate_blur_bit_depth": {
+      "attack": "blur",
+      "defense": "bit_depth",
+      "avg_conf": 0.7336420886410998,
+      "mAP50": 0.261521090762956,
+      "mAP50_95": 0.17772512412779234,
+      "precision": 0.36501212964549457,
+      "recall": 0.2560927298053636,
+      "detections": 542
+    },
+    "validate_blur_jpeg_preprocess": {
+      "attack": "blur",
+      "defense": "jpeg_preprocess",
+      "avg_conf": 0.7300802530529343,
+      "mAP50": 0.2602695901615396,
+      "mAP50_95": 0.17551837878609783,
+      "precision": 0.3783168336203603,
+      "recall": 0.2515730675855644,
+      "detections": 535
+    },
+    "validate_blur_median_preprocess": {
+      "attack": "blur",
+      "defense": "median_preprocess",
+      "avg_conf": 0.7373180944140595,
+      "mAP50": 0.24919816800180875,
+      "mAP50_95": 0.16842745851226654,
+      "precision": 0.3897839810963671,
+      "recall": 0.24299197113999987,
+      "detections": 505
+    },
+    "validate_deepfool_bit_depth": {
+      "attack": "deepfool",
+      "defense": "bit_depth",
+      "avg_conf": 0.7472459837680555,
+      "mAP50": 0.22760173407061274,
+      "mAP50_95": 0.1538488890215202,
+      "precision": 0.4682475381688033,
+      "recall": 0.18866469835110197,
+      "detections": 262
+    },
+    "validate_deepfool_jpeg_preprocess": {
+      "attack": "deepfool",
+      "defense": "jpeg_preprocess",
+      "avg_conf": 0.7517907253976138,
+      "mAP50": 0.18365147833842493,
+      "mAP50_95": 0.12491598260207676,
+      "precision": 0.4635975477211562,
+      "recall": 0.1540994103566383,
+      "detections": 212
+    },
+    "validate_deepfool_median_preprocess": {
+      "attack": "deepfool",
+      "defense": "median_preprocess",
+      "avg_conf": 0.7559615098962597,
+      "mAP50": 0.12150838057474996,
+      "mAP50_95": 0.08605729900966562,
+      "precision": 0.43902934020417395,
+      "recall": 0.10197681365352956,
+      "detections": 102
+    }
+  }
+}
