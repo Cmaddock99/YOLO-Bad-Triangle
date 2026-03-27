@@ -1,0 +1,429 @@
+from __future__ import annotations
+
+import csv
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+from scripts import auto_cycle, generate_dashboard
+
+
+class AutoCycleTrainingSignalTest(unittest.TestCase):
+    def test_write_training_signal_prefers_map50_when_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_outputs = Path(tmp)
+            original_outputs = auto_cycle.OUTPUTS
+            auto_cycle.OUTPUTS = tmp_outputs
+            try:
+                state = {
+                    "cycle_id": "cycle_test",
+                    "finished_at": "2026-03-26T10:00:00",
+                    "best_attack_params": {
+                        "deepfool": {"attack.params.epsilon": 0.1},
+                        "eot_pgd": {"attack.params.epsilon": 0.25},
+                    },
+                }
+                validation_results = {
+                    "validate_baseline": {
+                        "attack": None,
+                        "defense": "none",
+                        "detections": 100,
+                        "mAP50": 0.60,
+                    },
+                    "validate_atk_deepfool": {
+                        "attack": "deepfool",
+                        "defense": "none",
+                        "detections": 80,
+                        "mAP50": 0.20,
+                    },
+                    "validate_atk_eot_pgd": {
+                        "attack": "eot_pgd",
+                        "defense": "none",
+                        "detections": 60,
+                        "mAP50": 0.30,
+                    },
+                    "validate_deepfool_bit_depth": {
+                        "attack": "deepfool",
+                        "defense": "bit_depth",
+                        "detections": 85,
+                        "mAP50": 0.25,
+                    },
+                    "validate_eot_pgd_bit_depth": {
+                        "attack": "eot_pgd",
+                        "defense": "bit_depth",
+                        "detections": 70,
+                        "mAP50": 0.45,
+                    },
+                }
+
+                auto_cycle._write_training_signal(state, validation_results)
+                signal = json.loads((tmp_outputs / "cycle_training_signal.json").read_text(encoding="utf-8"))
+                self.assertEqual(signal["ranking_source"], "phase4_map50")
+                self.assertEqual(signal["worst_attack"], "deepfool")
+                self.assertEqual(signal["worst_attack_params"], {"attack.params.epsilon": 0.1})
+            finally:
+                auto_cycle.OUTPUTS = original_outputs
+
+    def test_write_training_signal_falls_back_without_map50(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_outputs = Path(tmp)
+            original_outputs = auto_cycle.OUTPUTS
+            auto_cycle.OUTPUTS = tmp_outputs
+            try:
+                state = {"cycle_id": "cycle_test", "finished_at": "2026-03-26T10:00:00", "best_attack_params": {}}
+                validation_results = {
+                    "validate_baseline": {"attack": None, "defense": None, "detections": 100},
+                    "validate_atk_blur": {"attack": "blur", "defense": "none", "detections": 75},
+                    "validate_blur_bit_depth": {"attack": "blur", "defense": "bit_depth", "detections": 78},
+                }
+                auto_cycle._write_training_signal(state, validation_results)
+                signal = json.loads((tmp_outputs / "cycle_training_signal.json").read_text(encoding="utf-8"))
+                self.assertEqual(signal["ranking_source"], "phase4_detection_recovery")
+                self.assertEqual(signal["worst_attack"], "blur")
+            finally:
+                auto_cycle.OUTPUTS = original_outputs
+
+
+class DashboardSelectionTest(unittest.TestCase):
+    def test_load_sweep_prefers_validate_baseline_row(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_dir = Path(tmp)
+            csv_path = report_dir / "framework_run_summary.csv"
+            with csv_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "run_name",
+                        "attack",
+                        "defense",
+                        "total_detections",
+                        "avg_confidence",
+                        "mAP50",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "run_name": "baseline_none",
+                        "attack": "none",
+                        "defense": "none",
+                        "total_detections": "21",
+                        "avg_confidence": "0.75",
+                        "mAP50": "",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "run_name": "validate_baseline",
+                        "attack": "none",
+                        "defense": "none",
+                        "total_detections": "1437",
+                        "avg_confidence": "0.74",
+                        "mAP50": "0.6002",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "run_name": "validate_atk_blur",
+                        "attack": "blur",
+                        "defense": "none",
+                        "total_detections": "1000",
+                        "avg_confidence": "0.70",
+                        "mAP50": "0.30",
+                    }
+                )
+
+            sweep = generate_dashboard._load_sweep(report_dir)
+            self.assertIsNotNone(sweep)
+            self.assertEqual(int(sweep["baseline_detections"]), 1437)
+
+    def test_summary_cards_ignore_zero_drop_attacks(self) -> None:
+        sweeps = [
+            {
+                "label": "Mar 26 10:00",
+                "baseline_detections": 100,
+                "runs": [
+                    {"attack": "fgsm", "defense": "none", "detection_drop": 0.0, "total_detections": 100, "avg_confidence": 0.8},
+                    {"attack": "deepfool", "defense": "none", "detection_drop": 0.0, "total_detections": 100, "avg_confidence": 0.8},
+                    {"attack": "deepfool", "defense": "bit_depth", "detection_drop": 5.0, "total_detections": 95, "avg_confidence": 0.8},
+                ],
+            }
+        ]
+        html = generate_dashboard._summary_cards_html(sweeps)
+        self.assertIn("NO_EFFECTIVE_ATTACK", html)
+        self.assertIn("all attacks had 0.0% drop", html)
+
+
+class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
+    def test_run_sweep_passes_explicit_max_images(self) -> None:
+        with mock.patch("scripts.auto_cycle.subprocess.run") as run_mock:
+            run_mock.return_value.returncode = 0
+            ok = auto_cycle.run_sweep(
+                attacks=["deepfool"],
+                defenses=["none"],
+                runs_root="outputs/framework_runs/test",
+                report_root="outputs/framework_reports/test",
+                sweep_phases="1,2",
+                preset="smoke",
+                max_images=32,
+            )
+            self.assertTrue(ok)
+            command = run_mock.call_args.kwargs["args"] if "args" in run_mock.call_args.kwargs else run_mock.call_args[0][0]
+            self.assertIn("--max-images", command)
+            self.assertIn("32", command)
+
+    def test_phase4_tracks_delegated_slow_attack_runs(self) -> None:
+        state = {
+            "top_attacks": ["eot_pgd", "deepfool"],
+            "top_defenses": ["bit_depth", "jpeg_preprocess"],
+            "best_attack_params": {},
+            "best_defense_params": {},
+            "runs_root": "outputs/framework_runs/test",
+            "report_root": "outputs/framework_reports/test",
+        }
+        with mock.patch("scripts.auto_cycle.run_single", return_value=True):
+            ok = auto_cycle.phase4(state)
+        self.assertTrue(ok)
+        delegated = state.get("delegated_phase4_runs", [])
+        self.assertIn("validate_atk_eot_pgd", delegated)
+        self.assertIn("validate_eot_pgd_bit_depth", delegated)
+        self.assertIn("validate_eot_pgd_jpeg_preprocess", delegated)
+
+    def test_carry_forward_filters_stale_catalog_params(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_outputs = Path(tmp)
+            original_outputs = auto_cycle.OUTPUTS
+            original_warm = auto_cycle.WARM_START_FILE
+            auto_cycle.OUTPUTS = tmp_outputs
+            auto_cycle.WARM_START_FILE = tmp_outputs / "cycle_warm_start.json"
+            try:
+                state = {
+                    "cycle_id": "cycle_test",
+                    "best_attack_params": {
+                        "deepfool": {"attack.params.steps": 100},
+                        "removed_attack": {"attack.params.foo": 1},
+                    },
+                    "best_defense_params": {
+                        "bit_depth": {"defense.params.bits": 6},
+                        "random_resize": {"defense.params.scale_factor_low": 0.85},
+                    },
+                }
+                auto_cycle.carry_forward_params(state)
+                payload = json.loads(auto_cycle.WARM_START_FILE.read_text(encoding="utf-8"))
+                self.assertIn("deepfool", payload["attack_params"])
+                self.assertNotIn("removed_attack", payload["attack_params"])
+                self.assertIn("bit_depth", payload["defense_params"])
+                self.assertNotIn("random_resize", payload["defense_params"])
+            finally:
+                auto_cycle.OUTPUTS = original_outputs
+                auto_cycle.WARM_START_FILE = original_warm
+
+    def test_checkpoint_update_touches_pause_file_and_updates_fingerprint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_outputs = Path(tmp)
+            original_outputs = auto_cycle.OUTPUTS
+            original_pause = auto_cycle.PAUSE_FILE
+            auto_cycle.OUTPUTS = tmp_outputs
+            auto_cycle.PAUSE_FILE = tmp_outputs / ".cycle.pause"
+            state = {"checkpoint_fingerprint": "old-fp"}
+            try:
+                with mock.patch("scripts.auto_cycle._current_checkpoint_fingerprint", return_value="new-fp"), mock.patch(
+                    "scripts.auto_cycle.wait_if_paused"
+                ) as wait_mock, mock.patch("scripts.auto_cycle.save_state"):
+                    auto_cycle.maybe_pause_for_checkpoint_update(state, next_phase=3)
+                self.assertTrue(auto_cycle.PAUSE_FILE.exists())
+                self.assertEqual(state["checkpoint_fingerprint"], "new-fp")
+                wait_mock.assert_called_once_with(2)
+            finally:
+                auto_cycle.OUTPUTS = original_outputs
+                auto_cycle.PAUSE_FILE = original_pause
+
+    def test_run_single_timeout_is_non_fatal_and_returns_false(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch(
+                "scripts.auto_cycle.subprocess.run",
+                side_effect=auto_cycle.subprocess.TimeoutExpired(cmd=["python"], timeout=10),
+            ):
+                ok = auto_cycle.run_single(
+                    attack="deepfool",
+                    defense="none",
+                    run_name="timeout_case",
+                    runs_root=tmp,
+                    preset="full",
+                    validation=True,
+                    timeout_seconds=10,
+                )
+            self.assertFalse(ok)
+
+    def test_phase3_applies_consistency_gate_before_tuning(self) -> None:
+        state = {
+            "top_attacks": ["deepfool"],
+            "top_defenses": ["bit_depth", "jpeg_preprocess"],
+            "runs_root": "outputs/framework_runs/test",
+            "best_attack_params": {},
+            "best_defense_params": {},
+            "tune_history": {},
+        }
+        with mock.patch("scripts.auto_cycle.pre_tune_consistency_check", return_value=["bit_depth"]) as gate_mock, mock.patch(
+            "scripts.auto_cycle.read_metrics",
+            return_value={"predictions": {"confidence": {"mean": 0.8}, "total_detections": 100}},
+        ), mock.patch("scripts.auto_cycle.run_single", return_value=True), mock.patch(
+            "scripts.auto_cycle._coordinate_descent",
+            return_value=({}, 0.1, []),
+        ), mock.patch("scripts.auto_cycle.save_state"):
+            auto_cycle.phase3(state)
+        gate_mock.assert_called_once()
+        self.assertEqual(state["top_defenses"], ["bit_depth"])
+
+    def test_catalogues_exclude_temporarily_disabled_plugins(self) -> None:
+        self.assertNotIn("jpeg_attack", auto_cycle.ALL_ATTACKS)
+        self.assertNotIn("c_dog_ensemble", auto_cycle.ALL_DEFENSES)
+
+
+class TuningEngineTest(unittest.TestCase):
+    """Tests for the overhauled coordinate descent tuning engine."""
+
+    def test_param_fingerprint_is_deterministic_and_filesystem_safe(self) -> None:
+        fp1 = auto_cycle._param_fingerprint("tune_atk_deepfool", {"attack.params.epsilon": 0.1, "attack.params.steps": 50})
+        fp2 = auto_cycle._param_fingerprint("tune_atk_deepfool", {"attack.params.epsilon": 0.1, "attack.params.steps": 50})
+        self.assertEqual(fp1, fp2)
+        self.assertNotIn(" ", fp1)
+        self.assertNotIn("/", fp1)
+        fp3 = auto_cycle._param_fingerprint("tune_atk_deepfool", {"attack.params.epsilon": 0.2, "attack.params.steps": 50})
+        self.assertNotEqual(fp1, fp3)
+
+    def test_param_fingerprint_used_for_run_names_enables_cache(self) -> None:
+        call_count = [0]
+
+        def mock_score(params, run_name):
+            call_count[0] += 1
+            return 0.5
+
+        space = {"p": {"init": 5, "min": 1, "max": 10, "scale": "int", "step": 2}}
+        auto_cycle._coordinate_descent("test", space, mock_score, "prefix", max_iters=1)
+        first_count = call_count[0]
+        self.assertGreater(first_count, 0)
+
+    def test_adaptive_step_halves_after_commit(self) -> None:
+        scores = iter([0.1, 0.3, 0.5, 0.45, 0.45])
+
+        def mock_score(params, run_name):
+            return next(scores, 0.45)
+
+        space = {"p": {"init": 10, "min": 1, "max": 100, "scale": "int", "step": 10}}
+        best_params, _, history = auto_cycle._coordinate_descent("test", space, mock_score, "pfx", max_iters=3)
+        committed_values = [h["value"] for h in history if h.get("improved") and h["value"] is not None]
+        if len(committed_values) >= 2:
+            step1 = abs(committed_values[1] - committed_values[0])
+            self.assertLessEqual(step1, 10)
+
+    def test_diagonal_probe_attempted_for_multi_param_space(self) -> None:
+        probed_params: list[dict] = []
+
+        def mock_score(params, run_name):
+            probed_params.append(dict(params))
+            return sum(params.values()) * 0.01
+
+        space = {
+            "a": {"init": 5, "min": 1, "max": 20, "scale": "int", "step": 2},
+            "b": {"init": 5, "min": 1, "max": 20, "scale": "int", "step": 2},
+        }
+        auto_cycle._coordinate_descent("test", space, mock_score, "pfx", max_iters=2)
+        multi_changed = [
+            p for p in probed_params
+            if p.get("a") != 5 and p.get("b") != 5
+        ]
+        self.assertGreater(len(multi_changed), 0, "Should have at least one diagonal probe")
+
+    def test_diagonal_probe_skipped_for_single_param_space(self) -> None:
+        probed_params: list[dict] = []
+
+        def mock_score(params, run_name):
+            probed_params.append(dict(params))
+            return params.get("a", 5) * 0.01
+
+        space = {"a": {"init": 5, "min": 1, "max": 20, "scale": "int", "step": 2}}
+        auto_cycle._coordinate_descent("test", space, mock_score, "pfx", max_iters=2)
+        multi_changed = [p for p in probed_params if p.get("a") != 5]
+        for p in multi_changed:
+            self.assertEqual(len(p), 1)
+
+    def test_multi_attack_defense_scoring(self) -> None:
+        self.assertTrue(hasattr(auto_cycle, "_run_and_score_defense_multi"))
+        calls: list[str] = []
+
+        def mock_single_score(attack, defense, params, run_name, runs_root, bc, bd, ac):
+            calls.append(attack)
+            return 0.5
+
+        with mock.patch("scripts.auto_cycle._run_and_score_defense", side_effect=mock_single_score):
+            score = auto_cycle._run_and_score_defense_multi(
+                attacks=["deepfool", "blur"],
+                defense="bit_depth",
+                params={},
+                run_name_prefix="test",
+                runs_root="/tmp",
+                baseline_conf=0.8,
+                baseline_det=100,
+                attack_composites=[0.5, 0.6],
+            )
+        self.assertEqual(len(calls), 2)
+        self.assertAlmostEqual(score, 0.5)
+
+    def test_tune_max_images_is_16(self) -> None:
+        self.assertEqual(auto_cycle.TUNE_MAX_IMAGES, 16)
+
+    def test_per_attack_tune_images_override(self) -> None:
+        self.assertIsInstance(auto_cycle.TUNE_MAX_IMAGES_BY_ATTACK, dict)
+        self.assertIn("square", auto_cycle.TUNE_MAX_IMAGES_BY_ATTACK)
+
+    def test_momentum_skips_opposite_direction_on_success(self) -> None:
+        probe_log: list = []
+        call_idx = [0]
+        score_sequence = [0.1, 0.3, 0.4, 0.45, 0.45]
+
+        def mock_score(params, run_name):
+            probe_log.append(dict(params))
+            idx = call_idx[0]
+            call_idx[0] += 1
+            return score_sequence[idx] if idx < len(score_sequence) else 0.45
+
+        space = {"p": {"init": 10, "min": 1, "max": 100, "scale": "int", "step": 5}}
+        auto_cycle._coordinate_descent("test", space, mock_score, "pfx", max_iters=3)
+        total_probes = len(probe_log)
+        max_probes_without_momentum = 1 + 3 * 2
+        self.assertLessEqual(total_probes, max_probes_without_momentum)
+
+    def test_diminishing_returns_early_termination(self) -> None:
+        call_idx = [0]
+        scores = [0.10, 0.11, 0.10, 0.111, 0.11, 0.112, 0.11]
+
+        def mock_score(params, run_name):
+            idx = call_idx[0]
+            call_idx[0] += 1
+            return scores[idx] if idx < len(scores) else 0.112
+
+        space = {"p": {"init": 10, "min": 1, "max": 200, "scale": "int", "step": 5}}
+        _, _, history = auto_cycle._coordinate_descent("test", space, mock_score, "pfx", max_iters=10)
+        max_iter_seen = max((h["iter"] for h in history), default=0)
+        self.assertLess(max_iter_seen, 8, "Should converge early due to diminishing returns")
+
+    def test_three_point_scan_for_new_params(self) -> None:
+        self.assertTrue(hasattr(auto_cycle, "_three_point_scan"))
+        calls: list = []
+
+        def mock_score(params, run_name):
+            calls.append(dict(params))
+            return params.get("new_param", 5) * 0.01
+
+        space = {"new_param": {"init": 5, "min": 1, "max": 20, "scale": "int", "step": 2}}
+        warm_keys: set[str] = set()
+        result = auto_cycle._three_point_scan(space, warm_keys, mock_score, "scan")
+        self.assertIn("new_param", result)
+        self.assertEqual(len(calls), 3)
+
+
+if __name__ == "__main__":
+    unittest.main()

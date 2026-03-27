@@ -80,8 +80,10 @@ def _load_sweep(report_dir: Path) -> dict | None:
     if not rows:
         return None
 
-    # Find baseline
-    baseline = next((r for r in rows if r["attack"] == "none" and r["defense"] == "none"), None)
+    # Prefer explicit full-validation baseline when present; fall back to generic none/none.
+    baseline = next((r for r in rows if r.get("run_name") == "validate_baseline"), None)
+    if baseline is None:
+        baseline = next((r for r in rows if r["attack"] == "none" and r["defense"] == "none"), None)
     if not baseline or not baseline.get("total_detections"):
         return None
     baseline_det = float(baseline["total_detections"])
@@ -197,8 +199,13 @@ def _summary_cards_html(sweeps: list[dict]) -> str:
     latest = sweeps[-1]
     defended = [r for r in latest["runs"] if r["defense"] not in ("none", "")]
     best = min(defended, key=lambda r: r["detection_drop"]) if defended else None
+    effective_attacks = [
+        r
+        for r in latest["runs"]
+        if r["attack"] != "none" and r["defense"] in ("none", "") and r["detection_drop"] > 0
+    ]
     worst_attack = max(
-        (r for r in latest["runs"] if r["attack"] != "none" and r["defense"] in ("none", "")),
+        effective_attacks,
         key=lambda r: r["detection_drop"],
         default=None,
     )
@@ -215,8 +222,8 @@ def _summary_cards_html(sweeps: list[dict]) -> str:
         card("Total Sweeps", str(len(sweeps)), "runs recorded"),
         card("Baseline Detections", str(int(latest["baseline_detections"])),
              "clean images, no attack", "#2ca02c"),
-        card("Strongest Attack", worst_attack["attack"].upper() if worst_attack else "—",
-             f"−{worst_attack['detection_drop']}% detections" if worst_attack else "",
+        card("Strongest Attack", worst_attack["attack"].upper() if worst_attack else "NO_EFFECTIVE_ATTACK",
+             f"−{worst_attack['detection_drop']}% detections" if worst_attack else "all attacks had 0.0% drop",
              "#C44E52"),
         card("Best Defense (latest)", best["defense"] if best else "—",
              f"vs {best['attack']}: −{best['detection_drop']}%" if best else "",

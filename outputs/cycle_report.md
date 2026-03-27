@@ -14,6 +14,14 @@ Generated from 7 completed cycle(s) in `outputs/cycle_history/`.
 | 6 | 2026-03-25 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
 | 7 | 2026-03-26 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
 
+## Comparability Notes
+
+Cycle history includes catalogue eras with different attack/defense sets.
+Current trends focus on the latest catalogue; legacy trends are shown separately.
+
+- Comparable cycles (latest-catalogue aligned): **2**
+- Legacy/non-comparable cycles: **5**
+
 ## Baseline mAP50 Trend
 
 How the model's clean (unattacked) performance has changed across cycles.
@@ -29,33 +37,34 @@ Upward trend = model fortification is working.
 | 6 | 0.6002 | +0.0000 |
 | 7 | 0.6002 | +0.0000 |
 
-## Attack × Defense mAP50 Trends
+## Current Catalogue Trends
 
-Defended mAP50 for each attack+defense pair across cycles. Higher = better defense. Baseline mAP50 shown for reference.
+Defended mAP50 for attack+defense pairs in the latest active catalogue.
+Higher = better defense. Baseline mAP50 shown for reference.
 
 ### Attack: blur
 
-| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | confidence_filter | jpeg_preprocess | median_preprocess | random_resize |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| 1 | n/a | n/a | n/a | 0.5260 | n/a | 0.4464 | n/a |
-| 2 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
-| 3 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
-| 4 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
-| 5 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
-| 6 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | n/a | 0.1489 |
-| 7 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | median_preprocess |
+|---|---:|---:|---:|---:|---:|
+| 1 | n/a | n/a | n/a | n/a | 0.4464 |
+| 2 | 0.6002 | 0.3160 | n/a | n/a | 0.2724 |
+| 3 | 0.6002 | 0.3160 | n/a | n/a | 0.2724 |
+| 4 | 0.6002 | 0.3160 | n/a | n/a | 0.2724 |
+| 5 | 0.6002 | 0.3160 | n/a | n/a | 0.2724 |
+| 6 | 0.6002 | 0.2636 | 0.2615 | 0.2603 | n/a |
+| 7 | 0.6002 | 0.2636 | 0.2615 | 0.2603 | 0.2492 |
 
 ### Attack: deepfool
 
-| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | median_preprocess | random_resize |
-|---|---:|---:|---:|---:|---:|---:|
-| 1 | n/a | n/a | n/a | n/a | n/a | n/a |
-| 2 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 3 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 4 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 5 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 6 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | n/a | 0.1185 |
-| 7 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 | n/a |
+| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | median_preprocess |
+|---|---:|---:|---:|---:|---:|
+| 1 | n/a | n/a | n/a | n/a | n/a |
+| 2 | 0.6002 | n/a | n/a | n/a | n/a |
+| 3 | 0.6002 | n/a | n/a | n/a | n/a |
+| 4 | 0.6002 | n/a | n/a | n/a | n/a |
+| 5 | 0.6002 | n/a | n/a | n/a | n/a |
+| 6 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | n/a |
+| 7 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 |
 
 ### Attack: eot_pgd
 
@@ -68,6 +77,34 @@ Defended mAP50 for each attack+defense pair across cycles. Higher = better defen
 | 5 | 0.6002 | n/a | n/a | n/a |
 | 6 | 0.6002 | 0.2529 | 0.2555 | 0.2284 |
 | 7 | 0.6002 | n/a | n/a | n/a |
+
+## Legacy Catalogue Trends
+
+Historical pairs from older catalogue configurations are listed separately.
+
+### Attack: blur
+
+| Cycle | Baseline mAP50 | Attack mAP50 | confidence_filter | random_resize |
+|---|---:|---:|---:|---:|
+| 1 | n/a | n/a | 0.5260 | n/a |
+| 2 | 0.6002 | 0.3160 | 0.3160 | n/a |
+| 3 | 0.6002 | 0.3160 | 0.3160 | n/a |
+| 4 | 0.6002 | 0.3160 | 0.3160 | n/a |
+| 5 | 0.6002 | 0.3160 | 0.3160 | n/a |
+| 6 | 0.6002 | 0.2636 | n/a | 0.1489 |
+| 7 | 0.6002 | 0.2636 | n/a | n/a |
+
+### Attack: deepfool
+
+| Cycle | Baseline mAP50 | Attack mAP50 | random_resize |
+|---|---:|---:|---:|
+| 1 | n/a | n/a | n/a |
+| 2 | 0.6002 | n/a | n/a |
+| 3 | 0.6002 | n/a | n/a |
+| 4 | 0.6002 | n/a | n/a |
+| 5 | 0.6002 | n/a | n/a |
+| 6 | 0.6002 | 0.2184 | 0.1185 |
+| 7 | 0.6002 | 0.2184 | n/a |
 
 ### Attack: gaussian_blur
 

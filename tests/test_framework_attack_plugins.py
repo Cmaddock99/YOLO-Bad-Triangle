@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 import numpy as np
 import torch
@@ -122,6 +123,31 @@ class SquareAttackTest(unittest.TestCase):
         img_a, _ = attack.apply(self.image, model=model, seed=123)
         img_b, _ = attack.apply(self.image, model=model, seed=123)
         np.testing.assert_array_equal(img_a, img_b)
+
+
+class _DummyCWModel(torch.nn.Module):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        batch = x.shape[0]
+        out = torch.zeros(batch, 1, 85, device=x.device, dtype=x.dtype)
+        out[:, :, 4] = x.mean(dim=(1, 2, 3)).unsqueeze(-1)
+        return out
+
+
+class CWAttackBehaviorTest(unittest.TestCase):
+    def test_cw_marks_success_when_detections_drop_without_hitting_zero(self) -> None:
+        image = np.full((64, 64, 3), 127, dtype=np.uint8)
+        model = _DummyCWModel()
+        attack = build_attack_plugin("cw", c=10.0, max_iter=4, lr=0.01, binary_search_steps=1, device="cpu")
+
+        with mock.patch(
+            "lab.attacks.cw_adapter.CWAttack._count_detections",
+            side_effect=[5] + [3] * 32,
+        ):
+            attacked, meta = attack.apply(image, model=model)
+
+        self.assertEqual(attacked.shape, image.shape)
+        self.assertEqual(attacked.dtype, np.uint8)
+        self.assertTrue(meta.get("success"))
 
 
 if __name__ == "__main__":

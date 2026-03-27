@@ -85,7 +85,8 @@ class CWAttack(FGSMAttack):
         with torch.no_grad():
             with torch.inference_mode(False):
                 baseline_out = torch_model(x_orig)
-        if self._count_detections(baseline_out) == 0:
+        baseline_det = self._count_detections(baseline_out)
+        if baseline_det == 0:
             LOGGER.debug("CW skipping: no baseline detections.")
             return x_orig.clone(), {"skipped": True, "l2": 0.0, "success": False}
 
@@ -98,6 +99,7 @@ class CWAttack(FGSMAttack):
 
         best_adv = x_orig.clone().detach()
         best_l2 = float("inf")
+        best_det = baseline_det
         best_success = False
         c_current = self.c
 
@@ -146,10 +148,13 @@ class CWAttack(FGSMAttack):
                     with torch.inference_mode(False):
                         check_out = torch_model(x_check)
                     n_det = self._count_detections(check_out)
-                    if n_det == 0 and l2_val < best_l2:
+                    # Treat detection reduction as progress, not only total elimination.
+                    improved = n_det < best_det or (n_det == best_det and l2_val < best_l2)
+                    if improved:
+                        best_det = n_det
                         best_l2 = l2_val
                         best_adv = x_check.clone()
-                        best_success = True
+                        best_success = best_det < baseline_det
                         step_success = True
 
                 # Early stopping once attack has succeeded for >half the budget.
@@ -167,6 +172,8 @@ class CWAttack(FGSMAttack):
         return best_adv.detach(), {
             "success": best_success,
             "l2": best_l2,
+            "baseline_detections": baseline_det,
+            "final_detections": best_det,
             "c": c_current,
             "max_iter": self.max_iter,
             "binary_search_steps": self.binary_search_steps,
