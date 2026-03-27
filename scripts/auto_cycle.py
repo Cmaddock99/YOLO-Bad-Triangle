@@ -155,6 +155,8 @@ TUNE_MAX_ITERS = 15          # max passes over all parameters (global default)
 TUNE_TOLERANCE_REL = 0.05    # minimum *relative* improvement to count as a gain
                               # relative keeps weak attacks from accepting noise
                               # and strong attacks from missing real gains
+TUNE_TOLERANCE_ABS = 0.005   # absolute floor: when current_score ≈ 0 the relative
+                              # threshold collapses to 0, disabling early exit
 
 # Per-defense iteration cap. Small param spaces converge in 2-3 passes;
 # running 15 wastes hours when slow attacks are in the catalogue.
@@ -664,7 +666,8 @@ def _candidates(spec: dict, current, step_override: float | None = None) -> list
 def _run_and_score_attack(attack, params, run_name, runs_root,
                           baseline_conf, baseline_det):
     run_single(attack=attack, defense="none", run_name=run_name,
-               runs_root=runs_root, overrides=params, preset="tune")
+               runs_root=runs_root, overrides=params, preset="tune",
+               max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(attack))
     m = read_metrics(Path(runs_root) / run_name)
     if not m:
         return -1.0
@@ -675,7 +678,8 @@ def _run_and_score_attack(attack, params, run_name, runs_root,
 def _run_and_score_defense(attack, defense, params, run_name, runs_root,
                             baseline_conf, baseline_det, attack_composite):
     run_single(attack=attack, defense=defense, run_name=run_name,
-               runs_root=runs_root, overrides=params, preset="tune")
+               runs_root=runs_root, overrides=params, preset="tune",
+               max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(attack))
     m = read_metrics(Path(runs_root) / run_name)
     if not m:
         return -1.0
@@ -847,7 +851,8 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
 
         if len(pass_gains) >= DIMINISHING_WINDOW:
             recent = pass_gains[-DIMINISHING_WINDOW:]
-            if sum(recent) < 2.0 * TUNE_TOLERANCE_REL * abs(current_score):
+            threshold = max(2.0 * TUNE_TOLERANCE_REL * abs(current_score), TUNE_TOLERANCE_ABS)
+            if sum(recent) < threshold:
                 log(f"  [{label}] diminishing returns after {iteration} pass(es)  "
                     f"cumulative_gain={sum(recent):.6f}  "
                     f"best={current_score:.4f}  {_fmt(current)}")
@@ -985,7 +990,8 @@ def phase3(state: dict) -> bool:
         tuned_atk_run = f"tune_atk_{atk}_best"
         run_single(attack=atk, defense="none",
                    run_name=tuned_atk_run, runs_root=runs_root,
-                   overrides=best_atk_params, preset="tune")
+                   overrides=best_atk_params, preset="tune",
+                   max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(atk))
         tuned_m = read_metrics(Path(runs_root) / tuned_atk_run)
         ac = _composite_score(tuned_m, baseline_conf, baseline_det) if tuned_m else 1.0
         attack_composites.append(ac)
