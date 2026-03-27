@@ -1,6 +1,6 @@
 # Framework Run Comparison Report
 
-Total discovered framework runs: **8**
+Total discovered framework runs: **23**
 
 ## Run Inventory
 
@@ -14,6 +14,21 @@ Total discovered framework runs: **8**
 | `attack_pgd` | `yolo` | `pgd` | `none` | `missing` |  | 0.7646 |
 | `attack_square` | `yolo` | `square` | `none` | `missing` |  | 0.7183 |
 | `baseline_none` | `yolo` | `none` | `none` | `missing` |  | 0.7658 |
+| `defended_blur_bit_depth` | `yolo` | `blur` | `bit_depth` | `missing` |  | 0.6947 |
+| `defended_blur_c_dog` | `yolo` | `blur` | `c_dog` | `missing` |  | 0.7215 |
+| `defended_blur_c_dog_ensemble` | `yolo` | `blur` | `c_dog_ensemble` | `missing` |  | 0.7271 |
+| `defended_blur_jpeg_preprocess` | `yolo` | `blur` | `jpeg_preprocess` | `missing` |  | 0.7006 |
+| `defended_blur_median_preprocess` | `yolo` | `blur` | `median_preprocess` | `missing` |  | 0.7016 |
+| `defended_deepfool_bit_depth` | `yolo` | `deepfool` | `bit_depth` | `missing` |  | 0.7955 |
+| `defended_deepfool_c_dog` | `yolo` | `deepfool` | `c_dog` | `missing` |  | 0.7528 |
+| `defended_deepfool_c_dog_ensemble` | `yolo` | `deepfool` | `c_dog_ensemble` | `missing` |  | 0.8318 |
+| `defended_deepfool_jpeg_preprocess` | `yolo` | `deepfool` | `jpeg_preprocess` | `missing` |  | 0.8412 |
+| `defended_deepfool_median_preprocess` | `yolo` | `deepfool` | `median_preprocess` | `missing` |  | 0.7835 |
+| `defended_eot_pgd_bit_depth` | `yolo` | `eot_pgd` | `bit_depth` | `missing` |  | 0.8552 |
+| `defended_eot_pgd_c_dog` | `yolo` | `eot_pgd` | `c_dog` | `missing` |  | 0.7324 |
+| `defended_eot_pgd_c_dog_ensemble` | `yolo` | `eot_pgd` | `c_dog_ensemble` | `missing` |  | 0.7942 |
+| `defended_eot_pgd_jpeg_preprocess` | `yolo` | `eot_pgd` | `jpeg_preprocess` | `missing` |  | 0.7866 |
+| `defended_eot_pgd_median_preprocess` | `yolo` | `eot_pgd` | `median_preprocess` | `missing` |  | 0.8200 |
 
 ## Attack Effectiveness
 
@@ -29,7 +44,23 @@ Total discovered framework runs: **8**
 
 ## Defense Recovery
 
-No defended runs found. Run with `--defenses` to enable defense sweep.
+| Model | Attack | Defense | Objective | Target class | ROI | mAP50 attacked | mAP50 defended | Recovery |
+|---|---|---|---|---:|---|---:|---:|---:|
+| `yolo` | `blur` | `bit_depth` | `` |  | `` |  |  |  |
+| `yolo` | `blur` | `c_dog` | `` |  | `` |  |  |  |
+| `yolo` | `blur` | `c_dog_ensemble` | `` |  | `` |  |  |  |
+| `yolo` | `blur` | `jpeg_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `blur` | `median_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `bit_depth` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `c_dog` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `c_dog_ensemble` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `jpeg_preprocess` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `median_preprocess` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `eot_pgd` | `bit_depth` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `eot_pgd` | `c_dog` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `eot_pgd` | `c_dog_ensemble` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `eot_pgd` | `jpeg_preprocess` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `eot_pgd` | `median_preprocess` | `untargeted_conf_suppression` |  | `` |  |  |  |
 
 ## Per-Class Detection Drop
 
