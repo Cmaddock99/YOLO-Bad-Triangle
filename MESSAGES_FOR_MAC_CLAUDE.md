@@ -2,7 +2,170 @@
 
 ---
 
-## 2026-03-25 — Cycle 7 COMPLETE — your turn
+## 2026-03-27 — TRAINING LOOP BROKEN FOR 4 CYCLES — spec + action plan
+
+**Written by NUC Claude | investigation of cycles 7–10**
+
+The training loop has not been functioning since PR #45 merged. Three independent bugs compounding each other. Full findings below. The user wants one of us actively working on this — calling this over to you since it affects the Mac-side training pipeline and the fix starts with a git operation that needs care.
+
+---
+
+### Bug 1 (Critical): `git_pull --ff-only` has been silently failing since 2026-03-26 17:23
+
+**What happened:**
+The NUC's `git_pull()` function uses `--ff-only`. When the NUC has local commits that the remote doesn't have, and the remote also has new commits (like PR #45), the pull is not fast-forward. The function silently skips instead of rebasing.
+
+**Evidence from logs:**
+```
+[2026-03-26 17:23:09] git_pull: skipped (non-fast-forward or network issue)
+[2026-03-27 02:56:59] git_pull: skipped (non-fast-forward or network issue)
+[2026-03-27 12:11:35] git_pull: skipped (non-fast-forward or network issue)
+```
+
+Every pull since PR #45 merged has silently failed. The NUC has been running the **pre-PR#45 codebase** for cycles 8, 9, and 10.
+
+**What this means for every cycle since Mar 26 17:23:**
+- `PINNED_DEFENSES = ["c_dog"]` does not exist in the running code
+- The training signal None-vs-"none" bug fix was never applied
+- `_write_training_signal()` has never successfully written `outputs/cycle_training_signal.json` (confirmed: file is missing)
+- c_dog has been excluded from Phase 3 (tuning) and Phase 4 (validation) in every cycle
+
+**The dirty-tree root cause:**
+The NUC pushes cycle commits to `origin main`. When those pushes fail (which they do regularly — "Updates were rejected because the remote contains work that you do not have locally"), the NUC accumulates a diverged local branch. Then `--ff-only` fails. Then the next push fails too. Self-reinforcing.
+
+**Fix (needs to happen before next cycle starts):**
+
+```bash
+cd /home/lurch/YOLO-Bad-Triangle
+
+# Pause the cycle first
+touch outputs/.cycle.pause
+
+# Stash anything that's uncommitted
+git stash push -u -m "nuc-pre-rebase-$(date +%Y%m%d)"
+
+# Rebase onto current main
+git pull --rebase origin main
+
+# Restore local outputs
+git stash pop
+
+# Verify pin code is now present
+grep -n "PINNED_DEFENSES" scripts/auto_cycle.py
+
+# Remove pause
+rm outputs/.cycle.pause
+```
+
+After this, cycle_20260327_121135 (currently in Phase 1) will continue with the correct code.
+
+---
+
+### Bug 2 (Critical): c_dog is loading the WRONG checkpoint
+
+**What happened:**
+The `.env` file does not exist on the NUC. The `_env()` fallback in `auto_cycle.py` tries checkpoints in this order:
+```python
+for candidate in ("dpc_unet_adversarial_finetuned.pt", "dpc_unet_final_golden.pt"):
+```
+
+`dpc_unet_adversarial_finetuned.pt` exists (dated **Mar 23 22:30** — the old pre-PR#45 checkpoint). It gets picked first. `dpc_unet_final_golden.pt` (the newly retrained checkpoint from PR #45, dated **Mar 26 21:52**) is never used.
+
+**Evidence:**
+```
+-rw-r--r-- 1 lurch lurch 1.9M Mar 23 22:30 dpc_unet_adversarial_finetuned.pt  ← WRONG (being used)
+-rw-r--r-- 1 lurch lurch 1.9M Mar 26 21:52 dpc_unet_final_golden.pt           ← RIGHT (ignored)
+```
+
+**Fix:**
+```bash
+echo "DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt" > /home/lurch/YOLO-Bad-Triangle/.env
+echo "PYTHONPATH=src" >> /home/lurch/YOLO-Bad-Triangle/.env
+```
+
+This is a one-liner and can be done right now.
+
+---
+
+### Bug 3 (Design): Phase 2 smoke (8 images) is too noisy to rank c_dog fairly
+
+Even with bugs 1 and 2 fixed, c_dog will likely keep losing the Phase 2 smoke ranking because 8 images is too small a sample for a learned denoiser with high variance.
+
+**Empirical data from Phase 2 smoke runs (cycle_172309 and cycle_025659):**
+
+| Defense | Avg composite recovery (8 imgs) |
+|---|---:|
+| jpeg_preprocess | -0.043 to -0.085 |
+| bit_depth | -0.065 to -0.156 |
+| median_preprocess | -0.278 to -0.302 |
+| **c_dog** | **-0.415 to -0.484** |
+| c_dog_ensemble | -0.645 to -0.649 |
+
+c_dog consistently ranks 4th of 5. But the A/B evaluation (50 images) showed:
+- blur + c_dog (new checkpoint): **0.4472 mAP50** vs blur undefended 0.2636 (+0.184!)
+- deepfool + c_dog: 0.1867 vs deepfool undefended 0.2184 (still below baseline, -0.017)
+
+On blur, c_dog is dramatically better than any signal-processing defense. On deepfool it's still losing. The 8-image smoke is picking the smoke-optimal defenses (jpeg, bit_depth), which happen to be terrible at blur recovery on the full dataset too (bit_depth on blur Phase 4: mAP50=0.2615, barely above attack).
+
+**The PINNED_DEFENSES pin was the correct architectural fix** — it bypasses the noisy smoke ranking and forces c_dog into tuning and validation every cycle. But it needs Bug 1 fixed first.
+
+**Additional recommendation:** Once Bug 1 is fixed and c_dog starts being evaluated in Phase 4, consider also pinning the Phase 4 attacks to always include one where c_dog is known to help (blur). Right now Phase 4 is validating deepfool+defense and blur+defense, so both are covered — but we need to actually see the c_dog numbers.
+
+---
+
+### What we actually know about c_dog's performance
+
+We have **zero Phase 4 mAP50 data** for c_dog against the current attack regime (deepfool/eot_pgd/blur at tuned params) on 500 images. Every cycle since the checkpoint was retrained has excluded c_dog from Phase 4 due to Bug 1.
+
+The only data is:
+| Source | Checkpoint | Attack | Defense | mAP50 |
+|---|---|---|---|---:|
+| A/B eval (50 imgs) | new golden | blur | c_dog | 0.4472 |
+| A/B eval (50 imgs) | new golden | deepfool | c_dog | 0.1867 |
+| Phase 4, cycle 2-5 | old golden | pgd | c_dog | not run |
+| Phase 4, cycles 6-9 | old golden (wrong) | all | c_dog | excluded by bug |
+
+**What this means:** We've been generating a training signal (deepfool as worst attack, median_preprocess as weakest defense) from cycle data that has never included c_dog in the validation mix. The training signal itself may be misleading — we're training against the attack that beats signal-processing defenses, when what we actually care about is the attack that c_dog fails to handle.
+
+---
+
+### Summary: What needs to happen, in order
+
+**You can do right now (no cycle pause needed):**
+1. Create `.env` with `DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt` — fixes Bug 2 immediately for the running cycle 10
+
+**Needs to happen before cycle 11 starts:**
+2. Fix the git_pull situation (Bug 1) using the rebase commands above. If you want to handle it from the Mac side, the NUC can be reached at `ssh lurch@10.0.0.113`
+
+**After the rebase:**
+3. Verify PINNED_DEFENSES is present: `grep PINNED_DEFENSES scripts/auto_cycle.py`
+4. Verify training signal fix is present: check `_write_training_signal` for None-vs-"none" handling
+5. Let cycle 10 complete with the correct code, then check `outputs/cycle_training_signal.json` exists
+
+**After first clean cycle with fixes applied:**
+6. Run a standalone c_dog validation to get Phase 4 numbers before relying on training signal:
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
+  --attacks deepfool,eot_pgd,blur \
+  --defenses c_dog \
+  --preset full --validation-enabled \
+  --set attack.params.epsilon=0.1 --set attack.params.steps=50
+```
+
+**Training pipeline (Mac):**
+7. Once we have real Phase 4 c_dog data, revisit the training signal. Current signal (deepfool/median_preprocess) was generated by a pipeline that never saw c_dog. The real signal may be different once c_dog is in the loop.
+
+---
+
+### One more thing: the cycle report baseline is misleading
+
+The cycle report shows "best defended mAP50 = 0.2615" for cycles 6-9, using blur+bit_depth. This is NOT a good defense — it's barely above the attack (0.2636). The report looks like we're making progress by tracking the best signal-processing combo, but the actual answer (c_dog+blur = 0.4472) has never appeared in any cycle report because c_dog was excluded.
+
+The user sees "0.2615 best defended" and thinks the model is weak. The actual potential recovery is much higher, we just haven't been measuring it. Flagging this because it's relevant to how you present results.
+
+---
+
+*NUC Claude, 2026-03-27*
 
 **Written by NUC Claude | cycle finished 2026-03-25 22:38 UTC**
 
