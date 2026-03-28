@@ -8,8 +8,19 @@ Usage:
     PYTHONPATH=src ./.venv/bin/python scripts/evaluate_checkpoint.py \\
         --checkpoint-a dpc_unet_final_golden.pt \\
         --checkpoint-b dpc_unet_adversarial_finetuned.pt \\
-        --attack blur \\
-        --images 50
+        --attack blur
+
+    # Fast smoke test (50 images):
+    PYTHONPATH=src ./.venv/bin/python scripts/evaluate_checkpoint.py \\
+        --checkpoint-a dpc_unet_final_golden.pt \\
+        --checkpoint-b dpc_unet_adversarial_finetuned.pt \\
+        --attack blur --images 50
+
+    # Evaluate at non-default attack params (e.g. deepfool at stronger epsilon):
+    PYTHONPATH=src ./.venv/bin/python scripts/evaluate_checkpoint.py \\
+        --checkpoint-a dpc_unet_final_golden.pt \\
+        --checkpoint-b dpc_unet_adversarial_finetuned.pt \\
+        --attack deepfool --attack-params attack.params.epsilon=0.1
 
 Output (JSON to stdout + human summary):
     {
@@ -51,6 +62,7 @@ def _run_validation(
     run_name: str,
     runs_root: Path,
     max_images: int,
+    attack_params: list[str] | None = None,
 ) -> dict | None:
     """Run one validation experiment, return metrics dict or None on failure."""
     run_dir = runs_root / run_name
@@ -67,6 +79,8 @@ def _run_validation(
             "--set", f"runner.max_images={max_images}",
             "--set", "validation.enabled=true",
         ]
+        for param in (attack_params or []):
+            cmd += ["--set", param]
         result = subprocess.run(
             cmd,
             cwd=str(REPO),
@@ -100,6 +114,7 @@ def evaluate(
     defense: str,
     images: int,
     output_json: Path | None,
+    attack_params: list[str] | None = None,
 ) -> int:
     """Run A/B evaluation. Returns 0 if B >= A, 1 if B is worse.
 
@@ -133,6 +148,7 @@ def evaluate(
             run_name="eval_a",
             runs_root=runs_root,
             max_images=images,
+            attack_params=attack_params,
         )
         map50_a, dets_a = _extract(metrics_a)
 
@@ -144,6 +160,7 @@ def evaluate(
             run_name="eval_b",
             runs_root=runs_root,
             max_images=images,
+            attack_params=attack_params,
         )
         map50_b, dets_b = _extract(metrics_b)
 
@@ -206,8 +223,18 @@ def main() -> None:
         help="Defense to use for evaluation (default: c_dog).",
     )
     parser.add_argument(
-        "--images", type=int, default=50,
-        help="Number of images to evaluate (default: 50). Use 8 for a quick smoke test.",
+        "--images", type=int, default=500,
+        help="Number of images to evaluate (default: 500). Use 50 for a fast smoke test.",
+    )
+    parser.add_argument(
+        "--attack-params",
+        nargs="*",
+        default=[],
+        metavar="KEY=VALUE",
+        help=(
+            "Extra dotted-path overrides for the attack, e.g. "
+            "attack.params.epsilon=0.1 attack.params.steps=50"
+        ),
     )
     parser.add_argument(
         "--output-json",
@@ -223,6 +250,7 @@ def main() -> None:
             defense=args.defense,
             images=args.images,
             output_json=Path(args.output_json) if args.output_json else None,
+            attack_params=args.attack_params or [],
         )
     except (FileNotFoundError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

@@ -1,0 +1,223 @@
+{
+  "attacks_ranked": [
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7608794391155242,
+      "detection_drop": 0.9,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_deepfool_c_dog",
+      "seed": 42.0,
+      "total_detections": 10.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7790709183766291,
+      "detection_drop": 0.87,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_deepfool_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 13.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.8256377391517162,
+      "detection_drop": 0.84,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_deepfool_jpeg_preprocess",
+      "seed": 42.0,
+      "total_detections": 16.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7268488786437295,
+      "detection_drop": 0.78,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "attack_deepfool",
+      "seed": 42.0,
+      "total_detections": 22.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7234961291154226,
+      "detection_drop": 0.76,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_deepfool_bit_depth",
+      "seed": 42.0,
+      "total_detections": 24.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7735416928927104,
+      "detection_drop": 0.4,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_eot_pgd_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 60.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.74754078075534,
+      "detection_drop": 0.39,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_blur_c_dog",
+      "seed": 42.0,
+      "total_detections": 61.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7285247072577477,
+      "detection_drop": 0.36,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_eot_pgd_c_dog",
+      "seed": 42.0,
+      "total_detections": 64.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7564461516662383,
+      "detection_drop": 0.29,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_blur_jpeg_preprocess",
+      "seed": 42.0,
+      "total_detections": 71.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.7510498619415391,
+      "detection_drop": 0.29,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_blur_median_preprocess",
+      "seed": 42.0,
+      "total_detections": 71.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.756643098511108,
+      "detection_drop": 0.27,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "attack_blur",
+      "seed": 42.0,
+      "total_detections": 73.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "blur",
+      "avg_confidence": 0.749282035109115,
+      "detection_drop": 0.27,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_blur_bit_depth",
+      "seed": 42.0,
+      "total_detections": 73.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.764975033096365,
+      "detection_drop": 0.26,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_eot_pgd_jpeg_preprocess",
+      "seed": 42.0,
+      "total_detections": 74.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7830529880523681,
+      "detection_drop": 0.25,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_eot_pgd_bit_depth",
+      "seed": 42.0,
+      "total_detections": 75.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_confidence": 0.7785452951358843,
+      "detection_drop": 0.21,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "attack_eot_pgd",
+      "seed": 42.0,
+      "total_detections": 79.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "fgsm",
+      "avg_confidence": 0.7763301259205665,
+      "detection_drop": 0.19,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "attack_fgsm",
+      "seed": 42.0,
+      "total_detections": 81.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "pgd",
+      "avg_confidence": 0.7463295767816265,
+      "detection_drop": 0.11,
+      "interpretation": "Moderate robustness",
+      "map50": null,
+      "run_name": "attack_pgd",
+      "seed": 42.0,
+      "total_detections": 89.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "square",
+      "avg_confidence": 0.7432619641115378,
+      "detection_drop": 0.09,
+      "interpretation": "Moderate robustness",
+      "map50": null,
+      "run_name": "attack_square",
+      "seed": 42.0,
+      "total_detections": 91.0,
+      "validation_status": "missing"
+    }
+  ],
+  "baseline": {
+    "avg_confidence": 0.7622529721260071,
+    "model": "yolo",
+    "run_name": "baseline_none",
+    "seed": 42.0,
+    "total_detections": 100.0
+  },
+  "report_root": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_reports/cycle_20260326_112654",
+  "strongest_attack_by_detection_drop": {
+    "attack": "deepfool",
+    "avg_confidence": 0.7608794391155242,
+    "detection_drop": 0.9,
+    "interpretation": "Strong attack effect",
+    "map50": null,
+    "run_name": "defended_deepfool_c_dog",
+    "seed": 42.0,
+    "total_detections": 10.0,
+    "validation_status": "missing"
+  },
+  "total_attack_runs": 18,
+  "total_runs": 19
+}

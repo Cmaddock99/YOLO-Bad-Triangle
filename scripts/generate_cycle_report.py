@@ -249,6 +249,29 @@ def build_markdown(cycles: list[dict]) -> str:
 
     lines += [""]
 
+    latest_cycle = cycles[-1] if cycles else {}
+    current_attacks = set(latest_cycle.get("top_attacks", []))
+    current_defenses = set(latest_cycle.get("top_defenses", []))
+    comparable_cycles = 0
+    legacy_cycles = 0
+    for cycle in cycles:
+        cat_attacks = set(cycle.get("top_attacks", []))
+        if current_attacks and cat_attacks and cat_attacks.issubset(current_attacks):
+            comparable_cycles += 1
+        else:
+            legacy_cycles += 1
+
+    lines += [
+        "## Comparability Notes",
+        "",
+        "Cycle history includes catalogue eras with different attack/defense sets.",
+        "Current trends focus on the latest catalogue; legacy trends are shown separately.",
+        "",
+        f"- Comparable cycles (latest-catalogue aligned): **{comparable_cycles}**",
+        f"- Legacy/non-comparable cycles: **{legacy_cycles}**",
+        "",
+    ]
+
     # ── Baseline mAP50 trend ──
     baseline_map50s = []
     for cycle in cycles:
@@ -282,18 +305,24 @@ def build_markdown(cycles: list[dict]) -> str:
         all_pairs.update(defended_map.keys())
 
     if all_pairs:
+        lines += ["## Current Catalogue Trends", ""]
         lines += [
-            "## Attack × Defense mAP50 Trends",
-            "",
-            "Defended mAP50 for each attack+defense pair across cycles. "
+            "Defended mAP50 for attack+defense pairs in the latest active catalogue.",
             "Higher = better defense. Baseline mAP50 shown for reference.",
             "",
         ]
 
-        # Group by attack for readability
-        attacks_seen = sorted({atk for atk, _ in all_pairs})
+        current_pairs = {
+            (atk, dfn)
+            for (atk, dfn) in all_pairs
+            if (not current_attacks or atk in current_attacks)
+            and (not current_defenses or dfn in current_defenses)
+        }
+        legacy_pairs = all_pairs - current_pairs
+
+        attacks_seen = sorted({atk for atk, _ in current_pairs})
         for atk in attacks_seen:
-            defenses_for_atk = sorted({dfn for a, dfn in all_pairs if a == atk})
+            defenses_for_atk = sorted({dfn for a, dfn in current_pairs if a == atk})
             if not defenses_for_atk:
                 continue
 
@@ -317,6 +346,39 @@ def build_markdown(cycles: list[dict]) -> str:
                     row += f" {_fmt_map50(def_entry.get('mAP50'))} |"
                 lines.append(row)
             lines += [""]
+
+        lines += ["## Legacy Catalogue Trends", ""]
+        if not legacy_pairs:
+            lines += ["No legacy-only attack/defense pairs detected.", ""]
+        else:
+            lines += [
+                "Historical pairs from older catalogue configurations are listed separately.",
+                "",
+            ]
+            legacy_attacks = sorted({atk for atk, _ in legacy_pairs})
+            for atk in legacy_attacks:
+                defenses_for_atk = sorted({dfn for a, dfn in legacy_pairs if a == atk})
+                if not defenses_for_atk:
+                    continue
+                lines.append(f"### Attack: {atk}")
+                lines.append("")
+                header = "| Cycle | Baseline mAP50 | Attack mAP50 |" + "".join(
+                    f" {dfn} |" for dfn in defenses_for_atk
+                )
+                sep = "|---|---:|---:|" + "---:|" * len(defenses_for_atk)
+                lines += [header, sep]
+                for i, cycle in enumerate(cycles, 1):
+                    validation_results = cycle.get("validation_results", {})
+                    baseline, attack_map, defended_map = _parse_validation(validation_results)
+                    base_m = baseline.get("mAP50") if baseline else None
+                    atk_entry = attack_map.get(atk, {})
+                    atk_m = atk_entry.get("mAP50")
+                    row = f"| {i} | {_fmt_map50(base_m)} | {_fmt_map50(atk_m)} |"
+                    for dfn in defenses_for_atk:
+                        def_entry = defended_map.get((atk, dfn), {})
+                        row += f" {_fmt_map50(def_entry.get('mAP50'))} |"
+                    lines.append(row)
+                lines += [""]
 
     # ── Training signal history ──
     lines += [
