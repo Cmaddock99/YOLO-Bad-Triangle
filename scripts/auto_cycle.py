@@ -1408,18 +1408,18 @@ def maybe_pause_for_checkpoint_update(state: dict, *, next_phase: int) -> None:
 
 def git_pull() -> None:
     """Pull latest changes from remote. Called at the start of each new cycle
-    so new plugins, param-space tweaks, and bug fixes are picked up automatically."""
+    so new plugins, param-space tweaks, and bug fixes are picked up automatically.
+    Uses merge (not fast-forward-only) so NUC's local cycle commits don't block pulls."""
     try:
         result = subprocess.run(
-            ["git", "pull", "--ff-only", "origin", "main"],
+            ["git", "pull", "--no-rebase", "-X", "ours", "origin", "main"],
             cwd=str(REPO), capture_output=True, text=True,
         )
         if result.returncode == 0:
             msg = result.stdout.strip() or "already up to date"
             log(f"git_pull: {msg}")
         else:
-            log(f"git_pull: skipped (non-fast-forward or network issue) — "
-                f"{result.stderr.strip()}")
+            log(f"git_pull: failed — {result.stderr.strip()}")
     except Exception as exc:
         log(f"git_pull: error — {exc} (continuing)")
 
