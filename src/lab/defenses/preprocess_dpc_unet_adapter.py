@@ -38,7 +38,7 @@ class _BaseCDogAdapter(BaseDefense):
     strong_laplacian: float = 0.02
     color_order: str = "bgr"
     scaling: str = "zero_one"
-    normalize: bool = True
+    normalize: bool = False
     device: str = "cpu"
     name: str = ""
     _model: DPCUNet = field(init=False, repr=False)

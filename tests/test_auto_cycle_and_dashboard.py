@@ -376,8 +376,20 @@ class TuningEngineTest(unittest.TestCase):
         self.assertEqual(auto_cycle.TUNE_MAX_IMAGES, 16)
 
     def test_per_attack_tune_images_override(self) -> None:
-        self.assertIsInstance(auto_cycle.TUNE_MAX_IMAGES_BY_ATTACK, dict)
-        self.assertIn("square", auto_cycle.TUNE_MAX_IMAGES_BY_ATTACK)
+        """TUNE_MAX_IMAGES_BY_ATTACK is applied when scoring attacks and defenses."""
+        with mock.patch("scripts.auto_cycle.run_single", return_value=True) as mock_run, \
+             mock.patch("scripts.auto_cycle.read_metrics", return_value=None):
+            auto_cycle._run_and_score_attack("eot_pgd", {}, "test_run", "/tmp/runs", 0.9, 100)
+        self.assertEqual(
+            mock_run.call_args.kwargs.get("max_images_override"),
+            auto_cycle.TUNE_MAX_IMAGES_BY_ATTACK.get("eot_pgd"),
+        )
+
+        # Attacks not in the override dict should pass None (use default TUNE_MAX_IMAGES).
+        with mock.patch("scripts.auto_cycle.run_single", return_value=True) as mock_run, \
+             mock.patch("scripts.auto_cycle.read_metrics", return_value=None):
+            auto_cycle._run_and_score_attack("deepfool", {}, "test_run2", "/tmp/runs", 0.9, 100)
+        self.assertIsNone(mock_run.call_args.kwargs.get("max_images_override"))
 
     def test_momentum_skips_opposite_direction_on_success(self) -> None:
         probe_log: list = []

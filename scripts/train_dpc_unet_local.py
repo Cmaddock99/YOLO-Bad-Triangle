@@ -199,6 +199,20 @@ class AdvPairDataset(Dataset):
         return self._to_tensor(adv_bgr), self._to_tensor(clean_bgr)
 
 
+# ── YOLO label loader (for detector-aligned loss) ────────────────────────────
+
+def _load_yolo_labels(label_file: Path, device: torch.device):
+    """Load YOLO-format label file. Returns (N,6) tensor [batch_idx, cls, cx, cy, w, h]."""
+    rows = []
+    for line in label_file.read_text().strip().splitlines():
+        parts = line.split()
+        if len(parts) != 5:
+            continue
+        cls, cx, cy, w, h = (float(x) for x in parts)
+        rows.append([0.0, cls, cx, cy, w, h])
+    return torch.tensor(rows, dtype=torch.float32, device=device) if rows else None
+
+
 # ── Loss ─────────────────────────────────────────────────────────────────────
 
 def sobel_edges(x: torch.Tensor) -> torch.Tensor:
@@ -265,10 +279,65 @@ def train(args: argparse.Namespace) -> None:
         print(f"ERROR: Golden checkpoint not found")
         sys.exit(1)
 
+    # Apply oversampling — repeat pairs for specified attack dirs
+    if args.oversample:
+        for spec in args.oversample.split(","):
+            spec = spec.strip()
+            if ":" not in spec:
+                continue
+            name, n_str = spec.split(":", 1)
+            n = int(n_str)
+            if name in adv_dirs:
+                for i in range(1, n):
+                    adv_dirs[f"{name}_rep{i}"] = adv_dirs[name]
+                print(f"  Oversampling '{name}' ×{n}")
+            else:
+                print(f"  WARNING: --oversample '{name}' not found in attack dirs, skipping")
+
     # Build dataset
     print("\nBuilding dataset...")
     full_ds = AdvPairDataset.from_dirs(clean_dir, adv_dirs, patch_size=args.patch_size, augment=True)
     train_ds, val_ds = full_ds.split(val_frac=0.10, seed=args.seed)
+
+    # ── Detector-aligned loss setup ───────────────────────────────────────────
+    yolo_inner = None
+    full_adv_pairs: list = []
+    labels_dir = ROOT / "coco" / "val2017_subset500" / "labels"
+
+    if args.det_loss_weight > 0:
+        yolo_ckpt = ROOT / "yolo26n.pt"
+        if not yolo_ckpt.exists():
+            print("WARNING: yolo26n.pt not found — detector loss disabled")
+        elif not labels_dir.exists():
+            print("WARNING: labels dir not found — detector loss disabled")
+        else:
+            from types import SimpleNamespace
+            from ultralytics import YOLO as _YOLO
+            yolo_inner = _YOLO(str(yolo_ckpt)).model
+            # Build args SimpleNamespace with required loss weights.
+            # Pretrained model saves args as a dict that may lack box/cls/dfl;
+            # merge existing args then force-set the required keys.
+            _required_hyp = {"box": 7.5, "cls": 0.5, "dfl": 1.5}
+            _existing: dict = {}
+            if hasattr(yolo_inner, "args") and yolo_inner.args is not None:
+                if isinstance(yolo_inner.args, dict):
+                    _existing = yolo_inner.args
+                elif hasattr(yolo_inner.args, "__dict__"):
+                    _existing = vars(yolo_inner.args)
+            yolo_inner.args = SimpleNamespace(**{**_existing, **_required_hyp})
+            # Move to device FIRST — criterion captures device via next(model.parameters()).device
+            yolo_inner = yolo_inner.to(device)
+            yolo_inner.criterion = yolo_inner.init_criterion()
+            yolo_inner.train()
+            for p in yolo_inner.parameters():
+                p.requires_grad_(False)
+            for clean_path, adv_path, _ in full_ds.pairs:
+                lbl = labels_dir / (Path(clean_path).stem + ".txt")
+                if lbl.exists():
+                    full_adv_pairs.append((clean_path, adv_path))
+            print(f"Detector loss: weight={args.det_loss_weight}, "
+                  f"{len(full_adv_pairs)} eligible images, "
+                  f"{args.det_images_per_epoch} sampled/epoch")
 
     # MPS doesn't support num_workers > 0 well with fork
     num_workers = 0 if device.type == "mps" else 4
@@ -372,6 +441,42 @@ def train(args: argparse.Namespace) -> None:
                 val_loss += loss.item()
         val_loss /= len(val_loader)
 
+        # ── Detector alignment pass (one update per epoch) ────────────────────
+        det_loss_val = 0.0
+        if yolo_inner is not None and full_adv_pairs:
+            sampled = random.sample(full_adv_pairs,
+                                    min(args.det_images_per_epoch, len(full_adv_pairs)))
+            optimizer.zero_grad(set_to_none=True)
+            n_ok = 0
+            for clean_path, adv_path in sampled:
+                adv_bgr = cv2.imread(adv_path)
+                if adv_bgr is None:
+                    continue
+                adv_t = (torch.from_numpy(
+                    cv2.cvtColor(cv2.resize(adv_bgr, (640, 640)),
+                                 cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+                ).permute(2, 0, 1).unsqueeze(0).to(device))
+                lbl_t = _load_yolo_labels(
+                    labels_dir / (Path(clean_path).stem + ".txt"), device)
+                if lbl_t is None:
+                    continue
+                model.train()
+                purified = torch.clamp(model(adv_t, timestep=50.0), 0.0, 1.0)
+                preds = yolo_inner(purified)
+                det_loss, _ = yolo_inner.loss(
+                    {"img": purified, "batch_idx": lbl_t[:, 0],
+                     "cls": lbl_t[:, 1], "bboxes": lbl_t[:, 2:]},
+                    preds=preds,
+                )
+                (det_loss.sum() * args.det_loss_weight / len(sampled)).backward()
+                det_loss_val += det_loss.sum().item()
+                n_ok += 1
+            if n_ok > 0:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+                det_loss_val /= n_ok
+
         scheduler.step()
 
         history["train"].append(train_loss)
@@ -405,7 +510,8 @@ def train(args: argparse.Namespace) -> None:
             f"Epoch {epoch:02d}/{args.epochs}  "
             f"train={train_loss:.4f} (px={train_pixel:.4f} edge={train_edge:.4f})  "
             f"val={val_loss:.4f}  "
-            f"lr={lr_now:.1e}  "
+            + (f"det={det_loss_val:.4f}  " if yolo_inner is not None else "")
+            + f"lr={lr_now:.1e}  "
             f"[{elapsed:.0f}s elapsed, ~{eta:.0f}s remaining]"
             + ("  ← best" if is_best else "")
         )
@@ -439,6 +545,19 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--fresh", action="store_true",
                         help="Ignore resume checkpoint, start fresh from golden")
+    parser.add_argument(
+        "--oversample",
+        default="",
+        help=(
+            "Comma-separated ATTACK:N pairs to oversample new attack dirs, "
+            "e.g. deepfool_strong:4,eot_pgd:4. Repeats those pairs N times "
+            "in the dataset to counteract low sample counts."
+        ),
+    )
+    parser.add_argument("--det-loss-weight", type=float, default=0.0,
+                        help="Weight of detector-aligned loss term (0=disabled). Suggest 0.1-0.2.")
+    parser.add_argument("--det-images-per-epoch", type=int, default=20,
+                        help="Number of full images sampled per epoch for detector alignment pass.")
     args = parser.parse_args()
     train(args)
 
