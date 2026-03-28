@@ -155,6 +155,14 @@ TUNE_MAX_IMAGES_BY_ATTACK: dict[str, int] = {
 # Skip these in Phase 4; Mac's standalone sweep handles their validation.
 SLOW_ATTACKS: set[str] = {"square", "eot_pgd", "dispersion_reduction"}  # ~126s/img, ~48s/img, ~60s/img on NUC CPU
 
+# Phase 1 characterize image cap for slow attacks (default: RANKING_SMOKE_MAX_IMAGES).
+# Limits characterization smoke runs without affecting Phase 2/3 if not in top attacks.
+CHARACTERIZE_MAX_IMAGES_BY_ATTACK: dict[str, int] = {
+    "square":               8,
+    "eot_pgd":             12,
+    "dispersion_reduction": 12,
+}
+
 # Coordinate descent settings
 TUNE_MAX_ITERS = 15          # max passes over all parameters (global default)
 TUNE_TOLERANCE_REL = 0.05    # minimum *relative* improvement to count as a gain
@@ -427,14 +435,29 @@ def generate_report(state: dict) -> None:
 
 def phase1(state: dict) -> bool:
     log("=== Phase 1: Characterize (all attacks, smoke) ===")
+    # Run fast attacks together, then slow attacks individually with lower image caps.
+    fast_attacks = [a for a in ALL_ATTACKS if a not in SLOW_ATTACKS]
+    slow_attacks = [a for a in ALL_ATTACKS if a in SLOW_ATTACKS]
     ok = run_sweep(
-        attacks=ALL_ATTACKS,
+        attacks=fast_attacks,
         defenses=["none"],
         runs_root=state["runs_root"],
         report_root=state["report_root"],
-        sweep_phases="1,2",   # baseline + attack-only runs
+        sweep_phases="1,2",
         max_images=RANKING_SMOKE_MAX_IMAGES,
     )
+    for attack in slow_attacks:
+        cap = CHARACTERIZE_MAX_IMAGES_BY_ATTACK.get(attack, RANKING_SMOKE_MAX_IMAGES)
+        log(f"  Phase 1: slow attack {attack} capped at {cap} images")
+        ok_a = run_sweep(
+            attacks=[attack],
+            defenses=["none"],
+            runs_root=state["runs_root"],
+            report_root=state["report_root"],
+            sweep_phases="1,2",
+            max_images=cap,
+        )
+        ok = ok and ok_a
     if not ok:
         log("Phase 1 had errors — continuing with available data")
 
