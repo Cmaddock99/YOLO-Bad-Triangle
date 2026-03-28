@@ -1,0 +1,52 @@
+{
+  "cycle_id": "cycle_20260328_064948",
+  "started_at": "2026-03-28T06:49:48.818163",
+  "finished_at": "2026-03-28T09:23:46.176432",
+  "top_attacks": [
+    "deepfool",
+    "eot_pgd",
+    "blur"
+  ],
+  "top_defenses": [
+    "jpeg_preprocess",
+    "bit_depth",
+    "median_preprocess"
+  ],
+  "best_attack_params": {
+    "deepfool": {
+      "attack.params.epsilon": 0.1,
+      "attack.params.steps": 50
+    },
+    "eot_pgd": {
+      "attack.params.epsilon": 0.25,
+      "attack.params.eot_samples": 8
+    },
+    "blur": {
+      "attack.params.kernel_size": 29
+    }
+  },
+  "best_defense_params": {
+    "jpeg_preprocess": {
+      "defense.params.quality": 60
+    },
+    "bit_depth": {
+      "defense.params.bits": 5
+    },
+    "median_preprocess": {
+      "defense.params.kernel_size": 5
+    }
+  },
+  "validation_results": {
+    "validate_baseline": {
+      "attack": "none",
+      "defense": "none",
+      "avg_conf": 0.7647722675805301,
+      "mAP50": 0.6001591766396535,
+      "mAP50_95": 0.4391872274604919,
+      "precision": 0.7134261496087755,
+      "recall": 0.5369307233682217,
+      "detections": 1437
+    }
+  },
+  "delegated_phase4_runs": []
+}
