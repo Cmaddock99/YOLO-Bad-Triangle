@@ -1,6 +1,6 @@
 # Cycle Report
 
-Generated from 7 completed cycle(s) in `outputs/cycle_history/`.
+Generated from 12 completed cycle(s) in `outputs/cycle_history/`.
 
 ## Executive Summary
 
@@ -13,14 +13,11 @@ Generated from 7 completed cycle(s) in `outputs/cycle_history/`.
 | 5 | 2026-03-23 | 0.6002 | 0.5511 | pgd+confidence_filter | blur |
 | 6 | 2026-03-25 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
 | 7 | 2026-03-26 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
-
-## Comparability Notes
-
-Cycle history includes catalogue eras with different attack/defense sets.
-Current trends focus on the latest catalogue; legacy trends are shown separately.
-
-- Comparable cycles (latest-catalogue aligned): **2**
-- Legacy/non-comparable cycles: **5**
+| 8 | 2026-03-26 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
+| 9 | 2026-03-27 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
+| 10 | 2026-03-27 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
+| 11 | 2026-03-27 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
+| 12 | 2026-03-28 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
 
 ## Baseline mAP50 Trend
 
@@ -36,35 +33,49 @@ Upward trend = model fortification is working.
 | 5 | 0.6002 | +0.0000 |
 | 6 | 0.6002 | +0.0000 |
 | 7 | 0.6002 | +0.0000 |
+| 8 | 0.6002 | +0.0000 |
+| 9 | 0.6002 | +0.0000 |
+| 10 | 0.6002 | +0.0000 |
+| 11 | 0.6002 | +0.0000 |
+| 12 | 0.6002 | +0.0000 |
 
-## Current Catalogue Trends
+## Attack × Defense mAP50 Trends
 
-Defended mAP50 for attack+defense pairs in the latest active catalogue.
-Higher = better defense. Baseline mAP50 shown for reference.
+Defended mAP50 for each attack+defense pair across cycles. Higher = better defense. Baseline mAP50 shown for reference.
 
 ### Attack: blur
 
-| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | median_preprocess |
-|---|---:|---:|---:|---:|---:|
-| 1 | n/a | n/a | n/a | n/a | 0.4464 |
-| 2 | 0.6002 | 0.3160 | n/a | n/a | 0.2724 |
-| 3 | 0.6002 | 0.3160 | n/a | n/a | 0.2724 |
-| 4 | 0.6002 | 0.3160 | n/a | n/a | 0.2724 |
-| 5 | 0.6002 | 0.3160 | n/a | n/a | 0.2724 |
-| 6 | 0.6002 | 0.2636 | 0.2615 | 0.2603 | n/a |
-| 7 | 0.6002 | 0.2636 | 0.2615 | 0.2603 | 0.2492 |
+| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | confidence_filter | jpeg_preprocess | median_preprocess | random_resize |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | n/a | n/a | n/a | 0.5260 | n/a | 0.4464 | n/a |
+| 2 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
+| 3 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
+| 4 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
+| 5 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
+| 6 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | n/a | 0.1489 |
+| 7 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 8 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 9 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 10 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 11 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 12 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
 
 ### Attack: deepfool
 
-| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | median_preprocess |
-|---|---:|---:|---:|---:|---:|
-| 1 | n/a | n/a | n/a | n/a | n/a |
-| 2 | 0.6002 | n/a | n/a | n/a | n/a |
-| 3 | 0.6002 | n/a | n/a | n/a | n/a |
-| 4 | 0.6002 | n/a | n/a | n/a | n/a |
-| 5 | 0.6002 | n/a | n/a | n/a | n/a |
-| 6 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | n/a |
-| 7 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 |
+| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | median_preprocess | random_resize |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 2 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
+| 3 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
+| 4 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
+| 5 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
+| 6 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | n/a | 0.1185 |
+| 7 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 | n/a |
+| 8 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 | n/a |
+| 9 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 | n/a |
+| 10 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 | n/a |
+| 11 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 | n/a |
+| 12 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 | n/a |
 
 ### Attack: eot_pgd
 
@@ -77,34 +88,11 @@ Higher = better defense. Baseline mAP50 shown for reference.
 | 5 | 0.6002 | n/a | n/a | n/a |
 | 6 | 0.6002 | 0.2529 | 0.2555 | 0.2284 |
 | 7 | 0.6002 | n/a | n/a | n/a |
-
-## Legacy Catalogue Trends
-
-Historical pairs from older catalogue configurations are listed separately.
-
-### Attack: blur
-
-| Cycle | Baseline mAP50 | Attack mAP50 | confidence_filter | random_resize |
-|---|---:|---:|---:|---:|
-| 1 | n/a | n/a | 0.5260 | n/a |
-| 2 | 0.6002 | 0.3160 | 0.3160 | n/a |
-| 3 | 0.6002 | 0.3160 | 0.3160 | n/a |
-| 4 | 0.6002 | 0.3160 | 0.3160 | n/a |
-| 5 | 0.6002 | 0.3160 | 0.3160 | n/a |
-| 6 | 0.6002 | 0.2636 | n/a | 0.1489 |
-| 7 | 0.6002 | 0.2636 | n/a | n/a |
-
-### Attack: deepfool
-
-| Cycle | Baseline mAP50 | Attack mAP50 | random_resize |
-|---|---:|---:|---:|
-| 1 | n/a | n/a | n/a |
-| 2 | 0.6002 | n/a | n/a |
-| 3 | 0.6002 | n/a | n/a |
-| 4 | 0.6002 | n/a | n/a |
-| 5 | 0.6002 | n/a | n/a |
-| 6 | 0.6002 | 0.2184 | 0.1185 |
-| 7 | 0.6002 | 0.2184 | n/a |
+| 8 | 0.6002 | n/a | n/a | n/a |
+| 9 | 0.6002 | n/a | n/a | n/a |
+| 10 | 0.6002 | n/a | n/a | n/a |
+| 11 | 0.6002 | n/a | n/a | n/a |
+| 12 | 0.6002 | n/a | n/a | n/a |
 
 ### Attack: gaussian_blur
 
@@ -117,6 +105,11 @@ Historical pairs from older catalogue configurations are listed separately.
 | 5 | 0.6002 | 0.3160 | 0.3160 | 0.2724 |
 | 6 | 0.6002 | n/a | n/a | n/a |
 | 7 | 0.6002 | n/a | n/a | n/a |
+| 8 | 0.6002 | n/a | n/a | n/a |
+| 9 | 0.6002 | n/a | n/a | n/a |
+| 10 | 0.6002 | n/a | n/a | n/a |
+| 11 | 0.6002 | n/a | n/a | n/a |
+| 12 | 0.6002 | n/a | n/a | n/a |
 
 ### Attack: pgd
 
@@ -129,6 +122,11 @@ Historical pairs from older catalogue configurations are listed separately.
 | 5 | 0.6002 | 0.5511 | 0.5511 | 0.3854 |
 | 6 | 0.6002 | n/a | n/a | n/a |
 | 7 | 0.6002 | n/a | n/a | n/a |
+| 8 | 0.6002 | n/a | n/a | n/a |
+| 9 | 0.6002 | n/a | n/a | n/a |
+| 10 | 0.6002 | n/a | n/a | n/a |
+| 11 | 0.6002 | n/a | n/a | n/a |
+| 12 | 0.6002 | n/a | n/a | n/a |
 
 ## Training Signal History
 
@@ -143,3 +141,8 @@ The worst_attack identified after each cycle drives DPC-UNet retraining in Colab
 | 5 | pgd | confidence_filter | -5.958 |
 | 6 | eot_pgd | jpeg_preprocess | -0.061 |
 | 7 | deepfool | median_preprocess | -0.134 |
+| 8 | deepfool | median_preprocess | -0.134 |
+| 9 | deepfool | median_preprocess | -0.134 |
+| 10 | deepfool | median_preprocess | -0.134 |
+| 11 | deepfool | median_preprocess | -0.134 |
+| 12 | deepfool | median_preprocess | -0.134 |
