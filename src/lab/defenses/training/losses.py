@@ -29,7 +29,7 @@ def sobel_edges(x: torch.Tensor) -> torch.Tensor:
 class CompositeLossWeights:
     pixel_weight: float = 1.0
     edge_weight: float = 0.15
-    feature_weight: float = 0.1
+    feature_weight: float = 0.30  # literature: 0.2–0.5× pixel_weight (was 0.1, too weak)
 
 
 def composite_denoising_loss(
