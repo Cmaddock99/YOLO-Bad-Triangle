@@ -68,7 +68,7 @@ PYTHON = REPO / ".venv" / "bin" / "python"
 # ── Attack / defense catalogues ───────────────────────────────────────────────
 
 ALL_ATTACKS: list[str] = [
-    "blur", "deepfool", "eot_pgd", "fgsm", "pgd", "square",
+    "blur", "deepfool", "dispersion_reduction", "eot_pgd", "fgsm", "pgd", "square",
     # jpeg_attack temporarily removed — no-op behavior under current defaults
 ]
 ALL_DEFENSES: list[str] = [
@@ -100,6 +100,10 @@ ATTACK_PARAM_SPACE: dict[str, dict[str, dict]] = {
     "deepfool": {
         "attack.params.epsilon": {"init": 0.05,  "min": 0.005, "max": 0.3,  "scale": "log", "factor": 2.0},
         "attack.params.steps":   {"init": 50,    "min": 10,    "max": 200,  "scale": "int",  "step": 30},
+    },
+    "dispersion_reduction": {
+        "attack.params.epsilon": {"init": 0.05,  "min": 0.01,  "max": 0.15, "scale": "log", "factor": 2.0},
+        "attack.params.steps":   {"init": 50,    "min": 20,    "max": 100,  "scale": "int",  "step": 20},
     },
     "eot_pgd": {
         "attack.params.epsilon":    {"init": 0.016, "min": 0.002, "max": 0.3,  "scale": "log", "factor": 2.0},
@@ -142,13 +146,14 @@ TUNE_MAX_IMAGES = 16
 CONSISTENCY_CHECK_MAX_IMAGES = 50
 
 TUNE_MAX_IMAGES_BY_ATTACK: dict[str, int] = {
-    "square":   8,
-    "eot_pgd": 12,
+    "square":               8,
+    "eot_pgd":             12,
+    "dispersion_reduction": 12,
 }
 
 # Attacks too slow for NUC Phase 4 (500-image full validation).
 # Skip these in Phase 4; Mac's standalone sweep handles their validation.
-SLOW_ATTACKS: set[str] = {"square", "eot_pgd"}  # ~126s/img and ~48s/img on NUC CPU
+SLOW_ATTACKS: set[str] = {"square", "eot_pgd", "dispersion_reduction"}  # ~126s/img, ~48s/img, ~60s/img on NUC CPU
 
 # Coordinate descent settings
 TUNE_MAX_ITERS = 15          # max passes over all parameters (global default)
