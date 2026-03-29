@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from lab.eval.derived_metrics import compute_normalized_defense_recovery
+
 NONE_LIKE_NAMES = {"", "none", "identity"}
 
 
@@ -128,12 +130,7 @@ def _recovery(
     effect (|degradation| < 1e-9) — recovery is undefined in that case.
     Callers must handle None explicitly; do not replace with 0.0 silently.
     """
-    if baseline is None or attacked is None or defended is None:
-        return None
-    degradation = baseline - attacked
-    if abs(degradation) < 1e-9:
-        return None  # no attack effect — recovery is undefined
-    return (defended - attacked) / degradation
+    return compute_normalized_defense_recovery(baseline, attacked, defended)
 
 
 def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> None:

@@ -72,3 +72,22 @@ def compute_confidence_drop(
     if baseline_avg_conf is None or attack_avg_conf is None:
         return None
     return _safe_ratio(float(baseline_avg_conf) - float(attack_avg_conf), baseline_avg_conf)
+
+
+def compute_normalized_defense_recovery(
+    baseline: float | None,
+    attacked: float | None,
+    defended: float | None,
+) -> float | None:
+    """Normalized defense recovery: (defended - attacked) / (baseline - attacked).
+
+    Returns None when any input is None, or when the attack had no measurable
+    effect (|degradation| < 1e-9) — recovery is undefined in that case.
+    Callers must handle None explicitly; do not replace with 0.0 silently.
+    """
+    if baseline is None or attacked is None or defended is None:
+        return None
+    degradation = float(baseline) - float(attacked)
+    if abs(degradation) < 1e-9:
+        return None
+    return (float(defended) - float(attacked)) / degradation

@@ -8,6 +8,8 @@ from .framework_comparison import (
 from .experiment_summary import generate_summary
 from .team_summary import build_team_summary_payload, render_team_summary_markdown, write_team_summary
 from .framework_comparison import is_none_like, normalize_name
+from .auto_summary import build_auto_summary_payload, render_auto_summary_markdown, write_auto_summary
+from .warnings import evaluate_warnings
 
 __all__ = [
     "FrameworkRunRecord",
@@ -21,4 +23,8 @@ __all__ = [
     "write_team_summary",
     "normalize_name",
     "is_none_like",
+    "build_auto_summary_payload",
+    "render_auto_summary_markdown",
+    "write_auto_summary",
+    "evaluate_warnings",
 ]

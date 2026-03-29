@@ -6,12 +6,20 @@ from types import MappingProxyType
 SCHEMA_ID_FRAMEWORK_METRICS = "framework_metrics/v1"
 SCHEMA_ID_FRAMEWORK_RUN_SUMMARY = "framework_run_summary/v1"
 SCHEMA_ID_LEGACY_COMPAT_CSV = "legacy_compat_csv/v1"
+SCHEMA_ID_CYCLE_SUMMARY = "cycle_summary/v1"
+SCHEMA_ID_WARNINGS = "warnings/v1"
+SCHEMA_ID_HEADLINE_METRICS_CSV = "headline_metrics_csv/v1"
+SCHEMA_ID_PER_CLASS_VULNERABILITY_CSV = "per_class_vulnerability_csv/v1"
 
 SCHEMA_IDS = MappingProxyType(
     {
         "framework_metrics": SCHEMA_ID_FRAMEWORK_METRICS,
         "framework_run_summary": SCHEMA_ID_FRAMEWORK_RUN_SUMMARY,
         "legacy_compat_csv": SCHEMA_ID_LEGACY_COMPAT_CSV,
+        "cycle_summary": SCHEMA_ID_CYCLE_SUMMARY,
+        "warnings": SCHEMA_ID_WARNINGS,
+        "headline_metrics_csv": SCHEMA_ID_HEADLINE_METRICS_CSV,
+        "per_class_vulnerability_csv": SCHEMA_ID_PER_CLASS_VULNERABILITY_CSV,
     }
 )
 
