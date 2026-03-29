@@ -67,9 +67,14 @@ PYTHONPATH=src ./.venv/bin/python -m unittest tests/test_framework_output_contra
 
 ### Lint and type-check
 ```bash
-ruff check src tests scripts
+ruff check .          # 0 errors expected; config in pyproject.toml
 mypy src tests scripts
 ```
+
+Ruff config (`pyproject.toml` at repo root):
+- `select = ["E", "F"]`, `ignore = ["E501"]`
+- `scripts/*` and `tests/*` are exempt from E402 (post-`sys.path` imports)
+- CI hard-gates on lint failure (`ruff==0.15.8` pinned)
 
 ### CI output validation
 ```bash

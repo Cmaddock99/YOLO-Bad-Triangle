@@ -4,7 +4,6 @@ import sys
 import unittest
 from pathlib import Path
 
-import cv2
 import numpy as np
 import torch
 

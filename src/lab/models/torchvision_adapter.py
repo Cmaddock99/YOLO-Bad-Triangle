@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 
 from lab.eval.prediction_schema import PredictionRecord
 from .base_model import BaseModel

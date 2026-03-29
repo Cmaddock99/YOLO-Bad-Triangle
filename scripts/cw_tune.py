@@ -34,7 +34,6 @@ import json
 import os
 import subprocess
 import sys
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -227,8 +226,10 @@ def _candidates(spec: dict, current) -> list:
     elif scale == "odd_int":
         step = spec["step"]
         up, down = int(current) + step, int(current) - step
-        if up % 2 == 0: up += 1
-        if down % 2 == 0: down -= 1
+        if up % 2 == 0:
+            up += 1
+        if down % 2 == 0:
+            down -= 1
         cands = [c for c in [up, down] if lo <= c <= hi and c != int(current)]
     elif scale == "int":
         step = spec["step"]

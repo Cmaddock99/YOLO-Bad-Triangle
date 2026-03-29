@@ -23,7 +23,6 @@ from __future__ import annotations
 import argparse
 import random
 import sys
-import tempfile
 import time
 import zipfile
 from pathlib import Path
@@ -276,7 +275,7 @@ def train(args: argparse.Namespace) -> None:
         # Fall back to repo root checkpoint
         checkpoint_path = ROOT / "dpc_unet_final_golden.pt"
     if not checkpoint_path.exists():
-        print(f"ERROR: Golden checkpoint not found")
+        print("ERROR: Golden checkpoint not found")
         sys.exit(1)
 
     # Apply oversampling — repeat pairs for specified attack dirs
@@ -520,12 +519,12 @@ def train(args: argparse.Namespace) -> None:
     print(f"\nTraining complete in {total_time:.0f}s ({total_time/60:.1f} min).")
     print(f"Best val loss: {best_val_loss:.4f}")
     print(f"Checkpoint saved: {save_path}")
-    print(f"\nNext step — evaluate:")
-    print(f"  export PYTHONPATH=src")
-    print(f"  ./.venv/bin/python scripts/evaluate_checkpoint.py \\")
-    print(f"    --checkpoint-a dpc_unet_final_golden.pt \\")
+    print("\nNext step — evaluate:")
+    print("  export PYTHONPATH=src")
+    print("  ./.venv/bin/python scripts/evaluate_checkpoint.py \\")
+    print("    --checkpoint-a dpc_unet_final_golden.pt \\")
     print(f"    --checkpoint-b {save_path.name} \\")
-    print(f"    --images 50")
+    print("    --images 50")
 
 
 def main():

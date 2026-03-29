@@ -26,14 +26,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
+          pip install "ruff==0.15.8"
 
-      - name: Lint (ruff if available)
-        run: |
-          if command -v ruff >/dev/null 2>&1; then
-            ruff check src tests scripts
-          else
-            echo "ruff not installed; skipping lint"
-          fi
+      - name: Lint (ruff)
+        run: ruff check src tests scripts --output-format=github
 
       - name: Run tests
         run: pytest -q

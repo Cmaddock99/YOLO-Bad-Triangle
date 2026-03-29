@@ -628,7 +628,7 @@ def main() -> None:
             if args.team_summary:
                 print(f"Team JSON summary:    {report_root}/team_summary.json")
                 print(f"Team MD summary:      {report_root}/team_summary.md")
-            print(f"Dashboard:            outputs/dashboard.html")
+            print("Dashboard:            outputs/dashboard.html")
         print("=" * 60)
     except (ValueError, FileNotFoundError, subprocess.CalledProcessError, PermissionError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

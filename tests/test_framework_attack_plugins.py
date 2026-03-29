@@ -98,7 +98,6 @@ class SquareAttackTest(unittest.TestCase):
     def test_square_attack_is_black_box(self) -> None:
         """Square Attack must never call .backward() or access .grad."""
         backward_called = []
-        grad_accessed = []
 
         class _GradSentinelModel(torch.nn.Module):
             def forward(self, x: torch.Tensor) -> torch.Tensor:

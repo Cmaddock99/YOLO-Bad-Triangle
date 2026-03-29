@@ -121,20 +121,14 @@ class FGSMAttack:
             first = outputs[0]
             logits = getattr(first, "logits", None)
             if isinstance(logits, torch.Tensor):
-                if target is not None and target.shape == logits.shape:
-                    return F.mse_loss(logits.float(), target.float())
                 return logits.float().mean()
             pred = getattr(first, "pred", None)
             if isinstance(pred, torch.Tensor):
-                if target is not None and target.shape == pred.shape:
-                    return F.mse_loss(pred.float(), target.float())
                 return pred.float().mean()
             boxes = getattr(first, "boxes", None)
             if boxes is not None:
                 box_data = getattr(boxes, "data", None)
                 if isinstance(box_data, torch.Tensor):
-                    if target is not None and target.shape == box_data.shape:
-                        return F.mse_loss(box_data.float(), target.float())
                     return box_data.float().mean()
             probs = getattr(first, "probs", None)
             if isinstance(probs, torch.Tensor):

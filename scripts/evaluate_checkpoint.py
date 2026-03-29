@@ -129,7 +129,7 @@ def evaluate(
         if not cp.is_file():
             raise FileNotFoundError(f"Checkpoint {label} not found: {cp}")
 
-    print(f"Evaluating A/B checkpoint comparison")
+    print("Evaluating A/B checkpoint comparison")
     print(f"  Attack:  {attack}")
     print(f"  Defense: {defense}")
     print(f"  Images:  {images}")

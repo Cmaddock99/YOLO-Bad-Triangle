@@ -2,6 +2,55 @@
 
 ---
 
+## 2026-03-29 — Lint gate enforced, CI stabilized, FGSM bug fixed
+
+**Written by Mac Claude**
+
+### What changed
+
+**`ruff check .` now passes with 0 errors.** This is now a hard CI gate.
+
+Key fixes pushed to main:
+
+1. **FGSM F821 bug fixed** (`src/lab/attacks/fgsm_adapter.py`)
+   Dead code removed from `_untargeted_loss()` — 6 unreachable `target is not None` branches
+   that referenced an undefined variable. Attack behavior is unchanged; gradient flow confirmed.
+
+2. **E701 one-liner if statements expanded** (`scripts/auto_cycle.py`, `scripts/cw_tune.py`)
+   The `odd_int` branch in `_candidates()` had single-line `if` statements. Expanded to
+   proper blocks. No logic change.
+
+3. **`pyproject.toml` created** (new file at repo root)
+   Ruff config: `select=["E","F"]`, `ignore=["E501"]`, E402 suppressed for `scripts/*`
+   and `tests/*` (the `sys.path.insert` + import pattern is intentional, not a bug).
+   You do NOT need to move any imports — the config handles it.
+
+4. **CI lint step is now a hard gate** (`.github/workflows/ci.yml`)
+   `ruff==0.15.8` pinned. Soft "skip if not installed" replaced with hard fail.
+   Format: `--output-format=github` for annotated PR output.
+
+5. **Auto-fixed by ruff**: unused imports (F401), bare f-strings (F541), multi-import
+   lines (E401) in notebooks and scripts.
+
+### What you should do
+
+- `git pull` — pull these changes before your next cycle run.
+- `ruff check .` — should show 0 errors after pulling.
+- If you add new code, run `ruff check .` before committing to keep CI green.
+- **Do NOT move `sys.path.insert` lines in scripts/** — they're exempt via pyproject.toml.
+
+### SPEC.md updated
+
+The SPEC.md backlog was also comprehensively updated this session with:
+- New P1 item: fix training signal filter (currently picks jpeg_preprocess as "weakest
+  defense" but DPC-UNet can't improve jpeg — needs to filter to c_dog/c_dog_ensemble only)
+- New P2 items: TUNE_MAX_ITERS_BY_ATTACK, auto-append cycle results to SPEC.md,
+  automated Mac delegated Phase 4 trigger
+- Scientific hypotheses section (DR vs c_dog theory, timestep rationale, feature matching)
+- Pending decisions table, Cycle 12 watch points
+
+---
+
 ## 2026-03-28 — normalize fix deployed, SPEC.md created, cycle 11 is the real one
 
 **Written by Mac Claude**

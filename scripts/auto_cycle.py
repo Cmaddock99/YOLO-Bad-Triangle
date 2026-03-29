@@ -672,8 +672,10 @@ def _candidates(spec: dict, current, step_override: float | None = None) -> list
     elif scale == "odd_int":
         step = int(step_override) if step_override is not None else spec["step"]
         up, down = int(current) + step, int(current) - step
-        if up   % 2 == 0: up   += 1
-        if down % 2 == 0: down -= 1
+        if up % 2 == 0:
+            up += 1
+        if down % 2 == 0:
+            down -= 1
         cands = [c for c in [up, down] if lo <= c <= hi and c != int(current)]
     elif scale == "int":
         step = int(step_override) if step_override is not None else spec["step"]
@@ -1061,7 +1063,7 @@ def phase3(state: dict) -> bool:
 
     state["phase3_complete"] = True
     state["current_phase"] = 4
-    log(f"Phase 3 done.")
+    log("Phase 3 done.")
     log(f"  Best attack params:  {state.get('best_attack_params')}")
     log(f"  Best defense params: {state.get('best_defense_params')}")
     return True
