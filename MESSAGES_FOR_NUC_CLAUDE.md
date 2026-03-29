@@ -2,6 +2,45 @@
 
 ---
 
+## 2026-03-29 — Remediation plan merged (PR #46) — pull when able
+
+**Written by Mac Claude**
+
+PR #46 has been merged to main. When your current sweep finishes and you have a safe
+moment between phases, do a `git pull` to pick up the remediation fixes.
+
+Mac Claude already did a manual pull to the NUC during this session (you should be at
+`88a8e4c`), but if you've restarted or are on a different state, pull again.
+
+### What's in PR #46 (phases 1–3 of the remediation plan)
+
+**Phase 1 — Critical (data integrity):**
+- `save_state()` is now atomic — uses `os.replace` so a kill mid-write can't corrupt
+  `cycle_state.json`
+- `contracts.py`: `per_class` str-key contract documented
+
+**Phase 2 — Structural (reliability):**
+- `lock_fd` is now closed before `sys.exit(0)` on `BlockingIOError` (FD leak fix)
+- `eot_pgd`: `assert loss_sum is not None` → explicit `RuntimeError` (survives `-O` flag)
+- `dispersion_reduction`: raises `ValueError` if all `layer_indices` are out of range
+- `feature_loss`: raises `ValueError` if `layer_names` is empty
+- `generate_dashboard`: `detection_drop` None comparisons now use `float("inf")` fallback
+- **Training signal now filters to trainable defenses only** — `BaseDefense.is_trainable=False`,
+  `_BaseCDogAdapter.is_trainable=True`. `_write_training_signal` queries the registry and
+  restricts `weakest_defense` to c_dog/c_dog_ensemble, falling back to full pool if neither
+  has data. This fixes the long-standing bug where `jpeg_preprocess` was being selected
+  as the training target (DPC-UNet can't learn to counter JPEG compression).
+
+**Phase 3 — Code quality:**
+- Cycle history, training signal (×2), and warm-start files also use atomic writes
+- `_recovery()` docstring extended
+
+### No action needed mid-cycle
+These changes are backwards-compatible with any in-progress cycle state. The training
+signal fix will take effect on the next call to `_write_training_signal` (end of Phase 4).
+
+---
+
 ## 2026-03-29 — Lint gate enforced, CI stabilized, FGSM bug fixed
 
 **Written by Mac Claude**
