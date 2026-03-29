@@ -324,6 +324,7 @@ def build_per_class_rows(records: list[FrameworkRunRecord]) -> list[dict[str, An
                     "model": model,
                     "seed": seed,
                     "attack": normalize_name(run.attack),
+                    "attack_run": run.run_name,
                     "class_id": class_id,
                     "class_name": class_name,
                     "baseline_count": b_count,

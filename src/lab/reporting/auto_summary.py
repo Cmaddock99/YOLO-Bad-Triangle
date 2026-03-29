@@ -153,10 +153,8 @@ def build_auto_summary_payload(
     records = discover_framework_runs(runs_root)
 
     # ---------- baseline ----------
-    baseline_record: FrameworkRunRecord | None = next(
-        (r for r in records if is_none_like(r.attack) and is_none_like(r.defense)),
-        None,
-    )
+    baseline_candidates = [r for r in records if is_none_like(r.attack) and is_none_like(r.defense)]
+    baseline_record: FrameworkRunRecord | None = baseline_candidates[0] if baseline_candidates else None
     baseline_info: dict[str, Any] | None = None
     if baseline_record:
         baseline_info = {
@@ -167,6 +165,7 @@ def build_auto_summary_payload(
             "avg_confidence": baseline_record.avg_confidence,
             "mAP50": baseline_record.map50,
             "validation_status": baseline_record.validation_status,
+            "candidate_count": len(baseline_candidates),
         }
 
     # ---------- attack effectiveness rows ----------
@@ -174,9 +173,11 @@ def build_auto_summary_payload(
 
     # Enrich with total_detections and bootstrap CI
     for row in comparison_rows:
-        model, seed, attack = row["model"], row["seed"], row["attack"]
+        model, seed = row["model"], row["seed"]
         baseline_rec = _baseline_for(records, model, seed)
-        attacked_rec = _attacked_for(records, model, seed, attack)
+        # Look up the specific run this row was built from (set by build_comparison_rows)
+        attacked_run_name = row.get("attack_run")
+        attacked_rec = next((r for r in records if r.run_name == attacked_run_name), None)
 
         b_det = _get_total_detections(baseline_rec) if baseline_rec else None
         a_det = _get_total_detections(attacked_rec) if attacked_rec else None
@@ -205,8 +206,7 @@ def build_auto_summary_payload(
             row["bootstrap_conf_drop_upper"] = ci["conf_drop_upper"]
             row["bootstrap_conf_drop_ci_computed"] = ci["conf_drop_ci_computed"]
 
-        # Add attack_run, baseline_run, validation_status fields
-        row["attack_run"] = row.pop("attack_run", attacked_rec.run_name if attacked_rec else None)
+        # attack_run already set correctly by build_comparison_rows
         row["baseline_run"] = baseline_rec.run_name if baseline_rec else None
         row["validation_status"] = attacked_rec.validation_status if attacked_rec else None
 
@@ -237,14 +237,9 @@ def build_auto_summary_payload(
         row["defended_total_detections"] = d_det
         row["detection_recovery_normalized"] = compute_normalized_defense_recovery(b_det, a_det, d_det)
 
-        # Add confidence recovery
-        b_conf = baseline_rec.avg_confidence if baseline_rec else None
-        a_conf = attacked_rec.avg_confidence if attacked_rec else None
-        d_conf = defended_rec.avg_confidence if defended_rec else None
-        row["avg_conf_recovery_normalized"] = compute_normalized_defense_recovery(b_conf, a_conf, d_conf)
-
-        # Rename mAP50_recovery → mAP50_recovery_normalized for consistency
+        # Rename keys for consistency; values were already computed by build_defense_recovery_rows
         row["mAP50_recovery_normalized"] = row.pop("mAP50_recovery", None)
+        row["avg_conf_recovery_normalized"] = row.pop("avg_conf_recovery", None)
 
         row["baseline_run"] = baseline_rec.run_name if baseline_rec else None
         row["attack_run"] = attacked_rec.run_name if attacked_rec else None
@@ -257,10 +252,12 @@ def build_auto_summary_payload(
         model, seed, attack = row["model"], row["seed"], row["attack"]
         class_id = row["class_id"]
         baseline_rec = _baseline_for(records, model, seed)
-        attacked_rec = _attacked_for(records, model, seed, attack)
+        # attack_run was set per-run by build_per_class_rows; look up the exact record
+        attacked_run_name = row.get("attack_run")
+        attacked_rec = next((r for r in records if r.run_name == attacked_run_name), None) if attacked_run_name else None
 
         row["baseline_run"] = baseline_rec.run_name if baseline_rec else None
-        row["attack_run"] = attacked_rec.run_name if attacked_rec else None
+        # attack_run already carries the correct run name from build_per_class_rows
 
         # Try to find any defended run for this attack
         defended_rec = next(
@@ -570,7 +567,7 @@ def write_auto_summary(
     summary_json_path = output_dir / "summary.json"
     tmp = summary_json_path.with_suffix(".tmp")
     tmp.write_text(
-        json.dumps({**payload, "warnings": warnings}, indent=2, default=str),
+        json.dumps({**payload, "warnings": warnings}, indent=2, default=str, sort_keys=True),
         encoding="utf-8",
     )
     os.replace(tmp, summary_json_path)
@@ -598,7 +595,7 @@ def write_auto_summary(
         "warnings": warnings,
     }
     tmp = warnings_json_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(warnings_payload, indent=2), encoding="utf-8")
+    tmp.write_text(json.dumps(warnings_payload, indent=2, sort_keys=True), encoding="utf-8")
     os.replace(tmp, warnings_json_path)
 
     return {

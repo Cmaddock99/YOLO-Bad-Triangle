@@ -4,10 +4,12 @@ from typing import Any
 
 # Warning codes
 WARN_NO_BASELINE = "NO_BASELINE"
+WARN_MULTIPLE_BASELINES = "MULTIPLE_BASELINES"
 WARN_NO_VALIDATION = "NO_VALIDATION"
 WARN_LOW_ATTACK_COUNT = "LOW_ATTACK_COUNT"
 WARN_HIGH_CONFIDENCE_FLOOR = "HIGH_CONFIDENCE_FLOOR"
 WARN_DEFENSE_RECOVERY_UNDEFINED = "DEFENSE_RECOVERY_UNDEFINED"
+WARN_DEFENSE_DEGRADES_PERFORMANCE = "DEFENSE_DEGRADES_PERFORMANCE"
 WARN_ATTACK_BELOW_NOISE = "ATTACK_BELOW_NOISE"
 WARN_MISSING_PER_CLASS = "MISSING_PER_CLASS"
 
@@ -29,6 +31,19 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
     if baseline is None:
         warnings.append(_warn(WARN_NO_BASELINE, "No baseline run found in the runs root."))
         return warnings  # remaining checks depend on baseline
+
+    candidate_count = int((baseline or {}).get("candidate_count", 1))
+    if candidate_count > 1:
+        warnings.append(
+            _warn(
+                WARN_MULTIPLE_BASELINES,
+                f"{candidate_count} no-attack/no-defense runs found; "
+                f"'{baseline.get('run_name')}' selected (first alphabetically). "
+                "Runs with different image counts or validation status may produce misleading comparisons.",
+                baseline_used=baseline.get("run_name"),
+                candidate_count=candidate_count,
+            )
+        )
 
     has_validation = any(
         r.get("validation_status") == "success"
@@ -95,25 +110,43 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 )
             )
 
-    # Deduplicate DEFENSE_RECOVERY_UNDEFINED by (attack, defense)
+    # Deduplicate DEFENSE_RECOVERY_UNDEFINED and DEFENSE_DEGRADES_PERFORMANCE by (attack, defense)
     defense_rows: list[dict[str, Any]] = list(payload.get("defense_recovery_rows") or [])
     recovery_undef_seen: set[tuple[str, str]] = set()
+    recovery_degrades_seen: set[tuple[str, str]] = set()
     for row in defense_rows:
         key = (str(row.get("attack") or ""), str(row.get("defense") or ""))
-        if key in recovery_undef_seen:
-            continue
-        if row.get("mAP50_recovery_normalized") is None and row.get("avg_conf_recovery_normalized") is None:
-            recovery_undef_seen.add(key)
-            warnings.append(
-                _warn(
-                    WARN_DEFENSE_RECOVERY_UNDEFINED,
-                    f"Defense recovery undefined for attack='{row.get('attack')}' "
-                    f"defense='{row.get('defense')}' — "
-                    "attack may have had no measurable effect or metrics are missing.",
-                    attack=row.get("attack"),
-                    defense=row.get("defense"),
+        if key not in recovery_undef_seen:
+            if row.get("mAP50_recovery_normalized") is None and row.get("avg_conf_recovery_normalized") is None:
+                recovery_undef_seen.add(key)
+                warnings.append(
+                    _warn(
+                        WARN_DEFENSE_RECOVERY_UNDEFINED,
+                        f"Defense recovery undefined for attack='{row.get('attack')}' "
+                        f"defense='{row.get('defense')}' — "
+                        "attack may have had no measurable effect or metrics are missing.",
+                        attack=row.get("attack"),
+                        defense=row.get("defense"),
+                    )
                 )
-            )
+        if key not in recovery_degrades_seen:
+            # Use detection recovery if available, else mAP50 recovery
+            recovery = row.get("detection_recovery_normalized")
+            if recovery is None:
+                recovery = row.get("mAP50_recovery_normalized")
+            if recovery is not None and float(recovery) < -0.1:
+                recovery_degrades_seen.add(key)
+                warnings.append(
+                    _warn(
+                        WARN_DEFENSE_DEGRADES_PERFORMANCE,
+                        f"Defense '{row.get('defense')}' against attack '{row.get('attack')}' "
+                        f"degrades performance beyond the attack alone (recovery={float(recovery):.3f}). "
+                        "Defense may be misconfigured or incompatible with this attack.",
+                        attack=row.get("attack"),
+                        defense=row.get("defense"),
+                        recovery=recovery,
+                    )
+                )
 
     per_class_rows: list[dict[str, Any]] = list(payload.get("per_class_vulnerability_rows") or [])
     if not per_class_rows and attack_rows:
