@@ -178,7 +178,11 @@ class EOTPGDAttack(PGDAttack):
                             outputs = torch_model(view)
                             loss = self._compute_loss(outputs, image=view, target=target)
                             loss_sum = loss if loss_sum is None else (loss_sum + loss)
-                        assert loss_sum is not None
+                        if loss_sum is None:
+                            raise RuntimeError(
+                                "EOT-PGD: loss_sum is None after EOT loop — "
+                                "check that eot_samples > 0 and the model returns valid outputs"
+                            )
                         avg_loss = loss_sum / float(self.eot_samples)
                         avg_loss.backward()
                 if x_adv.grad is None:

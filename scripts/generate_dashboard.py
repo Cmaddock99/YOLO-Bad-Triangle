@@ -198,11 +198,15 @@ def _build_attack_bar_data(sweep: dict) -> list[dict]:
 def _summary_cards_html(sweeps: list[dict]) -> str:
     latest = sweeps[-1]
     defended = [r for r in latest["runs"] if r["defense"] not in ("none", "")]
-    best = min(defended, key=lambda r: r["detection_drop"]) if defended else None
+    best = min(
+        defended,
+        key=lambda r: r["detection_drop"] if r["detection_drop"] is not None else float("inf"),
+    ) if defended else None
     effective_attacks = [
         r
         for r in latest["runs"]
-        if r["attack"] != "none" and r["defense"] in ("none", "") and r["detection_drop"] > 0
+        if r["attack"] != "none" and r["defense"] in ("none", "")
+        and r["detection_drop"] is not None and r["detection_drop"] > 0
     ]
     worst_attack = max(
         effective_attacks,

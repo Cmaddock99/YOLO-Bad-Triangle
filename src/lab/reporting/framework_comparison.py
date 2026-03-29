@@ -122,7 +122,12 @@ def _recovery(
     attacked: float | None,
     defended: float | None,
 ) -> float | None:
-    """defense_recovery = (defended - attacked) / (baseline - attacked)"""
+    """defense_recovery = (defended - attacked) / (baseline - attacked)
+
+    Returns None when any input is None, or when the attack had no measurable
+    effect (|degradation| < 1e-9) — recovery is undefined in that case.
+    Callers must handle None explicitly; do not replace with 0.0 silently.
+    """
     if baseline is None or attacked is None or defended is None:
         return None
     degradation = baseline - attacked

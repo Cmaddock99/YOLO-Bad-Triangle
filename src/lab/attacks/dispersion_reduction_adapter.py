@@ -50,6 +50,13 @@ class _DispersionReductionCore:
                 if idx < len(torch_model.model):
                     handles.append(torch_model.model[idx].register_forward_hook(hook_fn))
 
+            if not handles:
+                raise ValueError(
+                    f"DispersionReduction: no hooks registered — all layer_indices "
+                    f"{self.layer_indices} exceed model depth {len(torch_model.model)}. "
+                    f"Valid range: 0–{len(torch_model.model) - 1}."
+                )
+
             # Random start within epsilon ball
             x_adv = (x0 + torch.empty_like(x0).uniform_(-self.epsilon, self.epsilon)).clamp(0, 1)
 

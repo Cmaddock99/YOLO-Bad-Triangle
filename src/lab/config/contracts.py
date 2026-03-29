@@ -15,6 +15,10 @@ SCHEMA_IDS = MappingProxyType(
     }
 )
 
+# NOTE: framework_metrics.py writes per_class keys as str(int) — e.g. "0", "42".
+# All readers must cast: int(k) for numeric use or keep as str for JSON passthrough.
+# Do NOT change the writer — existing metrics.json files on disk use str keys.
+
 # Backward-compatible names used by existing callers.
 FRAMEWORK_METRICS_SCHEMA_VERSION = SCHEMA_ID_FRAMEWORK_METRICS
 FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION = SCHEMA_ID_FRAMEWORK_RUN_SUMMARY
