@@ -214,14 +214,14 @@ forward so we can track improvement across cycles.
 
 ## Cycle 11 Checklist (things to do when it finishes)
 
-- [ ] Check `delegated_phase4_runs` in cycle_state.json
-- [ ] Run delegated Phase 4 on Mac (DR, eot_pgd)
-- [ ] Read `cycle_training_signal.json` — identify worst attack/weakest defense
-- [ ] Check c_dog mAP50 in Phase 4 against decision gate (P2 item #5)
-- [ ] Run c_dog_ensemble A/B eval (P1 item #3)
-- [ ] Check warm-start updated (P2 item #9)
-- [ ] Pull NUC commits locally
-- [ ] Update this spec with results
+- [x] Check `delegated_phase4_runs` in cycle_state.json
+- [ ] Run delegated Phase 4 on Mac (DR, square) — IN PROGRESS on Mac
+- [x] Read `cycle_training_signal.json` — deepfool/jpeg_preprocess identified
+- [x] Check c_dog mAP50 in Phase 4 against decision gate
+- [ ] Run c_dog_ensemble A/B eval (P1 item #3) — pending Mac delegated Phase 4 first
+- [x] Check warm-start updated — yes, c_dog and DR now included
+- [x] Pull NUC commits locally
+- [x] Update this spec with results — see Cycle 11 Results below
 
 ---
 
@@ -236,3 +236,54 @@ forward so we can track improvement across cycles.
 | blur + c_dog (normalize FIXED) | **0.521** | ✅ beats undefended |
 | deepfool + c_dog (old normalize bug) | 0.128 | ❌ was the problem |
 | blur + c_dog (old normalize bug) | 0.176 | ❌ was the problem |
+
+---
+
+## Cycle 11 Results (cycle_20260328_092542, completed 2026-03-29)
+
+**Top attacks:** square, deepfool, dispersion_reduction (DR debuted top-3)
+**Top defenses:** c_dog ✅, bit_depth, jpeg_preprocess (median dropped out)
+
+**Phase 4 mAP50 — NUC-run (deepfool only; square+DR delegated to Mac):**
+
+| Attack | Defense | mAP50 | vs Undefended | vs Baseline |
+|---|---|---:|---:|---:|
+| — | none | 0.6002 | — | — |
+| deepfool | none | 0.2184 | — | -0.382 |
+| deepfool | c_dog | **0.2403** | **+0.022 ✅** | -0.360 |
+| deepfool | bit_depth | 0.2229 | +0.005 | -0.377 |
+| deepfool | jpeg_preprocess | 0.1663 | **-0.052 ❌** | -0.434 |
+
+**c_dog is now best defense against deepfool for the first time ever.**
+
+**Phase 3 tuned c_dog params (updated as new defaults):**
+- `timestep`: 50.0 → **25.0** (confirmed literature 25–35 range for detection)
+- `sharpen_alpha`: 0.0 → **0.55**
+
+**Training signal** (`outputs/cycle_training_signal.json`):
+- worst_attack: deepfool (only NUC-run attack with mAP50)
+- weakest_defense: jpeg_preprocess (recovery = -0.137 — actively hurts)
+- deepfool avg recovery across defenses: -0.022 (jpeg dragging it negative)
+- NOTE: signal incomplete until Mac delegated Phase 4 (DR+square) finishes
+
+**Training gate assessment (preliminary, DR+square pending):**
+- deepfool+c_dog mAP50: 0.2403 → recovery = 5.8% of lost mAP50
+- Gate: <0.25 → "train" category (0.2403 < 0.25)
+- BUT: normalize fix alone gave real positive recovery where there was none before
+- Decision deferred until DR+square vs c_dog results available
+
+**Mac delegated Phase 4 (IN PROGRESS):**
+- validate_atk_dispersion_reduction
+- validate_atk_square
+- validate_dispersion_reduction_c_dog ← critical
+- validate_dispersion_reduction_bit_depth
+- validate_dispersion_reduction_jpeg_preprocess
+- validate_square_c_dog ← critical
+- validate_square_bit_depth
+- validate_square_jpeg_preprocess
+
+**Items completed as a result of cycle 11:**
+- [x] c_dog defaults updated: timestep=25.0, sharpen_alpha=0.55
+- [x] Training signal bug confirmed fixed (was "no baseline detections" for 7+ cycles)
+- [x] DR confirmed as a real top-3 attack on first outing
+

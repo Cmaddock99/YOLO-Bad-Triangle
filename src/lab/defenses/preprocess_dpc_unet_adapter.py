@@ -101,7 +101,8 @@ class CDogDefenseAdapter(_BaseCDogAdapter):
     remove adversarial perturbations while preserving object structure.
     """
 
-    timestep: float = 50.0
+    timestep: float = 25.0   # cycle-11 Phase 3 tuned (was 50.0); literature: 25–35 optimal for detection
+    sharpen_alpha: float = 0.55  # cycle-11 Phase 3 tuned (was 0.0)
     # Multi-pass: comma-separated timesteps e.g. "75,50,25". When set,
     # overrides `timestep` and runs the model once per value in sequence.
     timestep_schedule: str = ""
