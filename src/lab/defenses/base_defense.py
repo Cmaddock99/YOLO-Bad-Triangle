@@ -13,6 +13,7 @@ class BaseDefense(ABC):
     """Framework-level defense interface with pre/post hooks."""
 
     name: str = "base_defense"
+    is_trainable: bool = False
 
     @abstractmethod
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:

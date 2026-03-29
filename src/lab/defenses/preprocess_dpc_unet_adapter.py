@@ -27,6 +27,8 @@ from .routing import RoutingThresholds, choose_route, detect_attack_signal
 class _BaseCDogAdapter(BaseDefense):
     """Shared checkpoint loading, routing, and postprocess logic for DPC-UNet defenses."""
 
+    is_trainable: bool = True
+
     checkpoint_path: str = field(
         default_factory=lambda: os.environ.get("DPC_UNET_CHECKPOINT_PATH", "")
     )

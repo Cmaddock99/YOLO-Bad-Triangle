@@ -271,7 +271,9 @@ def load_state() -> dict:
 
 def save_state(state: dict) -> None:
     OUTPUTS.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps(state, indent=2))
+    tmp = STATE_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2))
+    os.replace(tmp, STATE_FILE)
 
 
 # ── Metrics helpers ───────────────────────────────────────────────────────────
@@ -1193,7 +1195,9 @@ def save_cycle_history(state: dict) -> None:
             "missing": delegated_missing,
         }
     out = HISTORY_DIR / f"{state['cycle_id']}.json"
-    out.write_text(json.dumps(summary, indent=2))
+    tmp = out.with_suffix(".tmp")
+    tmp.write_text(json.dumps(summary, indent=2))
+    os.replace(tmp, out)
     log(f"Cycle history saved: {out}")
 
     _write_training_signal(state, validation_results)
@@ -1231,6 +1235,20 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
     at worst_attack_params, targeting weakest_defense's training distribution.
     """
     try:
+        def _trainable_pool(full: dict) -> dict:
+            """Return subset of full where the defense plugin has is_trainable=True.
+            Falls back to full dict if registry unavailable or no trainable entries found."""
+            try:
+                from lab.defenses.framework_registry import (  # noqa: PLC0415
+                    list_available_defense_plugins, get_defense_plugin,
+                )
+                list_available_defense_plugins()  # trigger lazy adapter discovery
+                trainable = {d: v for d, v in full.items()
+                             if getattr(get_defense_plugin(d), "is_trainable", False)}
+                return trainable if trainable else full
+            except Exception:
+                return full
+
         def _is_none_like(value: object) -> bool:
             return value in (None, "", "none")
 
@@ -1297,8 +1315,9 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
             weakest_defense = "none"
             weakest_recovery = 0.0
             if defense_recovery.get(worst_attack):
-                weakest_defense = min(defense_recovery[worst_attack], key=lambda d: defense_recovery[worst_attack][d])
-                weakest_recovery = defense_recovery[worst_attack][weakest_defense]
+                _pool = _trainable_pool(defense_recovery[worst_attack])
+                weakest_defense = min(_pool, key=lambda d: _pool[d])
+                weakest_recovery = _pool[weakest_defense]
 
             avg_recovery: dict[str, float] = {}
             for atk in attacks_with_map:
@@ -1316,7 +1335,9 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
                 "all_attack_avg_recovery": {atk: round(score, 4) for atk, score in avg_recovery.items()},
             }
             sig_path = OUTPUTS / "cycle_training_signal.json"
-            sig_path.write_text(json.dumps(signal, indent=2))
+            sig_tmp = sig_path.with_suffix(".tmp")
+            sig_tmp.write_text(json.dumps(signal, indent=2))
+            os.replace(sig_tmp, sig_path)
             log(
                 f"Training signal (mAP50): {worst_attack} bypassed {weakest_defense} "
                 f"(recovery={weakest_recovery:.3f}) → {sig_path}"
@@ -1360,8 +1381,9 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
         atk_avg.sort()
         worst_attack = atk_avg[0][1]
         rmap = defense_recovery[worst_attack]
-        weakest_defense = min(rmap, key=lambda d: rmap[d])
-        weakest_recovery = rmap[weakest_defense]
+        _pool = _trainable_pool(rmap)
+        weakest_defense = min(_pool, key=lambda d: _pool[d])
+        weakest_recovery = _pool[weakest_defense]
 
         signal = {
             "cycle_id": state["cycle_id"],
@@ -1374,7 +1396,9 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
             "all_attack_avg_recovery": {a: round(s, 4) for s, a in atk_avg},
         }
         sig_path = OUTPUTS / "cycle_training_signal.json"
-        sig_path.write_text(json.dumps(signal, indent=2))
+        sig_tmp = sig_path.with_suffix(".tmp")
+        sig_tmp.write_text(json.dumps(signal, indent=2))
+        os.replace(sig_tmp, sig_path)
         log(
             f"Training signal (detection): {worst_attack} bypassed {weakest_defense} "
             f"(recovery={weakest_recovery:.3f}) → {sig_path}"
@@ -1683,7 +1707,9 @@ def carry_forward_params(state: dict) -> None:
             "saved_at": datetime.now().isoformat(),
             "cycle_id": state.get("cycle_id")}
     OUTPUTS.mkdir(parents=True, exist_ok=True)
-    WARM_START_FILE.write_text(json.dumps(warm, indent=2))
+    warm_tmp = WARM_START_FILE.with_suffix(".tmp")
+    warm_tmp.write_text(json.dumps(warm, indent=2))
+    os.replace(warm_tmp, WARM_START_FILE)
     log(f"  carry-forward: warm-start saved to {WARM_START_FILE}")
 
 
@@ -1772,6 +1798,7 @@ def main() -> None:
     try:
         fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
+        lock_fd.close()
         print("Another cycle instance is already running. Exiting.")
         sys.exit(0)
 

@@ -43,6 +43,12 @@ class YOLOFeatureExtractor:
 
             self._hooks.append(module.register_forward_hook(_capture))
 
+        if not self._hooks:
+            raise ValueError(
+                "YOLOFeatureExtractor: no hooks registered — "
+                "config.layer_names must not be empty."
+            )
+
     def close(self) -> None:
         for hook in self._hooks:
             hook.remove()
