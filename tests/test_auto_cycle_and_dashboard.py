@@ -174,7 +174,9 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
             self.assertIn("--max-images", command)
             self.assertIn("32", command)
 
-    def test_phase4_tracks_delegated_slow_attack_runs(self) -> None:
+    def test_phase4_slow_attacks_run_locally_with_image_cap(self) -> None:
+        # Slow attacks (eot_pgd, square, dispersion_reduction) must run locally in
+        # Phase 4 with a capped image count — not delegated/skipped.
         state = {
             "top_attacks": ["eot_pgd", "deepfool"],
             "top_defenses": ["bit_depth", "jpeg_preprocess"],
@@ -183,13 +185,33 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
             "runs_root": "outputs/framework_runs/test",
             "report_root": "outputs/framework_reports/test",
         }
-        with mock.patch("scripts.auto_cycle.run_single", return_value=True):
+        run_calls: list[dict] = []
+
+        def capture_run_single(**kwargs: object) -> bool:
+            run_calls.append(dict(kwargs))
+            return True
+
+        with mock.patch("scripts.auto_cycle.run_single", side_effect=capture_run_single):
             ok = auto_cycle.phase4(state)
+
         self.assertTrue(ok)
-        delegated = state.get("delegated_phase4_runs", [])
-        self.assertIn("validate_atk_eot_pgd", delegated)
-        self.assertIn("validate_eot_pgd_bit_depth", delegated)
-        self.assertIn("validate_eot_pgd_jpeg_preprocess", delegated)
+        # delegated_phase4_runs must be empty — no delegation
+        self.assertEqual(state.get("delegated_phase4_runs", []), [])
+        # eot_pgd (slow) must have been passed to run_single with a non-None image cap
+        eot_calls = [c for c in run_calls if c.get("attack") == "eot_pgd"]
+        self.assertTrue(len(eot_calls) > 0, "eot_pgd should have been run, not delegated")
+        for call in eot_calls:
+            self.assertIsNotNone(
+                call.get("max_images_override"),
+                f"eot_pgd run_single call missing max_images_override: {call}",
+            )
+        # deepfool (fast) should have no image cap override
+        fast_calls = [c for c in run_calls if c.get("attack") == "deepfool"]
+        for call in fast_calls:
+            self.assertIsNone(
+                call.get("max_images_override"),
+                f"deepfool should not have max_images_override: {call}",
+            )
 
     def test_carry_forward_filters_stale_catalog_params(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
