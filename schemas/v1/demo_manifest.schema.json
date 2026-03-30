@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "id": "demo_manifest/v1",
+  "title": "Demo Manifest",
+  "description": "Schema for demo_manifest.json produced by scripts/run_demo.py",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "reproducibility",
+    "config",
+    "source_files",
+    "runs",
+    "artifacts",
+    "timing",
+    "outcome",
+    "bootstrap"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "demo_manifest/v1"
+    },
+    "reproducibility": {
+      "type": "object",
+      "required": ["git_commit", "git_dirty", "seed", "torch_version", "python_version", "platform"],
+      "properties": {
+        "git_commit":     {"type": "string"},
+        "git_dirty":      {"type": "boolean"},
+        "seed":           {"type": "integer"},
+        "torch_version":  {"type": "string"},
+        "python_version": {"type": "string"},
+        "platform":       {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "config_file", "config_fingerprint", "model_name", "dataset_name",
+        "dataset_path", "images_count", "seed", "conf", "iou", "imgsz"
+      ],
+      "properties": {
+        "config_file":        {"type": "string"},
+        "config_fingerprint": {"type": "string"},
+        "model_name":         {"type": "string"},
+        "dataset_name":       {"type": "string"},
+        "dataset_path":       {"type": "string"},
+        "images_count":       {"type": "integer"},
+        "seed":               {"type": "integer"},
+        "conf":               {"type": "number"},
+        "iou":                {"type": "number"},
+        "imgsz":              {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "source_files": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Ordered list of scripts/modules invoked by this pipeline run."
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "run_name", "attack_name", "attack_params", "epsilon", "norm_type",
+          "defense_name", "defense_params", "run_dir", "validation_passed", "noop_warnings"
+        ],
+        "properties": {
+          "run_name":         {"type": "string"},
+          "attack_name":      {"type": "string"},
+          "attack_params":    {"type": "object"},
+          "epsilon":          {"type": ["number", "null"]},
+          "norm_type":        {"type": ["string", "null"]},
+          "defense_name":     {"type": "string"},
+          "defense_params":   {"type": "object"},
+          "run_dir":          {"type": "string"},
+          "validation_passed":{"type": "boolean"},
+          "noop_warnings":    {"type": "array"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["checksums"],
+      "properties": {
+        "checksums": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "timing": {
+      "type": "object",
+      "required": ["start_time", "end_time", "duration_seconds"],
+      "properties": {
+        "start_time":       {"type": "string"},
+        "end_time":         {"type": "string"},
+        "duration_seconds": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["exit_code", "exit_reason", "failed_runs", "noop_warnings", "validation_errors"],
+      "properties": {
+        "exit_code":   {"type": "integer", "enum": [0, 1, 2, 3, 4]},
+        "exit_reason": {
+          "type": "string",
+          "enum": [
+            "success",
+            "preflight_failure",
+            "partial_run_failure",
+            "artifact_validation_failure",
+            "noop_detected"
+          ]
+        },
+        "failed_runs":        {"type": "array", "items": {"type": "string"}},
+        "noop_warnings":      {"type": "array"},
+        "validation_errors":  {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "bootstrap": {
+      "type": "object",
+      "required": ["n", "seed", "note"],
+      "properties": {
+        "n":    {"type": "integer"},
+        "seed": {"type": "integer"},
+        "note": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

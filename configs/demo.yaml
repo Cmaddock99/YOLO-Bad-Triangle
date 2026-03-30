@@ -1,0 +1,34 @@
+model:
+  name: yolo
+  params:
+    model: yolo26n.pt
+
+data:
+  source_dir: coco/val2017_subset500/images
+
+attack:
+  name: none
+  params: {}
+
+defense:
+  name: none
+  params: {}
+
+predict:
+  conf: 0.25
+  iou: 0.45
+  imgsz: 640
+
+validation:
+  enabled: true
+  dataset: configs/coco_subset500.yaml
+  params: {}
+
+summary:
+  enabled: false
+
+runner:
+  seed: 42
+  max_images: 4
+  output_root: outputs/demo
+  run_name: demo_baseline
