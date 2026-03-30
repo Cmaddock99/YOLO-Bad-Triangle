@@ -1,0 +1,67 @@
+Device: mps
+Training data already extracted at /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/training_data
+Attacks found: ['blur', 'deepfool', 'fgsm', 'pgd']
+
+Building dataset...
+  500 images × 4 attacks = 2000 pairs
+Train:  1800 pairs  (112 batches/epoch)
+Val:     200 pairs  (13 batches)
+
+Resuming from /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/dpc_unet_training_resume.pt
+  Resuming from epoch 39/80  (best val: 0.0451)
+Parameters: 492,483
+Optimizer: Adam lr=5e-05, cosine decay → 1e-7 over 80 epochs
+
+Epoch 39/80  train=0.0460 (px=0.0222 edge=0.0953)  val=0.0452  lr=2.6e-05  [71s elapsed, ~0s remaining]
+Epoch 40/80  train=0.0459 (px=0.0222 edge=0.0945)  val=0.0476  lr=2.5e-05  [152s elapsed, ~3037s remaining]
+Epoch 41/80  train=0.0457 (px=0.0223 edge=0.0938)  val=0.0447  lr=2.4e-05  [239s elapsed, ~3113s remaining]  ← best
+Epoch 42/80  train=0.0457 (px=0.0220 edge=0.0950)  val=0.0455  lr=2.3e-05  [321s elapsed, ~3052s remaining]
+Epoch 43/80  train=0.0455 (px=0.0219 edge=0.0942)  val=0.0460  lr=2.2e-05  [416s elapsed, ~3077s remaining]
+Epoch 44/80  train=0.0455 (px=0.0219 edge=0.0946)  val=0.0456  lr=2.1e-05  [511s elapsed, ~3066s remaining]
+Epoch 45/80  train=0.0464 (px=0.0225 edge=0.0955)  val=0.0450  lr=2.0e-05  [590s elapsed, ~2949s remaining]
+Epoch 46/80  train=0.0457 (px=0.0219 edge=0.0953)  val=0.0460  lr=1.9e-05  [660s elapsed, ~2807s remaining]
+Epoch 47/80  train=0.0455 (px=0.0217 edge=0.0950)  val=0.0449  lr=1.8e-05  [729s elapsed, ~2672s remaining]
+Epoch 48/80  train=0.0455 (px=0.0218 edge=0.0950)  val=0.0446  lr=1.7e-05  [792s elapsed, ~2533s remaining]  ← best
+Epoch 49/80  train=0.0455 (px=0.0218 edge=0.0947)  val=0.0441  lr=1.6e-05  [855s elapsed, ~2409s remaining]  ← best
+Epoch 50/80  train=0.0454 (px=0.0216 edge=0.0955)  val=0.0446  lr=1.6e-05  [919s elapsed, ~2297s remaining]
+Epoch 51/80  train=0.0450 (px=0.0214 edge=0.0945)  val=0.0445  lr=1.5e-05  [984s elapsed, ~2194s remaining]
+Epoch 52/80  train=0.0456 (px=0.0217 edge=0.0954)  val=0.0442  lr=1.4e-05  [1049s elapsed, ~2097s remaining]
+Epoch 53/80  train=0.0459 (px=0.0217 edge=0.0965)  val=0.0441  lr=1.3e-05  [1114s elapsed, ~2005s remaining]
+Epoch 54/80  train=0.0455 (px=0.0215 edge=0.0957)  val=0.0442  lr=1.2e-05  [1179s elapsed, ~1916s remaining]
+Epoch 55/80  train=0.0446 (px=0.0213 edge=0.0933)  val=0.0441  lr=1.1e-05  [1244s elapsed, ~1830s remaining]
+Epoch 56/80  train=0.0446 (px=0.0211 edge=0.0939)  val=0.0443  lr=1.0e-05  [1310s elapsed, ~1747s remaining]
+Epoch 57/80  train=0.0454 (px=0.0215 edge=0.0957)  val=0.0445  lr=9.6e-06  [1376s elapsed, ~1665s remaining]
+Epoch 58/80  train=0.0451 (px=0.0214 edge=0.0948)  val=0.0442  lr=8.8e-06  [1442s elapsed, ~1586s remaining]
+Epoch 59/80  train=0.0448 (px=0.0212 edge=0.0945)  val=0.0441  lr=8.1e-06  [1509s elapsed, ~1509s remaining]
+Epoch 60/80  train=0.0451 (px=0.0213 edge=0.0952)  val=0.0439  lr=7.4e-06  [1575s elapsed, ~1432s remaining]  ← best
+Epoch 61/80  train=0.0448 (px=0.0212 edge=0.0944)  val=0.0445  lr=6.7e-06  [1642s elapsed, ~1356s remaining]
+Epoch 62/80  train=0.0451 (px=0.0213 edge=0.0952)  val=0.0438  lr=6.1e-06  [1708s elapsed, ~1281s remaining]  ← best
+Epoch 63/80  train=0.0451 (px=0.0212 edge=0.0955)  val=0.0438  lr=5.5e-06  [1775s elapsed, ~1207s remaining]  ← best
+Epoch 64/80  train=0.0447 (px=0.0210 edge=0.0948)  val=0.0439  lr=4.9e-06  [1842s elapsed, ~1133s remaining]
+Epoch 65/80  train=0.0445 (px=0.0210 edge=0.0942)  val=0.0438  lr=4.3e-06  [1909s elapsed, ~1061s remaining]  ← best
+Epoch 66/80  train=0.0446 (px=0.0210 edge=0.0946)  val=0.0438  lr=3.8e-06  [1976s elapsed, ~988s remaining]
+Epoch 67/80  train=0.0449 (px=0.0211 edge=0.0953)  val=0.0440  lr=3.3e-06  [2043s elapsed, ~916s remaining]
+Epoch 68/80  train=0.0444 (px=0.0209 edge=0.0941)  val=0.0438  lr=2.8e-06  [2111s elapsed, ~844s remaining]  ← best
+Epoch 69/80  train=0.0445 (px=0.0209 edge=0.0943)  val=0.0438  lr=2.4e-06  [2181s elapsed, ~774s remaining]
+Epoch 70/80  train=0.0448 (px=0.0211 edge=0.0950)  val=0.0438  lr=2.0e-06  [2250s elapsed, ~703s remaining]  ← best
+Epoch 71/80  train=0.0445 (px=0.0209 edge=0.0942)  val=0.0439  lr=1.6e-06  [2317s elapsed, ~632s remaining]
+Epoch 72/80  train=0.0451 (px=0.0212 edge=0.0956)  val=0.0438  lr=1.3e-06  [2386s elapsed, ~561s remaining]  ← best
+Epoch 73/80  train=0.0448 (px=0.0211 edge=0.0952)  val=0.0438  lr=1.0e-06  [2456s elapsed, ~491s remaining]
+Epoch 74/80  train=0.0446 (px=0.0209 edge=0.0945)  val=0.0437  lr=7.9e-07  [2524s elapsed, ~421s remaining]  ← best
+Epoch 75/80  train=0.0449 (px=0.0211 edge=0.0953)  val=0.0437  lr=5.8e-07  [2591s elapsed, ~350s remaining]  ← best
+Epoch 76/80  train=0.0450 (px=0.0211 edge=0.0955)  val=0.0438  lr=4.1e-07  [2659s elapsed, ~280s remaining]
+Epoch 77/80  train=0.0439 (px=0.0206 edge=0.0931)  val=0.0437  lr=2.7e-07  [2727s elapsed, ~210s remaining]
+Epoch 78/80  train=0.0447 (px=0.0210 edge=0.0948)  val=0.0437  lr=1.8e-07  [2795s elapsed, ~140s remaining]
+Epoch 79/80  train=0.0447 (px=0.0210 edge=0.0950)  val=0.0437  lr=1.2e-07  [2865s elapsed, ~70s remaining]
+Epoch 80/80  train=0.0446 (px=0.0209 edge=0.0949)  val=0.0437  lr=1.0e-07  [2933s elapsed, ~0s remaining]
+
+Training complete in 2933s (48.9 min).
+Best val loss: 0.0437
+Checkpoint saved: /Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned.pt
+
+Next step — evaluate:
+  export PYTHONPATH=src
+  ./.venv/bin/python scripts/evaluate_checkpoint.py \
+    --checkpoint-a dpc_unet_final_golden.pt \
+    --checkpoint-b dpc_unet_adversarial_finetuned.pt \
+    --images 50

@@ -1,0 +1,86 @@
+Device: mps
+Training data already extracted at /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/training_data
+Attacks found: ['blur', 'clean', 'deepfool', 'deepfool_strong', 'eot_pgd']
+  Oversampling 'deepfool_strong' ×2
+
+Building dataset...
+  500 images × 6 attacks = 3000 pairs
+Detector loss: weight=0.15, 2976 eligible images, 30 sampled/epoch
+Train:  2700 pairs  (168 batches/epoch)
+Val:     300 pairs  (19 batches)
+
+Fresh start — loaded: dpc_unet_final_golden.pt
+Parameters: 492,483
+Optimizer: Adam lr=2e-05, cosine decay → 1e-7 over 60 epochs
+
+Epoch 01/60  train=0.2671 (px=0.1789 edge=0.3529)  val=0.1678  det=7.0562  lr=2.0e-05  [117s elapsed, ~0s remaining]  ← best
+Epoch 02/60  train=0.1370 (px=0.0863 edge=0.2032)  val=0.1194  det=6.9017  lr=2.0e-05  [247s elapsed, ~7163s remaining]  ← best
+Epoch 03/60  train=0.1127 (px=0.0705 edge=0.1686)  val=0.1262  det=6.1986  lr=2.0e-05  [372s elapsed, ~7075s remaining]
+Epoch 04/60  train=0.1013 (px=0.0628 edge=0.1541)  val=0.0935  det=6.1389  lr=2.0e-05  [511s elapsed, ~7156s remaining]  ← best
+Epoch 05/60  train=0.0913 (px=0.0549 edge=0.1457)  val=0.0872  det=6.5667  lr=2.0e-05  [637s elapsed, ~7004s remaining]  ← best
+Epoch 06/60  train=0.0878 (px=0.0522 edge=0.1421)  val=0.0820  det=6.4527  lr=2.0e-05  [747s elapsed, ~6720s remaining]  ← best
+Epoch 07/60  train=0.0820 (px=0.0477 edge=0.1372)  val=0.0812  det=6.3869  lr=1.9e-05  [858s elapsed, ~6498s remaining]  ← best
+Epoch 08/60  train=0.0793 (px=0.0456 edge=0.1350)  val=0.0804  det=6.3848  lr=1.9e-05  [973s elapsed, ~6324s remaining]  ← best
+Epoch 09/60  train=0.0757 (px=0.0425 edge=0.1330)  val=0.0789  det=6.5746  lr=1.9e-05  [1083s elapsed, ~6139s remaining]  ← best
+Epoch 10/60  train=0.0745 (px=0.0416 edge=0.1316)  val=0.0752  det=6.4418  lr=1.9e-05  [1195s elapsed, ~5973s remaining]  ← best
+Epoch 11/60  train=0.0727 (px=0.0403 edge=0.1296)  val=0.0751  det=6.7870  lr=1.8e-05  [1307s elapsed, ~5821s remaining]  ← best
+Epoch 12/60  train=0.0718 (px=0.0393 edge=0.1301)  val=0.0752  det=6.5969  lr=1.8e-05  [1421s elapsed, ~5682s remaining]
+Epoch 13/60  train=0.0701 (px=0.0384 edge=0.1269)  val=0.0707  det=6.8516  lr=1.8e-05  [1548s elapsed, ~5598s remaining]  ← best
+Epoch 14/60  train=0.0690 (px=0.0372 edge=0.1273)  val=0.0695  det=6.3902  lr=1.7e-05  [1683s elapsed, ~5529s remaining]  ← best
+Epoch 15/60  train=0.0680 (px=0.0365 edge=0.1259)  val=0.0692  det=6.7535  lr=1.7e-05  [1811s elapsed, ~5433s remaining]  ← best
+Epoch 16/60  train=0.0677 (px=0.0365 edge=0.1251)  val=0.0709  det=6.7498  lr=1.7e-05  [1946s elapsed, ~5352s remaining]
+Epoch 17/60  train=0.0662 (px=0.0352 edge=0.1241)  val=0.0676  det=6.8770  lr=1.6e-05  [2135s elapsed, ~5401s remaining]  ← best
+Epoch 18/60  train=0.0652 (px=0.0343 edge=0.1237)  val=0.0660  det=6.4335  lr=1.6e-05  [2379s elapsed, ~5551s remaining]  ← best
+Epoch 19/60  train=0.0654 (px=0.0344 edge=0.1240)  val=0.0663  det=6.1464  lr=1.5e-05  [2579s elapsed, ~5565s remaining]
+Epoch 20/60  train=0.0644 (px=0.0337 edge=0.1231)  val=0.0658  det=6.1141  lr=1.5e-05  [2741s elapsed, ~5482s remaining]  ← best
+Epoch 21/60  train=0.0639 (px=0.0332 edge=0.1228)  val=0.0654  det=6.9591  lr=1.5e-05  [2912s elapsed, ~5408s remaining]  ← best
+Epoch 22/60  train=0.0641 (px=0.0333 edge=0.1232)  val=0.0641  det=6.7696  lr=1.4e-05  [3072s elapsed, ~5307s remaining]  ← best
+Epoch 23/60  train=0.0635 (px=0.0329 edge=0.1225)  val=0.0644  det=6.4463  lr=1.4e-05  [3194s elapsed, ~5139s remaining]
+Epoch 24/60  train=0.0624 (px=0.0322 edge=0.1211)  val=0.0634  det=5.9625  lr=1.3e-05  [3326s elapsed, ~4989s remaining]  ← best
+Epoch 25/60  train=0.0626 (px=0.0323 edge=0.1212)  val=0.0646  det=6.1961  lr=1.3e-05  [3453s elapsed, ~4834s remaining]
+Epoch 26/60  train=0.0622 (px=0.0319 edge=0.1213)  val=0.0632  det=6.0997  lr=1.2e-05  [3579s elapsed, ~4681s remaining]  ← best
+Epoch 27/60  train=0.0620 (px=0.0317 edge=0.1213)  val=0.0631  det=6.3582  lr=1.2e-05  [3704s elapsed, ~4527s remaining]  ← best
+Epoch 28/60  train=0.0617 (px=0.0314 edge=0.1212)  val=0.0623  det=6.6033  lr=1.1e-05  [3827s elapsed, ~4374s remaining]  ← best
+Epoch 29/60  train=0.0611 (px=0.0311 edge=0.1202)  val=0.0623  det=6.5785  lr=1.1e-05  [3954s elapsed, ~4227s remaining]  ← best
+Epoch 30/60  train=0.0611 (px=0.0310 edge=0.1205)  val=0.0623  det=6.7813  lr=1.0e-05  [4095s elapsed, ~4095s remaining]  ← best
+Epoch 31/60  train=0.0611 (px=0.0311 edge=0.1203)  val=0.0624  det=6.4363  lr=9.5e-06  [4211s elapsed, ~3939s remaining]
+Epoch 32/60  train=0.0607 (px=0.0307 edge=0.1198)  val=0.0618  det=6.8507  lr=9.0e-06  [4325s elapsed, ~3784s remaining]  ← best
+Epoch 33/60  train=0.0606 (px=0.0306 edge=0.1202)  val=0.0616  det=6.3574  lr=8.5e-06  [4441s elapsed, ~3633s remaining]  ← best
+Epoch 34/60  train=0.0602 (px=0.0303 edge=0.1198)  val=0.0617  det=6.4396  lr=8.0e-06  [4566s elapsed, ~3492s remaining]
+Epoch 35/60  train=0.0597 (px=0.0299 edge=0.1191)  val=0.0623  det=6.6197  lr=7.5e-06  [4711s elapsed, ~3365s remaining]
+Epoch 36/60  train=0.0602 (px=0.0302 edge=0.1201)  val=0.0617  det=5.9840  lr=7.0e-06  [4854s elapsed, ~3236s remaining]
+Epoch 37/60  train=0.0599 (px=0.0301 edge=0.1193)  val=0.0611  det=6.5580  lr=6.5e-06  [4967s elapsed, ~3087s remaining]  ← best
+Epoch 38/60  train=0.0601 (px=0.0301 edge=0.1199)  val=0.0612  det=6.5105  lr=6.0e-06  [5074s elapsed, ~2938s remaining]
+Epoch 39/60  train=0.0596 (px=0.0298 edge=0.1194)  val=0.0609  det=6.6649  lr=5.5e-06  [5188s elapsed, ~2794s remaining]  ← best
+Epoch 40/60  train=0.0596 (px=0.0298 edge=0.1190)  val=0.0612  det=6.8635  lr=5.1e-06  [5304s elapsed, ~2652s remaining]
+Epoch 41/60  train=0.0594 (px=0.0297 edge=0.1188)  val=0.0608  det=6.4217  lr=4.6e-06  [5418s elapsed, ~2511s remaining]  ← best
+Epoch 42/60  train=0.0597 (px=0.0299 edge=0.1196)  val=0.0609  det=6.8011  lr=4.2e-06  [5533s elapsed, ~2371s remaining]
+Epoch 43/60  train=0.0591 (px=0.0295 edge=0.1187)  val=0.0607  det=7.3854  lr=3.8e-06  [5647s elapsed, ~2232s remaining]  ← best
+Epoch 44/60  train=0.0590 (px=0.0294 edge=0.1185)  val=0.0608  det=6.2863  lr=3.4e-06  [5764s elapsed, ~2096s remaining]
+Epoch 45/60  train=0.0593 (px=0.0295 edge=0.1190)  val=0.0607  det=6.1594  lr=3.0e-06  [5884s elapsed, ~1961s remaining]  ← best
+Epoch 46/60  train=0.0591 (px=0.0294 edge=0.1185)  val=0.0607  det=6.5479  lr=2.7e-06  [6002s elapsed, ~1827s remaining]
+Epoch 47/60  train=0.0585 (px=0.0291 edge=0.1176)  val=0.0609  det=6.3851  lr=2.3e-06  [6113s elapsed, ~1691s remaining]
+Epoch 48/60  train=0.0589 (px=0.0292 edge=0.1186)  val=0.0607  det=6.4258  lr=2.0e-06  [6241s elapsed, ~1560s remaining]
+Epoch 49/60  train=0.0591 (px=0.0294 edge=0.1189)  val=0.0605  det=6.5528  lr=1.7e-06  [6362s elapsed, ~1428s remaining]  ← best
+Epoch 50/60  train=0.0588 (px=0.0292 edge=0.1182)  val=0.0603  det=6.9105  lr=1.4e-06  [6486s elapsed, ~1297s remaining]  ← best
+Epoch 51/60  train=0.0588 (px=0.0292 edge=0.1185)  val=0.0606  det=6.0170  lr=1.2e-06  [6615s elapsed, ~1167s remaining]
+Epoch 52/60  train=0.0588 (px=0.0292 edge=0.1186)  val=0.0604  det=6.1644  lr=9.6e-07  [6741s elapsed, ~1037s remaining]
+Epoch 53/60  train=0.0587 (px=0.0291 edge=0.1182)  val=0.0605  det=6.3981  lr=7.6e-07  [6868s elapsed, ~907s remaining]
+Epoch 54/60  train=0.0587 (px=0.0291 edge=0.1184)  val=0.0604  det=6.5748  lr=5.9e-07  [6980s elapsed, ~776s remaining]
+Epoch 55/60  train=0.0589 (px=0.0292 edge=0.1190)  val=0.0605  det=6.4764  lr=4.4e-07  [7115s elapsed, ~647s remaining]
+Epoch 56/60  train=0.0588 (px=0.0291 edge=0.1187)  val=0.0603  det=6.4585  lr=3.2e-07  [7237s elapsed, ~517s remaining]
+Epoch 57/60  train=0.0589 (px=0.0292 edge=0.1188)  val=0.0604  det=6.3211  lr=2.2e-07  [7371s elapsed, ~388s remaining]
+Epoch 58/60  train=0.0587 (px=0.0291 edge=0.1184)  val=0.0604  det=6.2369  lr=1.5e-07  [7512s elapsed, ~259s remaining]
+Epoch 59/60  train=0.0587 (px=0.0291 edge=0.1185)  val=0.0604  det=6.2823  lr=1.1e-07  [7651s elapsed, ~130s remaining]
+Epoch 60/60  train=0.0583 (px=0.0290 edge=0.1174)  val=0.0604  det=6.7277  lr=1.0e-07  [7797s elapsed, ~0s remaining]
+
+Training complete in 7797s (130.0 min).
+Best val loss: 0.0603
+Checkpoint saved: /Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned.pt
+
+Next step — evaluate:
+  export PYTHONPATH=src
+  ./.venv/bin/python scripts/evaluate_checkpoint.py \
+    --checkpoint-a dpc_unet_final_golden.pt \
+    --checkpoint-b dpc_unet_adversarial_finetuned.pt \
+    --images 50

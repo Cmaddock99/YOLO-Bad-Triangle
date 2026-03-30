@@ -1,0 +1,561 @@
+Preparing images:   0%|          | 0/500 [00:00<?, ?img/s]Preparing images:   0%|          | 1/500 [00:20<2:52:20, 20.72s/img]Preparing images:   0%|          | 2/500 [00:49<3:30:35, 25.37s/img]Preparing images:   1%|          | 3/500 [01:12<3:22:53, 24.49s/img]Preparing images:   1%|          | 4/500 [01:27<2:50:32, 20.63s/img]Preparing images:   1%|          | 5/500 [01:48<2:51:12, 20.75s/img]Preparing images:   1%|          | 6/500 [02:08<2:47:47, 20.38s/img]Preparing images:   1%|▏         | 7/500 [02:28<2:48:42, 20.53s/img]Preparing images:   2%|▏         | 8/500 [02:57<3:08:53, 23.03s/img]Preparing images:   2%|▏         | 9/500 [03:17<2:59:47, 21.97s/img]Preparing images:   2%|▏         | 10/500 [04:02<3:58:42, 29.23s/img]Preparing images:   2%|▏         | 11/500 [04:22<3:34:34, 26.33s/img]Preparing images:   2%|▏         | 12/500 [04:43<3:20:30, 24.65s/img]Preparing images:   3%|▎         | 13/500 [04:57<2:55:08, 21.58s/img]Preparing images:   3%|▎         | 14/500 [05:44<3:57:00, 29.26s/img]Preparing images:   3%|▎         | 15/500 [05:58<3:19:18, 24.66s/img]Preparing images:   3%|▎         | 16/500 [06:05<2:35:27, 19.27s/img]Preparing images:   3%|▎         | 17/500 [06:49<3:35:53, 26.82s/img]Preparing images:   4%|▎         | 18/500 [07:17<3:38:20, 27.18s/img]Preparing images:   4%|▍         | 19/500 [08:03<4:21:54, 32.67s/img]Preparing images:   4%|▍         | 20/500 [08:24<3:53:01, 29.13s/img]Preparing images:   4%|▍         | 21/500 [08:43<3:29:32, 26.25s/img]Preparing images:   4%|▍         | 22/500 [09:03<3:13:13, 24.25s/img]Preparing images:   5%|▍         | 23/500 [09:47<4:01:09, 30.34s/img]Preparing images:   5%|▍         | 24/500 [10:07<3:35:09, 27.12s/img]Preparing images:   5%|▌         | 25/500 [10:52<4:16:52, 32.45s/img]Preparing images:   5%|▌         | 26/500 [11:11<3:45:36, 28.56s/img]Preparing images:   5%|▌         | 27/500 [11:31<3:23:52, 25.86s/img]Preparing images:   6%|▌         | 28/500 [11:42<2:49:33, 21.55s/img]Preparing images:   6%|▌         | 29/500 [12:05<2:50:53, 21.77s/img]Preparing images:   6%|▌         | 30/500 [12:24<2:45:38, 21.15s/img]Preparing images:   6%|▌         | 31/500 [13:09<3:41:17, 28.31s/img]Preparing images:   6%|▋         | 32/500 [13:24<3:07:57, 24.10s/img]Preparing images:   7%|▋         | 33/500 [13:40<2:50:33, 21.91s/img]Preparing images:   7%|▋         | 34/500 [14:06<2:58:14, 22.95s/img]Preparing images:   7%|▋         | 35/500 [14:20<2:36:48, 20.23s/img]Preparing images:   7%|▋         | 36/500 [14:40<2:37:37, 20.38s/img]Preparing images:   7%|▋         | 37/500 [14:57<2:28:33, 19.25s/img]Preparing images:   8%|▊         | 38/500 [15:25<2:49:30, 22.01s/img]Preparing images:   8%|▊         | 39/500 [15:45<2:43:37, 21.30s/img]Preparing images:   8%|▊         | 40/500 [16:21<3:16:44, 25.66s/img]Preparing images:   8%|▊         | 41/500 [16:35<2:49:15, 22.12s/img]Preparing images:   8%|▊         | 42/500 [16:49<2:31:32, 19.85s/img]Preparing images:   9%|▊         | 43/500 [17:09<2:30:41, 19.78s/img]Preparing images:   9%|▉         | 44/500 [17:30<2:32:30, 20.07s/img]Preparing images:   9%|▉         | 45/500 [17:44<2:18:18, 18.24s/img]Preparing images:   9%|▉         | 46/500 [18:12<2:40:09, 21.17s/img]Preparing images:   9%|▉         | 47/500 [18:56<3:33:09, 28.23s/img]Preparing images:  10%|▉         | 48/500 [19:41<4:10:47, 33.29s/img]Preparing images:  10%|▉         | 49/500 [20:01<3:39:20, 29.18s/img]Preparing images:  10%|█         | 50/500 [20:46<4:15:28, 34.06s/img]Preparing images:  10%|█         | 51/500 [21:06<3:42:27, 29.73s/img]Preparing images:  10%|█         | 52/500 [21:21<3:09:31, 25.38s/img]Preparing images:  11%|█         | 53/500 [21:35<2:42:25, 21.80s/img]Preparing images:  11%|█         | 54/500 [21:56<2:39:51, 21.51s/img]Preparing images:  11%|█         | 55/500 [22:02<2:06:41, 17.08s/img]Preparing images:  11%|█         | 56/500 [22:19<2:05:29, 16.96s/img]Preparing images:  11%|█▏        | 57/500 [22:39<2:11:08, 17.76s/img]Preparing images:  12%|█▏        | 58/500 [23:03<2:24:20, 19.59s/img]Preparing images:  12%|█▏        | 59/500 [23:18<2:14:28, 18.30s/img]Preparing images:  12%|█▏        | 60/500 [23:37<2:17:03, 18.69s/img]Preparing images:  12%|█▏        | 61/500 [23:57<2:18:34, 18.94s/img]Preparing images:  12%|█▏        | 62/500 [24:10<2:04:31, 17.06s/img]Preparing images:  13%|█▎        | 63/500 [24:24<1:59:21, 16.39s/img]Preparing images:  13%|█▎        | 64/500 [24:41<1:59:29, 16.44s/img]Preparing images:  13%|█▎        | 65/500 [24:55<1:54:55, 15.85s/img]Preparing images:  13%|█▎        | 66/500 [25:15<2:03:00, 17.01s/img]Preparing images:  13%|█▎        | 67/500 [25:36<2:10:29, 18.08s/img]Preparing images:  14%|█▎        | 68/500 [26:21<3:08:24, 26.17s/img]Preparing images:  14%|█▍        | 69/500 [27:06<3:49:02, 31.88s/img]Preparing images:  14%|█▍        | 70/500 [27:28<3:27:14, 28.92s/img]Preparing images:  14%|█▍        | 71/500 [27:48<3:06:49, 26.13s/img]Preparing images:  14%|█▍        | 72/500 [28:10<2:58:53, 25.08s/img]Preparing images:  15%|█▍        | 73/500 [28:27<2:40:15, 22.52s/img]Preparing images:  15%|█▍        | 74/500 [28:45<2:29:52, 21.11s/img]Preparing images:  15%|█▌        | 75/500 [29:29<3:19:51, 28.21s/img]Preparing images:  15%|█▌        | 76/500 [30:15<3:55:19, 33.30s/img]Preparing images:  15%|█▌        | 77/500 [30:28<3:13:45, 27.48s/img]Preparing images:  16%|█▌        | 78/500 [30:48<2:56:54, 25.15s/img]Preparing images:  16%|█▌        | 79/500 [31:08<2:45:06, 23.53s/img]Preparing images:  16%|█▌        | 80/500 [31:28<2:36:43, 22.39s/img]Preparing images:  16%|█▌        | 81/500 [31:56<2:48:54, 24.19s/img]Preparing images:  16%|█▋        | 82/500 [32:17<2:41:19, 23.16s/img]Preparing images:  17%|█▋        | 83/500 [32:34<2:27:30, 21.22s/img]Preparing images:  17%|█▋        | 84/500 [33:19<3:18:16, 28.60s/img]Preparing images:  17%|█▋        | 85/500 [33:40<3:01:39, 26.26s/img]Preparing images:  17%|█▋        | 86/500 [34:12<3:13:01, 27.97s/img]Preparing images:  17%|█▋        | 87/500 [34:32<2:56:11, 25.60s/img]Preparing images:  18%|█▊        | 88/500 [35:33<4:09:15, 36.30s/img]Preparing images:  18%|█▊        | 89/500 [36:18<4:25:46, 38.80s/img]Preparing images:  18%|█▊        | 90/500 [36:38<3:46:51, 33.20s/img]Preparing images:  18%|█▊        | 91/500 [36:58<3:19:01, 29.20s/img]Preparing images:  18%|█▊        | 92/500 [37:22<3:07:56, 27.64s/img]Preparing images:  19%|█▊        | 93/500 [37:40<2:47:24, 24.68s/img]Preparing images:  19%|█▉        | 94/500 [38:24<3:25:54, 30.43s/img]Preparing images:  19%|█▉        | 95/500 [38:50<3:16:03, 29.05s/img]Preparing images:  19%|█▉        | 96/500 [39:34<3:47:14, 33.75s/img]Preparing images:  19%|█▉        | 97/500 [39:54<3:18:41, 29.58s/img]Preparing images:  20%|█▉        | 98/500 [40:39<3:49:18, 34.23s/img]Preparing images:  20%|█▉        | 99/500 [41:05<3:32:00, 31.72s/img]Preparing images:  20%|██        | 100/500 [41:49<3:55:47, 35.37s/img]Preparing images:  20%|██        | 101/500 [42:33<4:12:14, 37.93s/img]Preparing images:  20%|██        | 102/500 [42:53<3:35:43, 32.52s/img]Preparing images:  21%|██        | 103/500 [43:10<3:04:02, 27.82s/img]Preparing images:  21%|██        | 104/500 [43:39<3:06:09, 28.21s/img]Preparing images:  21%|██        | 105/500 [44:23<3:37:46, 33.08s/img]Preparing images:  21%|██        | 106/500 [44:43<3:10:35, 29.02s/img]Preparing images:  21%|██▏       | 107/500 [44:57<2:40:29, 24.50s/img]Preparing images:  22%|██▏       | 108/500 [45:42<3:20:20, 30.67s/img]Preparing images:  22%|██▏       | 109/500 [46:05<3:06:22, 28.60s/img]Preparing images:  22%|██▏       | 110/500 [46:51<3:38:24, 33.60s/img]Preparing images:  22%|██▏       | 111/500 [47:05<2:59:38, 27.71s/img]Preparing images:  22%|██▏       | 112/500 [47:24<2:43:37, 25.30s/img]Preparing images:  23%|██▎       | 113/500 [47:45<2:34:32, 23.96s/img]Preparing images:  23%|██▎       | 114/500 [48:30<3:13:35, 30.09s/img]Preparing images:  23%|██▎       | 115/500 [49:15<3:42:47, 34.72s/img]Preparing images:  23%|██▎       | 116/500 [49:35<3:13:05, 30.17s/img]Preparing images:  23%|██▎       | 117/500 [49:48<2:40:38, 25.17s/img]Preparing images:  24%|██▎       | 118/500 [50:08<2:29:45, 23.52s/img]Preparing images:  24%|██▍       | 119/500 [50:28<2:22:12, 22.40s/img]Preparing images:  24%|██▍       | 120/500 [51:13<3:05:10, 29.24s/img]Preparing images:  24%|██▍       | 121/500 [51:58<3:35:27, 34.11s/img]Preparing images:  24%|██▍       | 122/500 [52:43<3:54:08, 37.16s/img]Preparing images:  25%|██▍       | 123/500 [53:27<4:06:21, 39.21s/img]Preparing images:  25%|██▍       | 124/500 [53:46<3:29:05, 33.37s/img]Preparing images:  25%|██▌       | 125/500 [54:32<3:50:57, 36.95s/img]Preparing images:  25%|██▌       | 126/500 [54:46<3:08:27, 30.23s/img]Preparing images:  25%|██▌       | 127/500 [55:06<2:48:06, 27.04s/img]Preparing images:  26%|██▌       | 128/500 [55:27<2:35:58, 25.16s/img]Preparing images:  26%|██▌       | 129/500 [55:39<2:12:20, 21.40s/img]Preparing images:  26%|██▌       | 130/500 [55:59<2:08:48, 20.89s/img]Preparing images:  26%|██▌       | 131/500 [56:18<2:06:01, 20.49s/img]Preparing images:  26%|██▋       | 132/500 [56:38<2:04:04, 20.23s/img]Preparing images:  27%|██▋       | 133/500 [57:23<2:48:56, 27.62s/img]Preparing images:  27%|██▋       | 134/500 [58:08<3:20:03, 32.80s/img]Preparing images:  27%|██▋       | 135/500 [58:52<3:41:09, 36.35s/img]Preparing images:  27%|██▋       | 136/500 [59:12<3:10:34, 31.41s/img]Preparing images:  27%|██▋       | 137/500 [59:32<2:48:41, 27.88s/img]Preparing images:  28%|██▊       | 138/500 [59:52<2:33:28, 25.44s/img]Preparing images:  28%|██▊       | 139/500 [1:00:37<3:09:24, 31.48s/img]Preparing images:  28%|██▊       | 140/500 [1:00:57<2:47:18, 27.89s/img]Preparing images:  28%|██▊       | 141/500 [1:01:15<2:29:44, 25.03s/img]Preparing images:  28%|██▊       | 142/500 [1:01:35<2:19:33, 23.39s/img]Preparing images:  29%|██▊       | 143/500 [1:02:20<2:57:59, 29.91s/img]Preparing images:  29%|██▉       | 144/500 [1:03:05<3:25:03, 34.56s/img]Preparing images:  29%|██▉       | 145/500 [1:03:25<2:58:05, 30.10s/img]Preparing images:  29%|██▉       | 146/500 [1:03:45<2:39:24, 27.02s/img]Preparing images:  29%|██▉       | 147/500 [1:04:05<2:27:51, 25.13s/img]Preparing images:  30%|██▉       | 148/500 [1:04:50<3:02:16, 31.07s/img]Preparing images:  30%|██▉       | 149/500 [1:05:36<3:26:48, 35.35s/img]Preparing images:  30%|███       | 150/500 [1:05:55<2:58:42, 30.64s/img]Preparing images:  30%|███       | 151/500 [1:06:15<2:38:25, 27.24s/img]Preparing images:  30%|███       | 152/500 [1:07:00<3:09:41, 32.71s/img]Preparing images:  31%|███       | 153/500 [1:07:44<3:28:58, 36.13s/img]Preparing images:  31%|███       | 154/500 [1:08:05<3:01:49, 31.53s/img]Preparing images:  31%|███       | 155/500 [1:08:20<2:33:12, 26.64s/img]Preparing images:  31%|███       | 156/500 [1:08:41<2:22:41, 24.89s/img]Preparing images:  31%|███▏      | 157/500 [1:09:01<2:13:12, 23.30s/img]Preparing images:  32%|███▏      | 158/500 [1:09:46<2:49:42, 29.77s/img]Preparing images:  32%|███▏      | 159/500 [1:10:07<2:34:11, 27.13s/img]Preparing images:  32%|███▏      | 160/500 [1:10:26<2:21:05, 24.90s/img]Preparing images:  32%|███▏      | 161/500 [1:10:40<2:01:57, 21.59s/img]Preparing images:  32%|███▏      | 162/500 [1:11:25<2:41:12, 28.62s/img]Preparing images:  33%|███▎      | 163/500 [1:11:54<2:40:36, 28.59s/img]Preparing images:  33%|███▎      | 164/500 [1:12:08<2:16:23, 24.36s/img]Preparing images:  33%|███▎      | 165/500 [1:12:30<2:12:08, 23.67s/img]Preparing images:  33%|███▎      | 166/500 [1:12:50<2:05:08, 22.48s/img]Preparing images:  33%|███▎      | 167/500 [1:13:51<3:08:23, 33.95s/img]Preparing images:  34%|███▎      | 168/500 [1:14:03<2:32:38, 27.59s/img]Preparing images:  34%|███▍      | 169/500 [1:14:24<2:20:52, 25.54s/img]Preparing images:  34%|███▍      | 170/500 [1:14:44<2:10:36, 23.75s/img]Preparing images:  34%|███▍      | 171/500 [1:15:03<2:03:23, 22.50s/img]Preparing images:  34%|███▍      | 172/500 [1:15:47<2:38:31, 29.00s/img]Preparing images:  35%|███▍      | 173/500 [1:16:10<2:27:41, 27.10s/img]Preparing images:  35%|███▍      | 174/500 [1:16:35<2:22:54, 26.30s/img]Preparing images:  35%|███▌      | 175/500 [1:17:20<2:54:12, 32.16s/img]Preparing images:  35%|███▌      | 176/500 [1:18:05<3:14:04, 35.94s/img]Preparing images:  35%|███▌      | 177/500 [1:18:50<3:28:15, 38.69s/img]Preparing images:  36%|███▌      | 178/500 [1:19:36<3:38:38, 40.74s/img]Preparing images:  36%|███▌      | 179/500 [1:19:55<3:04:02, 34.40s/img]Preparing images:  36%|███▌      | 180/500 [1:20:41<3:21:33, 37.79s/img]Preparing images:  36%|███▌      | 181/500 [1:21:27<3:33:15, 40.11s/img]Preparing images:  36%|███▋      | 182/500 [1:21:46<2:59:56, 33.95s/img]Preparing images:  37%|███▋      | 183/500 [1:22:06<2:36:34, 29.63s/img]Preparing images:  37%|███▋      | 184/500 [1:22:29<2:26:42, 27.86s/img]Preparing images:  37%|███▋      | 185/500 [1:23:15<2:53:21, 33.02s/img]Preparing images:  37%|███▋      | 186/500 [1:23:34<2:31:49, 29.01s/img]Preparing images:  37%|███▋      | 187/500 [1:23:54<2:16:45, 26.21s/img]Preparing images:  38%|███▊      | 188/500 [1:24:13<2:05:53, 24.21s/img]Preparing images:  38%|███▊      | 189/500 [1:24:58<2:37:50, 30.45s/img]Preparing images:  38%|███▊      | 190/500 [1:25:15<2:15:58, 26.32s/img]Preparing images:  38%|███▊      | 191/500 [1:25:35<2:05:15, 24.32s/img]Preparing images:  38%|███▊      | 192/500 [1:25:56<2:00:02, 23.39s/img]Preparing images:  39%|███▊      | 193/500 [1:26:41<2:32:46, 29.86s/img]Preparing images:  39%|███▉      | 194/500 [1:27:25<2:54:19, 34.18s/img]Preparing images:  39%|███▉      | 195/500 [1:27:39<2:22:49, 28.10s/img]Preparing images:  39%|███▉      | 196/500 [1:27:53<2:00:43, 23.83s/img]Preparing images:  39%|███▉      | 197/500 [1:28:11<1:51:00, 21.98s/img]Preparing images:  40%|███▉      | 198/500 [1:28:30<1:47:04, 21.27s/img]Preparing images:  40%|███▉      | 199/500 [1:28:44<1:34:54, 18.92s/img]Preparing images:  40%|████      | 200/500 [1:29:05<1:37:41, 19.54s/img]Preparing images:  40%|████      | 201/500 [1:29:25<1:39:06, 19.89s/img]Preparing images:  40%|████      | 202/500 [1:29:39<1:29:49, 18.09s/img]Preparing images:  41%|████      | 203/500 [1:30:03<1:37:54, 19.78s/img]Preparing images:  41%|████      | 204/500 [1:30:16<1:26:54, 17.61s/img]Preparing images:  41%|████      | 205/500 [1:30:36<1:31:21, 18.58s/img]Preparing images:  41%|████      | 206/500 [1:30:47<1:19:08, 16.15s/img]Preparing images:  41%|████▏     | 207/500 [1:31:32<2:00:59, 24.77s/img]Preparing images:  42%|████▏     | 208/500 [1:32:20<2:35:06, 31.87s/img]Preparing images:  42%|████▏     | 209/500 [1:33:05<2:53:26, 35.76s/img]Preparing images:  42%|████▏     | 210/500 [1:33:25<2:29:36, 30.95s/img]Preparing images:  42%|████▏     | 211/500 [1:34:10<2:50:12, 35.34s/img]Preparing images:  42%|████▏     | 212/500 [1:34:30<2:27:02, 30.63s/img]Preparing images:  43%|████▎     | 213/500 [1:34:40<1:56:29, 24.35s/img]Preparing images:  43%|████▎     | 214/500 [1:35:03<1:54:35, 24.04s/img]Preparing images:  43%|████▎     | 215/500 [1:35:32<2:00:48, 25.43s/img]Preparing images:  43%|████▎     | 216/500 [1:36:17<2:28:46, 31.43s/img]Preparing images:  43%|████▎     | 217/500 [1:37:03<2:48:25, 35.71s/img]Preparing images:  44%|████▎     | 218/500 [1:37:27<2:31:00, 32.13s/img]Preparing images:  44%|████▍     | 219/500 [1:37:48<2:15:11, 28.87s/img]Preparing images:  44%|████▍     | 220/500 [1:38:01<1:52:24, 24.09s/img]Preparing images:  44%|████▍     | 221/500 [1:38:46<2:21:04, 30.34s/img]Preparing images:  44%|████▍     | 222/500 [1:39:00<1:57:52, 25.44s/img]Preparing images:  45%|████▍     | 223/500 [1:39:29<2:02:35, 26.56s/img]Preparing images:  45%|████▍     | 224/500 [1:39:49<1:53:15, 24.62s/img]Preparing images:  45%|████▌     | 225/500 [1:40:09<1:46:34, 23.25s/img]Preparing images:  45%|████▌     | 226/500 [1:40:54<2:16:38, 29.92s/img]Preparing images:  45%|████▌     | 227/500 [1:41:09<1:55:06, 25.30s/img]Preparing images:  46%|████▌     | 228/500 [1:41:29<1:47:40, 23.75s/img]Preparing images:  46%|████▌     | 229/500 [1:42:14<2:15:50, 30.07s/img]Preparing images:  46%|████▌     | 230/500 [1:42:35<2:03:29, 27.44s/img]Preparing images:  46%|████▌     | 231/500 [1:42:55<1:53:05, 25.23s/img]Preparing images:  46%|████▋     | 232/500 [1:43:15<1:45:43, 23.67s/img]Preparing images:  47%|████▋     | 233/500 [1:43:35<1:40:32, 22.59s/img]Preparing images:  47%|████▋     | 234/500 [1:43:54<1:34:43, 21.37s/img]Preparing images:  47%|████▋     | 235/500 [1:44:08<1:24:42, 19.18s/img]Preparing images:  47%|████▋     | 236/500 [1:44:53<1:58:27, 26.92s/img]Preparing images:  47%|████▋     | 237/500 [1:45:38<2:21:40, 32.32s/img]Preparing images:  48%|████▊     | 238/500 [1:46:24<2:38:39, 36.33s/img]Preparing images:  48%|████▊     | 239/500 [1:47:08<2:48:33, 38.75s/img]Preparing images:  48%|████▊     | 240/500 [1:47:28<2:23:00, 33.00s/img]Preparing images:  48%|████▊     | 241/500 [1:47:47<2:05:10, 29.00s/img]Preparing images:  48%|████▊     | 242/500 [1:48:02<1:45:59, 24.65s/img]Preparing images:  49%|████▊     | 243/500 [1:48:14<1:30:09, 21.05s/img]Preparing images:  49%|████▉     | 244/500 [1:48:34<1:27:52, 20.60s/img]Preparing images:  49%|████▉     | 245/500 [1:48:54<1:26:30, 20.36s/img]Preparing images:  49%|████▉     | 246/500 [1:49:15<1:26:45, 20.50s/img]Preparing images:  49%|████▉     | 247/500 [1:49:59<1:57:09, 27.78s/img]Preparing images:  50%|████▉     | 248/500 [1:50:45<2:18:33, 32.99s/img]Preparing images:  50%|████▉     | 249/500 [1:51:05<2:02:28, 29.28s/img]Preparing images:  50%|█████     | 250/500 [1:51:51<2:22:15, 34.14s/img]Preparing images:  50%|█████     | 251/500 [1:52:36<2:36:11, 37.64s/img]Preparing images:  50%|█████     | 252/500 [1:53:21<2:44:23, 39.77s/img]Preparing images:  51%|█████     | 253/500 [1:54:06<2:49:39, 41.21s/img]Preparing images:  51%|█████     | 254/500 [1:54:25<2:22:26, 34.74s/img]Preparing images:  51%|█████     | 255/500 [1:54:39<1:56:12, 28.46s/img]Preparing images:  51%|█████     | 256/500 [1:54:59<1:45:08, 25.85s/img]Preparing images:  51%|█████▏    | 257/500 [1:55:21<1:39:42, 24.62s/img]Preparing images:  52%|█████▏    | 258/500 [1:55:42<1:35:18, 23.63s/img]Preparing images:  52%|█████▏    | 259/500 [1:56:02<1:30:25, 22.51s/img]Preparing images:  52%|█████▏    | 260/500 [1:56:22<1:27:16, 21.82s/img]Preparing images:  52%|█████▏    | 261/500 [1:57:07<1:55:02, 28.88s/img]Preparing images:  52%|█████▏    | 262/500 [1:57:26<1:42:21, 25.80s/img]Preparing images:  53%|█████▎    | 263/500 [1:57:55<1:46:01, 26.84s/img]Preparing images:  53%|█████▎    | 264/500 [1:58:03<1:23:03, 21.12s/img]Preparing images:  53%|█████▎    | 265/500 [1:58:23<1:21:28, 20.80s/img]Preparing images:  53%|█████▎    | 266/500 [1:58:36<1:11:53, 18.43s/img]Preparing images:  53%|█████▎    | 267/500 [1:58:56<1:13:37, 18.96s/img]Preparing images:  54%|█████▎    | 268/500 [1:59:18<1:16:34, 19.81s/img]Preparing images:  54%|█████▍    | 269/500 [2:00:04<1:46:45, 27.73s/img]Preparing images:  54%|█████▍    | 270/500 [2:00:23<1:36:23, 25.15s/img]Preparing images:  54%|█████▍    | 271/500 [2:00:53<1:41:04, 26.48s/img]Preparing images:  54%|█████▍    | 272/500 [2:01:16<1:36:39, 25.44s/img]Preparing images:  55%|█████▍    | 273/500 [2:01:30<1:23:31, 22.08s/img]Preparing images:  55%|█████▍    | 274/500 [2:01:52<1:22:19, 21.86s/img]Preparing images:  55%|█████▌    | 275/500 [2:02:12<1:19:52, 21.30s/img]Preparing images:  55%|█████▌    | 276/500 [2:02:31<1:17:57, 20.88s/img]Preparing images:  55%|█████▌    | 277/500 [2:02:54<1:19:15, 21.32s/img]Preparing images:  56%|█████▌    | 278/500 [2:03:17<1:20:27, 21.74s/img]Preparing images:  56%|█████▌    | 279/500 [2:03:37<1:19:11, 21.50s/img]Preparing images:  56%|█████▌    | 280/500 [2:04:23<1:44:50, 28.59s/img]Preparing images:  56%|█████▌    | 281/500 [2:05:07<2:01:15, 33.22s/img]Preparing images:  56%|█████▋    | 282/500 [2:05:23<1:42:37, 28.25s/img]Preparing images:  57%|█████▋    | 283/500 [2:06:08<1:59:48, 33.13s/img]Preparing images:  57%|█████▋    | 284/500 [2:06:27<1:44:43, 29.09s/img]Preparing images:  57%|█████▋    | 285/500 [2:06:48<1:35:17, 26.59s/img]Preparing images:  57%|█████▋    | 286/500 [2:07:08<1:27:30, 24.53s/img]Preparing images:  57%|█████▋    | 287/500 [2:07:28<1:21:45, 23.03s/img]Preparing images:  58%|█████▊    | 288/500 [2:07:47<1:17:41, 21.99s/img]Preparing images:  58%|█████▊    | 289/500 [2:08:00<1:07:43, 19.26s/img]Preparing images:  58%|█████▊    | 290/500 [2:08:44<1:33:51, 26.82s/img]Preparing images:  58%|█████▊    | 291/500 [2:09:04<1:26:16, 24.77s/img]Preparing images:  58%|█████▊    | 292/500 [2:09:24<1:20:52, 23.33s/img]Preparing images:  59%|█████▊    | 293/500 [2:10:11<1:44:21, 30.25s/img]Preparing images:  59%|█████▉    | 294/500 [2:10:57<2:00:33, 35.12s/img]Preparing images:  59%|█████▉    | 295/500 [2:12:00<2:27:59, 43.32s/img]Preparing images:  59%|█████▉    | 296/500 [2:12:17<2:00:28, 35.44s/img]Preparing images:  59%|█████▉    | 297/500 [2:12:31<1:38:38, 29.16s/img]Preparing images:  60%|█████▉    | 298/500 [2:12:46<1:23:54, 24.93s/img]Preparing images:  60%|█████▉    | 299/500 [2:13:16<1:28:27, 26.41s/img]Preparing images:  60%|██████    | 300/500 [2:14:18<2:03:26, 37.03s/img]Preparing images:  60%|██████    | 301/500 [2:14:45<1:52:41, 33.98s/img]Preparing images:  60%|██████    | 302/500 [2:15:05<1:38:07, 29.73s/img]Preparing images:  61%|██████    | 303/500 [2:15:27<1:30:20, 27.52s/img]Preparing images:  61%|██████    | 304/500 [2:15:47<1:22:13, 25.17s/img]Preparing images:  61%|██████    | 305/500 [2:17:05<2:13:52, 41.19s/img]Preparing images:  61%|██████    | 306/500 [2:17:27<1:54:15, 35.34s/img]Preparing images:  61%|██████▏   | 307/500 [2:18:16<2:07:12, 39.54s/img]Preparing images:  62%|██████▏   | 308/500 [2:19:08<2:18:08, 43.17s/img]Preparing images:  62%|██████▏   | 309/500 [2:19:43<2:09:55, 40.81s/img]Preparing images:  62%|██████▏   | 310/500 [2:20:03<1:49:35, 34.61s/img]Preparing images:  62%|██████▏   | 311/500 [2:20:21<1:33:12, 29.59s/img]Preparing images:  62%|██████▏   | 312/500 [2:21:38<2:16:43, 43.64s/img]Preparing images:  63%|██████▎   | 313/500 [2:22:38<2:31:22, 48.57s/img]Preparing images:  63%|██████▎   | 314/500 [2:22:57<2:03:36, 39.87s/img]Preparing images:  63%|██████▎   | 315/500 [2:23:38<2:03:30, 40.06s/img]Preparing images:  63%|██████▎   | 316/500 [2:24:20<2:04:46, 40.69s/img]Preparing images:  63%|██████▎   | 317/500 [2:25:35<2:35:39, 51.04s/img]Preparing images:  64%|██████▎   | 318/500 [2:26:19<2:27:57, 48.78s/img]Preparing images:  64%|██████▍   | 319/500 [2:27:26<2:43:41, 54.26s/img]Preparing images:  64%|██████▍   | 320/500 [2:28:58<3:16:35, 65.53s/img]Preparing images:  64%|██████▍   | 321/500 [2:31:45<4:46:23, 96.00s/img]Preparing images:  64%|██████▍   | 322/500 [2:32:07<3:39:39, 74.04s/img]Preparing images:  65%|██████▍   | 323/500 [2:32:21<2:44:54, 55.90s/img]Preparing images:  65%|██████▍   | 324/500 [2:32:36<2:07:51, 43.59s/img]Preparing images:  65%|██████▌   | 325/500 [2:33:21<2:08:17, 43.99s/img]Preparing images:  65%|██████▌   | 326/500 [2:33:43<1:48:40, 37.48s/img]Preparing images:  65%|██████▌   | 327/500 [2:34:30<1:56:06, 40.27s/img]Preparing images:  66%|██████▌   | 328/500 [2:34:52<1:39:26, 34.69s/img]Preparing images:  66%|██████▌   | 329/500 [2:35:13<1:27:27, 30.69s/img]Preparing images:  66%|██████▌   | 330/500 [2:35:34<1:18:52, 27.84s/img]Preparing images:  66%|██████▌   | 331/500 [2:36:19<1:33:10, 33.08s/img]Preparing images:  66%|██████▋   | 332/500 [2:37:04<1:42:31, 36.61s/img]Preparing images:  67%|██████▋   | 333/500 [2:37:50<1:49:20, 39.29s/img]Preparing images:  67%|██████▋   | 334/500 [2:38:36<1:54:35, 41.42s/img]Preparing images:  67%|██████▋   | 335/500 [2:38:56<1:36:02, 34.92s/img]Preparing images:  67%|██████▋   | 336/500 [2:39:17<1:23:49, 30.67s/img]Preparing images:  67%|██████▋   | 337/500 [2:39:30<1:08:46, 25.32s/img]Preparing images:  68%|██████▊   | 338/500 [2:39:46<1:01:25, 22.75s/img]Preparing images:  68%|██████▊   | 339/500 [2:40:32<1:19:29, 29.62s/img]Preparing images:  68%|██████▊   | 340/500 [2:41:17<1:31:23, 34.27s/img]Preparing images:  68%|██████▊   | 341/500 [2:41:36<1:18:21, 29.57s/img]Preparing images:  68%|██████▊   | 342/500 [2:42:21<1:30:40, 34.43s/img]Preparing images:  69%|██████▊   | 343/500 [2:42:41<1:18:49, 30.12s/img]Preparing images:  69%|██████▉   | 344/500 [2:43:29<1:31:42, 35.27s/img]Preparing images:  69%|██████▉   | 345/500 [2:44:16<1:40:19, 38.84s/img]Preparing images:  69%|██████▉   | 346/500 [2:44:23<1:15:24, 29.38s/img]Preparing images:  69%|██████▉   | 347/500 [2:45:08<1:26:41, 34.00s/img]Preparing images:  70%|██████▉   | 348/500 [2:45:20<1:09:40, 27.51s/img]Preparing images:  70%|██████▉   | 349/500 [2:45:34<59:00, 23.44s/img]  Preparing images:  70%|███████   | 350/500 [2:45:54<55:49, 22.33s/img]Preparing images:  70%|███████   | 351/500 [2:46:15<54:35, 21.98s/img]Preparing images:  70%|███████   | 352/500 [2:46:37<53:46, 21.80s/img]Preparing images:  71%|███████   | 353/500 [2:47:24<1:11:57, 29.37s/img]Preparing images:  71%|███████   | 354/500 [2:47:44<1:04:41, 26.58s/img]Preparing images:  71%|███████   | 355/500 [2:48:04<59:38, 24.68s/img]  Preparing images:  71%|███████   | 356/500 [2:48:50<1:14:14, 30.93s/img]Preparing images:  71%|███████▏  | 357/500 [2:49:09<1:05:43, 27.58s/img]Preparing images:  72%|███████▏  | 358/500 [2:49:30<1:00:19, 25.49s/img]Preparing images:  72%|███████▏  | 359/500 [2:49:50<55:54, 23.79s/img]  Preparing images:  72%|███████▏  | 360/500 [2:50:10<52:53, 22.67s/img]Preparing images:  72%|███████▏  | 361/500 [2:51:13<1:20:24, 34.71s/img]Preparing images:  72%|███████▏  | 362/500 [2:51:58<1:27:01, 37.84s/img]Preparing images:  73%|███████▎  | 363/500 [2:52:12<1:10:22, 30.82s/img]Preparing images:  73%|███████▎  | 364/500 [2:52:35<1:04:41, 28.54s/img]Preparing images:  73%|███████▎  | 365/500 [2:52:55<58:17, 25.90s/img]  Preparing images:  73%|███████▎  | 366/500 [2:53:15<53:38, 24.02s/img]Preparing images:  73%|███████▎  | 367/500 [2:53:34<50:23, 22.74s/img]Preparing images:  74%|███████▎  | 368/500 [2:53:47<43:26, 19.74s/img]Preparing images:  74%|███████▍  | 369/500 [2:54:08<43:55, 20.12s/img]Preparing images:  74%|███████▍  | 370/500 [2:54:29<44:04, 20.34s/img]Preparing images:  74%|███████▍  | 371/500 [2:54:46<41:31, 19.31s/img]Preparing images:  74%|███████▍  | 372/500 [2:55:06<41:39, 19.53s/img]Preparing images:  75%|███████▍  | 373/500 [2:55:52<57:50, 27.33s/img]Preparing images:  75%|███████▍  | 374/500 [2:56:12<53:03, 25.26s/img]Preparing images:  75%|███████▌  | 375/500 [2:56:57<1:05:08, 31.27s/img]Preparing images:  75%|███████▌  | 376/500 [2:57:42<1:13:04, 35.36s/img]Preparing images:  75%|███████▌  | 377/500 [2:58:32<1:21:23, 39.71s/img]Preparing images:  76%|███████▌  | 378/500 [2:58:45<1:04:42, 31.82s/img]Preparing images:  76%|███████▌  | 379/500 [2:59:30<1:11:51, 35.63s/img]Preparing images:  76%|███████▌  | 380/500 [2:59:45<58:39, 29.33s/img]  Preparing images:  76%|███████▌  | 381/500 [3:00:04<52:31, 26.48s/img]Preparing images:  76%|███████▋  | 382/500 [3:00:27<49:59, 25.42s/img]Preparing images:  77%|███████▋  | 383/500 [3:00:56<51:25, 26.38s/img]Preparing images:  77%|███████▋  | 384/500 [3:01:16<47:24, 24.52s/img]Preparing images:  77%|███████▋  | 385/500 [3:01:31<41:10, 21.48s/img]Preparing images:  77%|███████▋  | 386/500 [3:01:45<36:59, 19.47s/img]Preparing images:  77%|███████▋  | 387/500 [3:02:00<33:42, 17.90s/img]Preparing images:  78%|███████▊  | 388/500 [3:02:31<41:01, 21.98s/img]Preparing images:  78%|███████▊  | 389/500 [3:02:52<40:07, 21.69s/img]Preparing images:  78%|███████▊  | 390/500 [3:03:40<54:16, 29.61s/img]Preparing images:  78%|███████▊  | 391/500 [3:04:01<48:54, 26.92s/img]Preparing images:  78%|███████▊  | 392/500 [3:04:47<58:44, 32.63s/img]Preparing images:  79%|███████▊  | 393/500 [3:05:02<48:54, 27.43s/img]Preparing images:  79%|███████▉  | 394/500 [3:05:22<44:24, 25.14s/img]Preparing images:  79%|███████▉  | 395/500 [3:05:42<41:07, 23.50s/img]Preparing images:  79%|███████▉  | 396/500 [3:05:53<34:23, 19.84s/img]Preparing images:  79%|███████▉  | 397/500 [3:06:13<34:01, 19.82s/img]Preparing images:  80%|███████▉  | 398/500 [3:06:32<33:41, 19.81s/img]Preparing images:  80%|███████▉  | 399/500 [3:06:52<33:21, 19.81s/img]Preparing images:  80%|████████  | 400/500 [3:07:21<37:16, 22.36s/img]Preparing images:  80%|████████  | 401/500 [3:07:31<31:03, 18.83s/img]Preparing images:  80%|████████  | 402/500 [3:08:17<44:06, 27.00s/img]Preparing images:  81%|████████  | 403/500 [3:08:37<40:16, 24.92s/img]Preparing images:  81%|████████  | 404/500 [3:09:24<50:16, 31.42s/img]Preparing images:  81%|████████  | 405/500 [3:09:44<44:25, 28.06s/img]Preparing images:  81%|████████  | 406/500 [3:10:30<52:10, 33.30s/img]Preparing images:  81%|████████▏ | 407/500 [3:11:15<57:05, 36.83s/img]Preparing images:  82%|████████▏ | 408/500 [3:11:59<1:00:05, 39.19s/img]Preparing images:  82%|████████▏ | 409/500 [3:12:45<1:02:15, 41.05s/img]Preparing images:  82%|████████▏ | 410/500 [3:13:02<50:45, 33.83s/img]  Preparing images:  82%|████████▏ | 411/500 [3:13:17<41:42, 28.11s/img]Preparing images:  82%|████████▏ | 412/500 [3:13:29<34:24, 23.46s/img]Preparing images:  83%|████████▎ | 413/500 [3:14:15<43:48, 30.21s/img]Preparing images:  83%|████████▎ | 414/500 [3:14:34<38:16, 26.70s/img]Preparing images:  83%|████████▎ | 415/500 [3:15:20<46:19, 32.70s/img]Preparing images:  83%|████████▎ | 416/500 [3:16:05<50:55, 36.37s/img]Preparing images:  83%|████████▎ | 417/500 [3:16:51<54:07, 39.13s/img]Preparing images:  84%|████████▎ | 418/500 [3:17:19<49:09, 35.97s/img]Preparing images:  84%|████████▍ | 419/500 [3:17:40<42:25, 31.42s/img]Preparing images:  84%|████████▍ | 420/500 [3:17:57<36:01, 27.02s/img]Preparing images:  84%|████████▍ | 421/500 [3:18:11<30:27, 23.13s/img]Preparing images:  84%|████████▍ | 422/500 [3:18:39<32:07, 24.72s/img]Preparing images:  85%|████████▍ | 423/500 [3:18:53<27:35, 21.50s/img]Preparing images:  85%|████████▍ | 424/500 [3:19:07<24:23, 19.25s/img]Preparing images:  85%|████████▌ | 425/500 [3:19:21<22:01, 17.63s/img]Preparing images:  85%|████████▌ | 426/500 [3:19:41<22:29, 18.23s/img]Preparing images:  85%|████████▌ | 427/500 [3:20:01<22:43, 18.67s/img]Preparing images:  86%|████████▌ | 428/500 [3:20:22<23:19, 19.44s/img]Preparing images:  86%|████████▌ | 429/500 [3:20:43<23:32, 19.89s/img]Preparing images:  86%|████████▌ | 430/500 [3:21:02<23:08, 19.83s/img]Preparing images:  86%|████████▌ | 431/500 [3:21:21<22:17, 19.39s/img]Preparing images:  86%|████████▋ | 432/500 [3:21:41<22:04, 19.48s/img]Preparing images:  87%|████████▋ | 433/500 [3:22:01<22:15, 19.93s/img]Preparing images:  87%|████████▋ | 434/500 [3:22:22<22:12, 20.19s/img]Preparing images:  87%|████████▋ | 435/500 [3:22:43<22:09, 20.46s/img]Preparing images:  87%|████████▋ | 436/500 [3:23:04<22:01, 20.65s/img]Preparing images:  87%|████████▋ | 437/500 [3:23:25<21:33, 20.53s/img]Preparing images:  88%|████████▊ | 438/500 [3:24:10<28:50, 27.91s/img]Preparing images:  88%|████████▊ | 439/500 [3:24:33<26:52, 26.43s/img]Preparing images:  88%|████████▊ | 440/500 [3:24:47<22:40, 22.67s/img]Preparing images:  88%|████████▊ | 441/500 [3:25:06<21:25, 21.79s/img]Preparing images:  88%|████████▊ | 442/500 [3:25:20<18:47, 19.43s/img]Preparing images:  89%|████████▊ | 443/500 [3:26:06<25:53, 27.25s/img]Preparing images:  89%|████████▉ | 444/500 [3:26:25<23:17, 24.95s/img]Preparing images:  89%|████████▉ | 445/500 [3:26:44<21:01, 22.93s/img]Preparing images:  89%|████████▉ | 446/500 [3:27:04<19:50, 22.06s/img]Preparing images:  89%|████████▉ | 447/500 [3:27:30<20:43, 23.45s/img]Preparing images:  90%|████████▉ | 448/500 [3:28:15<25:48, 29.78s/img]Preparing images:  90%|████████▉ | 449/500 [3:28:28<21:09, 24.88s/img]Preparing images:  90%|█████████ | 450/500 [3:29:29<29:37, 35.55s/img]Preparing images:  90%|█████████ | 451/500 [3:29:43<23:43, 29.05s/img]Preparing images:  90%|█████████ | 452/500 [3:30:27<26:53, 33.61s/img]Preparing images:  91%|█████████ | 453/500 [3:30:44<22:20, 28.53s/img]Preparing images:  91%|█████████ | 454/500 [3:31:29<25:45, 33.59s/img]Preparing images:  91%|█████████ | 455/500 [3:31:49<22:07, 29.50s/img]Preparing images:  91%|█████████ | 456/500 [3:32:07<19:05, 26.04s/img]Preparing images:  91%|█████████▏| 457/500 [3:32:27<17:16, 24.11s/img]Preparing images:  92%|█████████▏| 458/500 [3:32:43<15:18, 21.87s/img]Preparing images:  92%|█████████▏| 459/500 [3:32:57<13:18, 19.47s/img]Preparing images:  92%|█████████▏| 460/500 [3:33:42<18:09, 27.23s/img]Preparing images:  92%|█████████▏| 461/500 [3:34:03<16:26, 25.30s/img]Preparing images:  92%|█████████▏| 462/500 [3:34:23<14:59, 23.66s/img]Preparing images:  93%|█████████▎| 463/500 [3:35:09<18:37, 30.20s/img]Preparing images:  93%|█████████▎| 464/500 [3:35:28<16:14, 27.06s/img]Preparing images:  93%|█████████▎| 465/500 [3:35:48<14:31, 24.89s/img]Preparing images:  93%|█████████▎| 466/500 [3:36:02<12:13, 21.58s/img]Preparing images:  93%|█████████▎| 467/500 [3:36:22<11:34, 21.04s/img]Preparing images:  94%|█████████▎| 468/500 [3:36:42<11:01, 20.66s/img]Preparing images:  94%|█████████▍| 469/500 [3:37:03<10:44, 20.77s/img]Preparing images:  94%|█████████▍| 470/500 [3:37:20<09:57, 19.92s/img]Preparing images:  94%|█████████▍| 471/500 [3:37:40<09:36, 19.89s/img]Preparing images:  94%|█████████▍| 472/500 [3:38:00<09:18, 19.95s/img]Preparing images:  95%|█████████▍| 473/500 [3:38:22<09:10, 20.37s/img]Preparing images:  95%|█████████▍| 474/500 [3:38:35<07:52, 18.19s/img]Preparing images:  95%|█████████▌| 475/500 [3:38:55<07:50, 18.82s/img]Preparing images:  95%|█████████▌| 476/500 [3:39:40<10:42, 26.77s/img]Preparing images:  95%|█████████▌| 477/500 [3:40:26<12:22, 32.29s/img]Preparing images:  96%|█████████▌| 478/500 [3:40:49<10:53, 29.69s/img]Preparing images:  96%|█████████▌| 479/500 [3:41:09<09:22, 26.78s/img]Preparing images:  96%|█████████▌| 480/500 [3:41:29<08:13, 24.70s/img]Preparing images:  96%|█████████▌| 481/500 [3:41:49<07:23, 23.33s/img]Preparing images:  96%|█████████▋| 482/500 [3:42:09<06:42, 22.38s/img]Preparing images:  97%|█████████▋| 483/500 [3:42:39<06:58, 24.63s/img]Preparing images:  97%|█████████▋| 484/500 [3:42:54<05:46, 21.67s/img]Preparing images:  97%|█████████▋| 485/500 [3:43:14<05:16, 21.11s/img]Preparing images:  97%|█████████▋| 486/500 [3:43:35<04:56, 21.20s/img]Preparing images:  97%|█████████▋| 487/500 [3:43:57<04:35, 21.23s/img]Preparing images:  98%|█████████▊| 488/500 [3:44:11<03:49, 19.15s/img]Preparing images:  98%|█████████▊| 489/500 [3:44:56<04:55, 26.83s/img]Preparing images:  98%|█████████▊| 490/500 [3:45:16<04:08, 24.81s/img]Preparing images:  98%|█████████▊| 491/500 [3:45:36<03:31, 23.46s/img]Preparing images:  98%|█████████▊| 492/500 [3:45:53<02:52, 21.50s/img]Preparing images:  99%|█████████▊| 493/500 [3:46:13<02:27, 21.09s/img]Preparing images:  99%|█████████▉| 494/500 [3:46:57<02:47, 27.94s/img]Preparing images:  99%|█████████▉| 495/500 [3:47:18<02:09, 25.96s/img]Preparing images:  99%|█████████▉| 496/500 [3:47:46<01:45, 26.48s/img]Preparing images:  99%|█████████▉| 497/500 [3:48:31<01:36, 32.03s/img]Preparing images: 100%|█████████▉| 498/500 [3:49:15<01:11, 35.63s/img]Preparing images: 100%|█████████▉| 499/500 [3:49:44<00:33, 33.49s/img]Preparing images: 100%|██████████| 500/500 [3:50:07<00:00, 30.38s/img]Preparing images: 100%|██████████| 500/500 [3:50:07<00:00, 27.61s/img]
+
+0: 640x640 (no detections), 300.1ms
+1: 640x640 1 elephant, 300.1ms
+2: 640x640 1 bed, 300.1ms
+3: 640x640 1 stop sign, 300.1ms
+4: 640x640 (no detections), 300.1ms
+5: 640x640 1 person, 300.1ms
+6: 640x640 2 refrigerators, 300.1ms
+7: 640x640 1 person, 1 frisbee, 300.1ms
+8: 640x640 1 person, 1 tennis racket, 300.1ms
+9: 640x640 8 persons, 300.1ms
+10: 640x640 2 persons, 300.1ms
+11: 640x640 1 person, 1 cell phone, 300.1ms
+12: 640x640 1 fire hydrant, 300.1ms
+13: 640x640 1 dog, 300.1ms
+14: 640x640 1 person, 300.1ms
+15: 640x640 (no detections), 300.1ms
+16: 640x640 2 cars, 300.1ms
+17: 640x640 1 bus, 300.1ms
+18: 640x640 1 cat, 300.1ms
+19: 640x640 1 airplane, 300.1ms
+20: 640x640 1 zebra, 300.1ms
+21: 640x640 (no detections), 300.1ms
+22: 640x640 1 bus, 300.1ms
+23: 640x640 (no detections), 300.1ms
+24: 640x640 1 person, 1 baseball bat, 300.1ms
+25: 640x640 1 wine glass, 1 dining table, 300.1ms
+26: 640x640 (no detections), 300.1ms
+27: 640x640 5 persons, 300.1ms
+28: 640x640 (no detections), 300.1ms
+29: 640x640 1 person, 300.1ms
+30: 640x640 1 person, 300.1ms
+31: 640x640 (no detections), 300.1ms
+32: 640x640 (no detections), 300.1ms
+33: 640x640 3 persons, 300.1ms
+34: 640x640 (no detections), 300.1ms
+35: 640x640 1 person, 300.1ms
+36: 640x640 (no detections), 300.1ms
+37: 640x640 1 broccoli, 300.1ms
+38: 640x640 1 person, 300.1ms
+39: 640x640 1 dog, 1 couch, 300.1ms
+40: 640x640 1 dining table, 300.1ms
+41: 640x640 2 persons, 300.1ms
+42: 640x640 1 person, 300.1ms
+43: 640x640 1 person, 1 tie, 300.1ms
+44: 640x640 (no detections), 300.1ms
+45: 640x640 1 person, 300.1ms
+46: 640x640 (no detections), 300.1ms
+47: 640x640 7 persons, 300.1ms
+48: 640x640 1 bus, 300.1ms
+49: 640x640 1 person, 300.1ms
+50: 640x640 2 persons, 300.1ms
+51: 640x640 1 airplane, 300.1ms
+52: 640x640 1 toilet, 300.1ms
+53: 640x640 1 person, 300.1ms
+54: 640x640 1 person, 300.1ms
+55: 640x640 1 couch, 300.1ms
+56: 640x640 (no detections), 300.1ms
+57: 640x640 (no detections), 300.1ms
+58: 640x640 1 train, 300.1ms
+59: 640x640 (no detections), 300.1ms
+60: 640x640 (no detections), 300.1ms
+61: 640x640 3 persons, 1 baseball bat, 300.1ms
+62: 640x640 (no detections), 300.1ms
+63: 640x640 1 car, 300.1ms
+64: 640x640 1 person, 300.1ms
+65: 640x640 4 persons, 300.1ms
+66: 640x640 1 toilet, 300.1ms
+67: 640x640 1 person, 1 elephant, 300.1ms
+68: 640x640 4 persons, 300.1ms
+69: 640x640 1 person, 1 umbrella, 300.1ms
+70: 640x640 1 elephant, 300.1ms
+71: 640x640 (no detections), 300.1ms
+72: 640x640 1 giraffe, 300.1ms
+73: 640x640 (no detections), 300.1ms
+74: 640x640 1 person, 1 kite, 300.1ms
+75: 640x640 1 toilet, 300.1ms
+76: 640x640 1 kite, 300.1ms
+77: 640x640 (no detections), 300.1ms
+78: 640x640 1 motorcycle, 300.1ms
+79: 640x640 (no detections), 300.1ms
+80: 640x640 (no detections), 300.1ms
+81: 640x640 1 person, 1 skateboard, 300.1ms
+82: 640x640 (no detections), 300.1ms
+83: 640x640 2 persons, 1 tie, 300.1ms
+84: 640x640 2 persons, 300.1ms
+85: 640x640 (no detections), 300.1ms
+86: 640x640 1 person, 1 tie, 300.1ms
+87: 640x640 (no detections), 300.1ms
+88: 640x640 1 person, 300.1ms
+89: 640x640 1 traffic light, 300.1ms
+90: 640x640 1 person, 300.1ms
+91: 640x640 1 fire hydrant, 300.1ms
+92: 640x640 1 person, 300.1ms
+93: 640x640 (no detections), 300.1ms
+94: 640x640 1 person, 300.1ms
+95: 640x640 1 person, 300.1ms
+96: 640x640 3 persons, 300.1ms
+97: 640x640 2 cars, 300.1ms
+98: 640x640 (no detections), 300.1ms
+99: 640x640 1 person, 300.1ms
+100: 640x640 1 toilet, 300.1ms
+101: 640x640 (no detections), 300.1ms
+102: 640x640 (no detections), 300.1ms
+103: 640x640 1 cake, 300.1ms
+104: 640x640 2 persons, 300.1ms
+105: 640x640 1 person, 300.1ms
+106: 640x640 (no detections), 300.1ms
+107: 640x640 (no detections), 300.1ms
+108: 640x640 2 persons, 1 tie, 300.1ms
+109: 640x640 1 stop sign, 300.1ms
+110: 640x640 1 person, 1 bicycle, 300.1ms
+111: 640x640 2 cars, 1 fire hydrant, 300.1ms
+112: 640x640 3 persons, 300.1ms
+113: 640x640 (no detections), 300.1ms
+114: 640x640 2 persons, 300.1ms
+115: 640x640 1 zebra, 300.1ms
+116: 640x640 (no detections), 300.1ms
+117: 640x640 1 elephant, 300.1ms
+118: 640x640 5 persons, 300.1ms
+119: 640x640 (no detections), 300.1ms
+120: 640x640 (no detections), 300.1ms
+121: 640x640 2 persons, 300.1ms
+122: 640x640 (no detections), 300.1ms
+123: 640x640 2 persons, 300.1ms
+124: 640x640 1 person, 300.1ms
+125: 640x640 (no detections), 300.1ms
+126: 640x640 1 person, 1 motorcycle, 300.1ms
+127: 640x640 1 person, 1 skateboard, 300.1ms
+128: 640x640 3 persons, 2 frisbees, 300.1ms
+129: 640x640 1 airplane, 300.1ms
+130: 640x640 1 person, 1 bench, 1 skateboard, 300.1ms
+131: 640x640 1 cat, 1 couch, 300.1ms
+132: 640x640 1 laptop, 300.1ms
+133: 640x640 3 persons, 300.1ms
+134: 640x640 (no detections), 300.1ms
+135: 640x640 1 chair, 1 couch, 1 potted plant, 300.1ms
+136: 640x640 (no detections), 300.1ms
+137: 640x640 1 toilet, 300.1ms
+138: 640x640 1 person, 300.1ms
+139: 640x640 (no detections), 300.1ms
+140: 640x640 7 persons, 1 kite, 300.1ms
+141: 640x640 2 persons, 300.1ms
+142: 640x640 (no detections), 300.1ms
+143: 640x640 (no detections), 300.1ms
+144: 640x640 (no detections), 300.1ms
+145: 640x640 4 bowls, 300.1ms
+146: 640x640 (no detections), 300.1ms
+147: 640x640 1 broccoli, 300.1ms
+148: 640x640 (no detections), 300.1ms
+149: 640x640 (no detections), 300.1ms
+150: 640x640 1 stop sign, 300.1ms
+151: 640x640 (no detections), 300.1ms
+152: 640x640 (no detections), 300.1ms
+153: 640x640 (no detections), 300.1ms
+154: 640x640 1 person, 1 kite, 300.1ms
+155: 640x640 1 fire hydrant, 300.1ms
+156: 640x640 1 cat, 1 couch, 300.1ms
+157: 640x640 1 person, 300.1ms
+158: 640x640 2 zebras, 300.1ms
+159: 640x640 1 horse, 300.1ms
+160: 640x640 1 person, 300.1ms
+161: 640x640 1 clock, 300.1ms
+162: 640x640 1 person, 1 surfboard, 300.1ms
+163: 640x640 1 bear, 300.1ms
+164: 640x640 1 person, 1 cell phone, 300.1ms
+165: 640x640 (no detections), 300.1ms
+166: 640x640 (no detections), 300.1ms
+167: 640x640 1 giraffe, 300.1ms
+168: 640x640 2 zebras, 300.1ms
+169: 640x640 1 giraffe, 300.1ms
+170: 640x640 (no detections), 300.1ms
+171: 640x640 (no detections), 300.1ms
+172: 640x640 (no detections), 300.1ms
+173: 640x640 1 person, 300.1ms
+174: 640x640 1 car, 300.1ms
+175: 640x640 (no detections), 300.1ms
+176: 640x640 (no detections), 300.1ms
+177: 640x640 1 person, 300.1ms
+178: 640x640 2 kites, 300.1ms
+179: 640x640 2 persons, 300.1ms
+180: 640x640 1 person, 300.1ms
+181: 640x640 6 persons, 1 dining table, 300.1ms
+182: 640x640 2 persons, 300.1ms
+183: 640x640 1 person, 300.1ms
+184: 640x640 1 cat, 300.1ms
+185: 640x640 1 motorcycle, 300.1ms
+186: 640x640 1 person, 300.1ms
+187: 640x640 1 cat, 300.1ms
+188: 640x640 (no detections), 300.1ms
+189: 640x640 (no detections), 300.1ms
+190: 640x640 (no detections), 300.1ms
+191: 640x640 (no detections), 300.1ms
+192: 640x640 2 persons, 300.1ms
+193: 640x640 1 person, 1 sports ball, 1 tennis racket, 4 chairs, 300.1ms
+194: 640x640 1 vase, 300.1ms
+195: 640x640 (no detections), 300.1ms
+196: 640x640 1 person, 1 tie, 300.1ms
+197: 640x640 1 zebra, 300.1ms
+198: 640x640 1 fire hydrant, 300.1ms
+199: 640x640 (no detections), 300.1ms
+200: 640x640 1 person, 300.1ms
+201: 640x640 1 bottle, 300.1ms
+202: 640x640 (no detections), 300.1ms
+203: 640x640 (no detections), 300.1ms
+204: 640x640 2 persons, 300.1ms
+205: 640x640 (no detections), 300.1ms
+206: 640x640 (no detections), 300.1ms
+207: 640x640 1 person, 300.1ms
+208: 640x640 1 person, 300.1ms
+209: 640x640 2 persons, 300.1ms
+210: 640x640 1 person, 1 elephant, 300.1ms
+211: 640x640 (no detections), 300.1ms
+212: 640x640 1 tie, 300.1ms
+213: 640x640 1 sports ball, 300.1ms
+214: 640x640 1 person, 300.1ms
+215: 640x640 (no detections), 300.1ms
+216: 640x640 (no detections), 300.1ms
+217: 640x640 1 person, 300.1ms
+218: 640x640 (no detections), 300.1ms
+219: 640x640 (no detections), 300.1ms
+220: 640x640 1 person, 300.1ms
+221: 640x640 2 giraffes, 300.1ms
+222: 640x640 1 couch, 300.1ms
+223: 640x640 1 giraffe, 300.1ms
+224: 640x640 1 person, 300.1ms
+225: 640x640 (no detections), 300.1ms
+226: 640x640 1 car, 300.1ms
+227: 640x640 1 person, 300.1ms
+228: 640x640 1 toilet, 300.1ms
+229: 640x640 (no detections), 300.1ms
+230: 640x640 (no detections), 300.1ms
+231: 640x640 (no detections), 300.1ms
+232: 640x640 1 sheep, 300.1ms
+233: 640x640 (no detections), 300.1ms
+234: 640x640 1 kite, 300.1ms
+235: 640x640 (no detections), 300.1ms
+236: 640x640 2 persons, 300.1ms
+237: 640x640 1 person, 1 hot dog, 300.1ms
+238: 640x640 (no detections), 300.1ms
+239: 640x640 2 elephants, 300.1ms
+240: 640x640 2 persons, 1 frisbee, 300.1ms
+241: 640x640 (no detections), 300.1ms
+242: 640x640 1 zebra, 300.1ms
+243: 640x640 (no detections), 300.1ms
+244: 640x640 (no detections), 300.1ms
+245: 640x640 2 persons, 300.1ms
+246: 640x640 1 person, 1 tie, 1 sports ball, 300.1ms
+247: 640x640 1 person, 300.1ms
+248: 640x640 1 person, 300.1ms
+249: 640x640 (no detections), 300.1ms
+250: 640x640 (no detections), 300.1ms
+251: 640x640 1 person, 300.1ms
+252: 640x640 1 cup, 1 dining table, 300.1ms
+253: 640x640 4 cars, 300.1ms
+254: 640x640 2 cell phones, 300.1ms
+255: 640x640 1 tv, 1 mouse, 300.1ms
+256: 640x640 2 persons, 300.1ms
+257: 640x640 1 fire hydrant, 300.1ms
+258: 640x640 1 suitcase, 300.1ms
+259: 640x640 1 person, 300.1ms
+260: 640x640 (no detections), 300.1ms
+261: 640x640 (no detections), 300.1ms
+262: 640x640 (no detections), 300.1ms
+263: 640x640 (no detections), 300.1ms
+264: 640x640 1 person, 300.1ms
+265: 640x640 1 toilet, 1 sink, 300.1ms
+266: 640x640 1 clock, 300.1ms
+267: 640x640 1 elephant, 300.1ms
+268: 640x640 (no detections), 300.1ms
+269: 640x640 (no detections), 300.1ms
+270: 640x640 1 fire hydrant, 300.1ms
+271: 640x640 1 horse, 300.1ms
+272: 640x640 1 dog, 300.1ms
+273: 640x640 1 person, 300.1ms
+274: 640x640 1 couch, 300.1ms
+275: 640x640 1 bowl, 300.1ms
+276: 640x640 (no detections), 300.1ms
+277: 640x640 3 persons, 300.1ms
+278: 640x640 (no detections), 300.1ms
+279: 640x640 1 dog, 300.1ms
+280: 640x640 1 person, 1 skis, 300.1ms
+281: 640x640 (no detections), 300.1ms
+282: 640x640 1 bowl, 300.1ms
+283: 640x640 1 parking meter, 300.1ms
+284: 640x640 (no detections), 300.1ms
+285: 640x640 1 person, 300.1ms
+286: 640x640 2 clocks, 300.1ms
+287: 640x640 1 person, 1 tennis racket, 300.1ms
+288: 640x640 (no detections), 300.1ms
+289: 640x640 2 zebras, 300.1ms
+290: 640x640 3 persons, 2 chairs, 1 dining table, 300.1ms
+291: 640x640 2 birds, 300.1ms
+292: 640x640 (no detections), 300.1ms
+293: 640x640 1 sink, 300.1ms
+294: 640x640 1 clock, 300.1ms
+295: 640x640 2 persons, 300.1ms
+296: 640x640 (no detections), 300.1ms
+297: 640x640 1 person, 1 tennis racket, 300.1ms
+298: 640x640 1 toilet, 300.1ms
+299: 640x640 3 persons, 300.1ms
+300: 640x640 1 person, 300.1ms
+301: 640x640 2 beds, 1 tv, 300.1ms
+302: 640x640 1 person, 1 skis, 300.1ms
+303: 640x640 1 bird, 300.1ms
+304: 640x640 (no detections), 300.1ms
+305: 640x640 1 person, 300.1ms
+306: 640x640 1 person, 300.1ms
+307: 640x640 4 persons, 1 tie, 300.1ms
+308: 640x640 (no detections), 300.1ms
+309: 640x640 1 person, 1 tennis racket, 300.1ms
+310: 640x640 3 persons, 300.1ms
+311: 640x640 1 car, 300.1ms
+312: 640x640 (no detections), 300.1ms
+313: 640x640 2 persons, 1 horse, 300.1ms
+314: 640x640 1 person, 1 tennis racket, 300.1ms
+315: 640x640 1 person, 300.1ms
+316: 640x640 2 giraffes, 300.1ms
+317: 640x640 1 person, 1 sports ball, 300.1ms
+318: 640x640 2 cars, 300.1ms
+319: 640x640 1 cat, 300.1ms
+320: 640x640 2 persons, 300.1ms
+321: 640x640 (no detections), 300.1ms
+322: 640x640 (no detections), 300.1ms
+323: 640x640 (no detections), 300.1ms
+324: 640x640 (no detections), 300.1ms
+325: 640x640 (no detections), 300.1ms
+326: 640x640 1 chair, 300.1ms
+327: 640x640 1 elephant, 300.1ms
+328: 640x640 1 person, 1 skateboard, 300.1ms
+329: 640x640 1 person, 300.1ms
+330: 640x640 1 traffic light, 300.1ms
+331: 640x640 1 toilet, 300.1ms
+332: 640x640 (no detections), 300.1ms
+333: 640x640 (no detections), 300.1ms
+334: 640x640 1 clock, 300.1ms
+335: 640x640 2 persons, 1 skis, 300.1ms
+336: 640x640 1 couch, 3 cell phones, 300.1ms
+337: 640x640 (no detections), 300.1ms
+338: 640x640 1 toilet, 300.1ms
+339: 640x640 (no detections), 300.1ms
+340: 640x640 1 person, 1 vase, 300.1ms
+341: 640x640 (no detections), 300.1ms
+342: 640x640 1 snowboard, 300.1ms
+343: 640x640 1 chair, 1 potted plant, 300.1ms
+344: 640x640 1 dog, 300.1ms
+345: 640x640 (no detections), 300.1ms
+346: 640x640 1 person, 1 sports ball, 1 tennis racket, 300.1ms
+347: 640x640 1 fire hydrant, 300.1ms
+348: 640x640 1 toilet, 300.1ms
+349: 640x640 1 person, 300.1ms
+350: 640x640 1 person, 300.1ms
+351: 640x640 2 mouses, 1 keyboard, 300.1ms
+352: 640x640 1 person, 1 donut, 300.1ms
+353: 640x640 (no detections), 300.1ms
+354: 640x640 2 persons, 2 bicycles, 300.1ms
+355: 640x640 (no detections), 300.1ms
+356: 640x640 1 tv, 300.1ms
+357: 640x640 1 person, 1 tennis racket, 300.1ms
+358: 640x640 6 cars, 300.1ms
+359: 640x640 1 person, 1 sports ball, 1 tennis racket, 300.1ms
+360: 640x640 (no detections), 300.1ms
+361: 640x640 2 cats, 1 remote, 300.1ms
+362: 640x640 1 person, 300.1ms
+363: 640x640 1 person, 1 kite, 300.1ms
+364: 640x640 1 person, 1 sports ball, 300.1ms
+365: 640x640 1 bed, 300.1ms
+366: 640x640 1 person, 1 horse, 1 elephant, 300.1ms
+367: 640x640 1 person, 300.1ms
+368: 640x640 (no detections), 300.1ms
+369: 640x640 (no detections), 300.1ms
+370: 640x640 (no detections), 300.1ms
+371: 640x640 1 car, 300.1ms
+372: 640x640 1 cow, 300.1ms
+373: 640x640 1 bed, 300.1ms
+374: 640x640 3 birds, 300.1ms
+375: 640x640 3 persons, 300.1ms
+376: 640x640 (no detections), 300.1ms
+377: 640x640 1 person, 1 tie, 300.1ms
+378: 640x640 1 zebra, 300.1ms
+379: 640x640 1 toilet, 300.1ms
+380: 640x640 (no detections), 300.1ms
+381: 640x640 (no detections), 300.1ms
+382: 640x640 (no detections), 300.1ms
+383: 640x640 3 persons, 1 snowboard, 300.1ms
+384: 640x640 (no detections), 300.1ms
+385: 640x640 1 cell phone, 1 teddy bear, 300.1ms
+386: 640x640 (no detections), 300.1ms
+387: 640x640 (no detections), 300.1ms
+388: 640x640 1 pizza, 300.1ms
+389: 640x640 1 clock, 300.1ms
+390: 640x640 2 persons, 1 sports ball, 1 baseball glove, 300.1ms
+391: 640x640 (no detections), 300.1ms
+392: 640x640 2 persons, 300.1ms
+393: 640x640 1 elephant, 300.1ms
+394: 640x640 1 person, 300.1ms
+395: 640x640 1 person, 1 motorcycle, 300.1ms
+396: 640x640 1 airplane, 300.1ms
+397: 640x640 3 sheeps, 300.1ms
+398: 640x640 1 person, 300.1ms
+399: 640x640 1 person, 300.1ms
+400: 640x640 (no detections), 300.1ms
+401: 640x640 (no detections), 300.1ms
+402: 640x640 (no detections), 300.1ms
+403: 640x640 2 persons, 1 bowl, 300.1ms
+404: 640x640 (no detections), 300.1ms
+405: 640x640 1 elephant, 300.1ms
+406: 640x640 1 laptop, 2 mouses, 300.1ms
+407: 640x640 1 person, 1 bed, 300.1ms
+408: 640x640 2 persons, 1 baseball bat, 300.1ms
+409: 640x640 1 cat, 300.1ms
+410: 640x640 (no detections), 300.1ms
+411: 640x640 1 person, 300.1ms
+412: 640x640 1 sheep, 300.1ms
+413: 640x640 2 persons, 1 train, 1 skateboard, 300.1ms
+414: 640x640 3 giraffes, 300.1ms
+415: 640x640 1 wine glass, 300.1ms
+416: 640x640 1 dog, 300.1ms
+417: 640x640 1 person, 1 bicycle, 1 horse, 300.1ms
+418: 640x640 2 persons, 300.1ms
+419: 640x640 (no detections), 300.1ms
+420: 640x640 1 couch, 300.1ms
+421: 640x640 1 person, 300.1ms
+422: 640x640 1 person, 300.1ms
+423: 640x640 (no detections), 300.1ms
+424: 640x640 1 person, 300.1ms
+425: 640x640 2 persons, 300.1ms
+426: 640x640 1 elephant, 300.1ms
+427: 640x640 1 dog, 300.1ms
+428: 640x640 1 person, 300.1ms
+429: 640x640 1 umbrella, 300.1ms
+430: 640x640 1 person, 300.1ms
+431: 640x640 (no detections), 300.1ms
+432: 640x640 (no detections), 300.1ms
+433: 640x640 (no detections), 300.1ms
+434: 640x640 1 person, 300.1ms
+435: 640x640 3 zebras, 300.1ms
+436: 640x640 1 elephant, 300.1ms
+437: 640x640 (no detections), 300.1ms
+438: 640x640 1 person, 1 bicycle, 1 umbrella, 300.1ms
+439: 640x640 (no detections), 300.1ms
+440: 640x640 (no detections), 300.1ms
+441: 640x640 1 cat, 1 bed, 300.1ms
+442: 640x640 (no detections), 300.1ms
+443: 640x640 1 person, 1 horse, 300.1ms
+444: 640x640 1 person, 300.1ms
+445: 640x640 1 orange, 300.1ms
+446: 640x640 1 person, 300.1ms
+447: 640x640 (no detections), 300.1ms
+448: 640x640 2 teddy bears, 300.1ms
+449: 640x640 (no detections), 300.1ms
+450: 640x640 1 cat, 300.1ms
+451: 640x640 1 cat, 300.1ms
+452: 640x640 (no detections), 300.1ms
+453: 640x640 (no detections), 300.1ms
+454: 640x640 (no detections), 300.1ms
+455: 640x640 (no detections), 300.1ms
+456: 640x640 1 bed, 1 laptop, 300.1ms
+457: 640x640 1 person, 300.1ms
+458: 640x640 1 bed, 300.1ms
+459: 640x640 2 persons, 300.1ms
+460: 640x640 (no detections), 300.1ms
+461: 640x640 1 person, 300.1ms
+462: 640x640 1 person, 1 bus, 300.1ms
+463: 640x640 1 airplane, 300.1ms
+464: 640x640 (no detections), 300.1ms
+465: 640x640 (no detections), 300.1ms
+466: 640x640 2 zebras, 300.1ms
+467: 640x640 1 person, 1 surfboard, 300.1ms
+468: 640x640 1 dog, 300.1ms
+469: 640x640 (no detections), 300.1ms
+470: 640x640 (no detections), 300.1ms
+471: 640x640 2 persons, 300.1ms
+472: 640x640 1 toilet, 300.1ms
+473: 640x640 (no detections), 300.1ms
+474: 640x640 (no detections), 300.1ms
+475: 640x640 4 persons, 300.1ms
+476: 640x640 (no detections), 300.1ms
+477: 640x640 1 parking meter, 300.1ms
+478: 640x640 3 zebras, 300.1ms
+479: 640x640 1 person, 300.1ms
+480: 640x640 (no detections), 300.1ms
+481: 640x640 2 persons, 1 baseball glove, 300.1ms
+482: 640x640 (no detections), 300.1ms
+483: 640x640 1 fire hydrant, 300.1ms
+484: 640x640 1 person, 300.1ms
+485: 640x640 1 person, 1 horse, 300.1ms
+486: 640x640 1 car, 300.1ms
+487: 640x640 1 toilet, 300.1ms
+488: 640x640 1 bicycle, 300.1ms
+489: 640x640 1 giraffe, 300.1ms
+490: 640x640 2 persons, 1 bicycle, 2 cars, 300.1ms
+491: 640x640 1 bus, 300.1ms
+492: 640x640 1 bird, 300.1ms
+493: 640x640 1 person, 300.1ms
+494: 640x640 1 person, 1 sports ball, 1 tennis racket, 300.1ms
+495: 640x640 (no detections), 300.1ms
+496: 640x640 (no detections), 300.1ms
+497: 640x640 1 tv, 1 remote, 300.1ms
+498: 640x640 (no detections), 300.1ms
+499: 640x640 1 bird, 300.1ms
+Speed: 3.7ms preprocess, 300.1ms inference, 0.3ms postprocess per image at shape (1, 3, 640, 640)
+{
+  "attack": {
+    "name": "eot_pgd",
+    "params": {
+      "alpha": 0.0015,
+      "eot_samples": 8,
+      "epsilon": 0.25
+    },
+    "resolved_objective": {
+      "attack_roi": null,
+      "objective_mode": "untargeted_conf_suppression",
+      "target_class": null
+    }
+  },
+  "defense": {
+    "name": "none",
+    "params": {}
+  },
+  "failed_image_writes": 0,
+  "input_image_count": 500,
+  "metrics_path": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_training_round2/attack_eot_pgd/metrics.json",
+  "model": {
+    "name": "yolo",
+    "params": {
+      "model": "yolo26n.pt"
+    }
+  },
+  "predict": {
+    "conf": 0.5,
+    "imgsz": 640,
+    "iou": 0.7
+  },
+  "prediction_record_count": 500,
+  "processed_image_count": 500,
+  "reproducibility": {
+    "platform": "darwin-arm64",
+    "seed": 42,
+    "torch_seeded": true,
+    "torch_version": "2.5.1"
+  },
+  "run_dir": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_training_round2/attack_eot_pgd",
+  "runner": "lab.runners.run_experiment.UnifiedExperimentRunner",
+  "schema_version": "framework_run_summary/v1",
+  "seed": 42,
+  "skipped_unreadable_images": 0,
+  "source_dir": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/coco/val2017_subset500/images",
+  "validation": {
+    "dataset": "configs/coco_subset500.yaml",
+    "enabled": false,
+    "error": null,
+    "mAP50": null,
+    "mAP50-95": null,
+    "precision": null,
+    "recall": null,
+    "status": "missing"
+  }
+}
+2026-03-27T16:55:09.568816+00:00 [run-unified] INFO: $ /Users/lurch/ml-labs/YOLO-Bad-Triangle/.venv/bin/python /Users/lurch/ml-labs/YOLO-Bad-Triangle/src/lab/runners/run_experiment.py --config configs/default.yaml --set attack.name=eot_pgd --set attack.params.epsilon=0.25 --set attack.params.alpha=0.0015 --set attack.params.eot_samples=8 --set defense.name=none --set runner.run_name=attack_eot_pgd --set runner.output_root=outputs/framework_runs/sweep_training_round2 --set runner.max_images=500 --set validation.enabled=false

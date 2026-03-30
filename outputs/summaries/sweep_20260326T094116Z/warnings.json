@@ -1,0 +1,16 @@
+{
+  "schema_version": "warnings/v1",
+  "runs_root": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260326T094116Z",
+  "warning_count": 2,
+  "warnings": [
+    {
+      "code": "NO_VALIDATION",
+      "message": "No run has a successful validation result; mAP50 metrics are unavailable. Re-run with --validation-enabled for complete results."
+    },
+    {
+      "code": "LOW_ATTACK_COUNT",
+      "message": "Only 0 attack run(s) found; comparison results may be incomplete.",
+      "attack_count": 0
+    }
+  ]
+}

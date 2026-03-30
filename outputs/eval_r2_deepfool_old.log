@@ -1,0 +1,19 @@
+Evaluating A/B checkpoint comparison
+  Attack:  deepfool
+  Defense: c_dog
+  Images:  500
+  A: dpc_unet_final_golden.pt
+  B: dpc_unet_adversarial_finetuned.pt
+
+Running checkpoint A...
+Running checkpoint B...
+
+──────────────────────────────────────────────────
+  Checkpoint A mAP50: 0.1413  (147 detections)
+  Checkpoint B mAP50: 0.2374  (285 detections)
+  Delta:              +0.0961
+  Verdict:            B is better — deploy
+──────────────────────────────────────────────────
+
+Result written to: outputs/eval_r2_deepfool_old.json
+.json

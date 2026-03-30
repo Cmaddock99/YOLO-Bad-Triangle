@@ -1,0 +1,28 @@
+{
+  "schema_version": "cycle_summary/v1",
+  "runs_root": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/sweep_20260326T094116Z",
+  "total_runs": 1,
+  "baseline": {
+    "run_name": "baseline_none",
+    "model": "yolo",
+    "seed": 42,
+    "total_detections": 1437.0,
+    "avg_confidence": 0.7647724414585196,
+    "mAP50": 0.5983657680428269,
+    "validation_status": "complete"
+  },
+  "attack_effectiveness_rows": [],
+  "defense_recovery_rows": [],
+  "per_class_vulnerability_rows": [],
+  "warnings": [
+    {
+      "code": "NO_VALIDATION",
+      "message": "No run has a successful validation result; mAP50 metrics are unavailable. Re-run with --validation-enabled for complete results."
+    },
+    {
+      "code": "LOW_ATTACK_COUNT",
+      "message": "Only 0 attack run(s) found; comparison results may be incomplete.",
+      "attack_count": 0
+    }
+  ]
+}

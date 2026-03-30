@@ -1,0 +1,116 @@
+{
+  "runs_root": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260326_112654",
+  "schema_version": "warnings/v1",
+  "warning_count": 17,
+  "warnings": [
+    {
+      "baseline_used": "baseline_none",
+      "candidate_count": 2,
+      "code": "MULTIPLE_BASELINES",
+      "message": "2 no-attack/no-defense runs found; 'baseline_none' selected (first alphabetically). Runs with different image counts or validation status may produce misleading comparisons."
+    },
+    {
+      "code": "NO_VALIDATION",
+      "message": "No run has a successful validation result; mAP50 metrics are unavailable. Re-run with --validation-enabled for complete results."
+    },
+    {
+      "attack": "blur",
+      "avg_conf_effectiveness": 0.0073595955936419785,
+      "code": "ATTACK_BELOW_NOISE",
+      "message": "Attack 'blur' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
+    },
+    {
+      "attack": "deepfool",
+      "avg_conf_effectiveness": 0.04644664537487034,
+      "code": "ATTACK_BELOW_NOISE",
+      "message": "Attack 'deepfool' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
+    },
+    {
+      "attack": "eot_pgd",
+      "avg_conf_effectiveness": -0.021373905521727504,
+      "code": "ATTACK_BELOW_NOISE",
+      "message": "Attack 'eot_pgd' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
+    },
+    {
+      "attack": "fgsm",
+      "avg_conf_effectiveness": -0.018467824081153404,
+      "code": "ATTACK_BELOW_NOISE",
+      "message": "Attack 'fgsm' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
+    },
+    {
+      "attack": "pgd",
+      "avg_conf_effectiveness": 0.02088990915964354,
+      "code": "ATTACK_BELOW_NOISE",
+      "message": "Attack 'pgd' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
+    },
+    {
+      "attack": "square",
+      "avg_conf_effectiveness": 0.024914311532956427,
+      "code": "ATTACK_BELOW_NOISE",
+      "message": "Attack 'square' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
+    },
+    {
+      "attack": "deepfool",
+      "code": "DEFENSE_DEGRADES_PERFORMANCE",
+      "defense": "c_dog",
+      "message": "Defense 'c_dog' against attack 'deepfool' degrades performance beyond the attack alone (recovery=-0.103). Defense may be misconfigured or incompatible with this attack.",
+      "recovery": -0.10256410256410256
+    },
+    {
+      "attack": "blur",
+      "code": "DEFENSE_DEGRADES_PERFORMANCE",
+      "defense": "c_dog",
+      "message": "Defense 'c_dog' against attack 'blur' degrades performance beyond the attack alone (recovery=-0.444). Defense may be misconfigured or incompatible with this attack.",
+      "recovery": -0.4444444444444444
+    },
+    {
+      "attack": "deepfool",
+      "code": "DEFENSE_DEGRADES_PERFORMANCE",
+      "defense": "median_preprocess",
+      "message": "Defense 'median_preprocess' against attack 'deepfool' degrades performance beyond the attack alone (recovery=-0.115). Defense may be misconfigured or incompatible with this attack.",
+      "recovery": -0.11538461538461539
+    },
+    {
+      "attack": "eot_pgd",
+      "code": "DEFENSE_DEGRADES_PERFORMANCE",
+      "defense": "bit_depth",
+      "message": "Defense 'bit_depth' against attack 'eot_pgd' degrades performance beyond the attack alone (recovery=-0.190). Defense may be misconfigured or incompatible with this attack.",
+      "recovery": -0.19047619047619047
+    },
+    {
+      "attack": "eot_pgd",
+      "code": "DEFENSE_DEGRADES_PERFORMANCE",
+      "defense": "c_dog",
+      "message": "Defense 'c_dog' against attack 'eot_pgd' degrades performance beyond the attack alone (recovery=-0.714). Defense may be misconfigured or incompatible with this attack.",
+      "recovery": -0.7142857142857143
+    },
+    {
+      "attack": "eot_pgd",
+      "code": "DEFENSE_DEGRADES_PERFORMANCE",
+      "defense": "jpeg_preprocess",
+      "message": "Defense 'jpeg_preprocess' against attack 'eot_pgd' degrades performance beyond the attack alone (recovery=-0.238). Defense may be misconfigured or incompatible with this attack.",
+      "recovery": -0.23809523809523808
+    },
+    {
+      "attack": "eot_pgd",
+      "code": "DEFENSE_DEGRADES_PERFORMANCE",
+      "defense": "median_preprocess",
+      "message": "Defense 'median_preprocess' against attack 'eot_pgd' degrades performance beyond the attack alone (recovery=-0.905). Defense may be misconfigured or incompatible with this attack.",
+      "recovery": -0.9047619047619048
+    },
+    {
+      "attack": "deepfool",
+      "code": "DEFENSE_DEGRADES_PERFORMANCE",
+      "defense": "bit_depth",
+      "message": "Defense 'bit_depth' against attack 'deepfool' degrades performance beyond the attack alone (recovery=-0.167). Defense may be misconfigured or incompatible with this attack.",
+      "recovery": -0.16666666666666666
+    },
+    {
+      "attack": "deepfool",
+      "code": "DEFENSE_DEGRADES_PERFORMANCE",
+      "defense": "jpeg_preprocess",
+      "message": "Defense 'jpeg_preprocess' against attack 'deepfool' degrades performance beyond the attack alone (recovery=-0.179). Defense may be misconfigured or incompatible with this attack.",
+      "recovery": -0.1794871794871795
+    }
+  ]
+}
