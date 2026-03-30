@@ -151,9 +151,17 @@ TUNE_MAX_IMAGES_BY_ATTACK: dict[str, int] = {
     "dispersion_reduction": 12,
 }
 
-# Attacks too slow for NUC Phase 4 (500-image full validation).
-# Skip these in Phase 4; Mac's standalone sweep handles their validation.
-SLOW_ATTACKS: set[str] = {"square", "eot_pgd", "dispersion_reduction"}  # ~126s/img, ~48s/img, ~60s/img on NUC CPU
+# Attacks too slow for NUC Phase 4 at full-dataset scale (~126s/img, ~48s/img, ~60s/img on NUC CPU).
+# These run locally with a capped image count instead of being delegated to Mac.
+SLOW_ATTACKS: set[str] = {"square", "eot_pgd", "dispersion_reduction"}
+
+# Phase 4 image cap for slow attacks. Keeps wall-clock time tractable on NUC CPU:
+#   square ~126s/img × 50 imgs ≈ 1.75h   eot_pgd ~48s × 50 ≈ 40min   disp_red ~60s × 50 ≈ 50min
+PHASE4_MAX_IMAGES_BY_ATTACK: dict[str, int] = {
+    "square":               50,
+    "eot_pgd":              50,
+    "dispersion_reduction": 50,
+}
 
 # Phase 1 characterize image cap for slow attacks (default: RANKING_SMOKE_MAX_IMAGES).
 # Limits characterization smoke runs without affecting Phase 2/3 if not in top attacks.
@@ -890,6 +898,14 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
                     f"best={current_score:.4f}  {_fmt(current)}")
                 break
 
+    # Warn if any param converged at its bound — search space may be too narrow.
+    for k, v in current.items():
+        spec = param_space.get(k, {})
+        if spec.get("min") is not None and abs(float(v) - float(spec["min"])) < 1e-9:
+            log(f"  [{label}] WARN: {k}={v} converged at MIN bound — consider expanding param space")
+        elif spec.get("max") is not None and abs(float(v) - float(spec["max"])) < 1e-9:
+            log(f"  [{label}] WARN: {k}={v} converged at MAX bound — consider expanding param space")
+
     return dict(current), current_score, history
 
 
@@ -1078,7 +1094,6 @@ def phase4(state: dict) -> bool:
     runs_root = state["runs_root"]
     best_atk = state.get("best_attack_params", {})
     best_def = state.get("best_defense_params", {})
-    delegated_runs: list[str] = []
     failed_runs: list[str] = []
 
     def _timeout_for_attack(attack_name: str) -> int:
@@ -1098,12 +1113,11 @@ def phase4(state: dict) -> bool:
     ):
         failed_runs.append("validate_baseline")
 
-    # Best attack configs (no defense) — skip slow attacks; Mac handles those
+    # Best attack configs (no defense)
     for attack in state["top_attacks"]:
-        if attack in SLOW_ATTACKS:
-            log(f"  Skipping Phase 4 for {attack} (slow attack — Mac handles validation)")
-            delegated_runs.append(f"validate_atk_{attack}")
-            continue
+        img_cap = PHASE4_MAX_IMAGES_BY_ATTACK.get(attack)
+        if img_cap:
+            log(f"  Phase 4 {attack}: capped at {img_cap} images (slow attack)")
         if not run_single(
             attack=attack, defense="none",
             run_name=f"validate_atk_{attack}",
@@ -1111,15 +1125,13 @@ def phase4(state: dict) -> bool:
             overrides=best_atk.get(attack),
             preset="full", validation=True,
             timeout_seconds=_timeout_for_attack(attack),
+            max_images_override=img_cap,
         ):
             failed_runs.append(f"validate_atk_{attack}")
 
-    # Best attack × defense combos — skip slow attacks on NUC
+    # Best attack × defense combos
     for attack in state["top_attacks"]:
-        if attack in SLOW_ATTACKS:
-            for defense in state["top_defenses"]:
-                delegated_runs.append(f"validate_{attack}_{defense}")
-            continue
+        img_cap = PHASE4_MAX_IMAGES_BY_ATTACK.get(attack)
         for defense in state["top_defenses"]:
             merged = {**(best_atk.get(attack) or {}), **(best_def.get(defense) or {})}
             if not run_single(
@@ -1129,13 +1141,14 @@ def phase4(state: dict) -> bool:
                 overrides=merged or None,
                 preset="full", validation=True,
                 timeout_seconds=_timeout_for_attack(attack),
+                max_images_override=img_cap,
             ):
                 failed_runs.append(f"validate_{attack}_{defense}")
 
     state["phase4_complete"] = True
     state["complete"] = True
     state["finished_at"] = datetime.now().isoformat()
-    state["delegated_phase4_runs"] = sorted(set(delegated_runs))
+    state["delegated_phase4_runs"] = []  # deprecated: slow attacks now run locally with image cap
     state["failed_phase4_runs"] = sorted(set(failed_runs))
     if failed_runs:
         log("[warn] Phase 4 had failed or timed-out runs: " + ", ".join(sorted(set(failed_runs))))
@@ -1202,6 +1215,20 @@ def save_cycle_history(state: dict) -> None:
 
     _write_training_signal(state, validation_results)
     _update_cycle_report()
+
+
+def _run_auto_summary(runs_root: str) -> None:
+    """Generate auto-summary artifacts (bootstrap CI, per-class CSV, warnings) — non-fatal."""
+    try:
+        result = subprocess.run(
+            [str(PYTHON), "scripts/generate_auto_summary.py",
+             "--runs-root", runs_root, "--no-bootstrap"],
+            cwd=str(REPO), env=_env(), timeout=120,
+        )
+        if result.returncode != 0:
+            log(f"[warn] _run_auto_summary exited {result.returncode} (non-fatal)")
+    except Exception as exc:
+        log(f"[warn] _run_auto_summary failed (non-fatal): {exc}")
 
 
 def _update_cycle_report() -> None:
@@ -1859,6 +1886,7 @@ def main() -> None:
                     break
                 save_state(state)
                 generate_report(state)
+                _run_auto_summary(state["runs_root"])
 
             log(f"All phases complete. Reports: {state['report_root']}")
 
