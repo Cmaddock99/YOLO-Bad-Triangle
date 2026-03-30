@@ -1,3 +1,9 @@
+[tool.pytest.ini_options]
+addopts = "-m 'not integration'"
+markers = [
+    "integration: end-to-end tests that require the full environment (dataset, model weights, GPU/CPU)",
+]
+
 [tool.ruff]
 line-length = 100
 
