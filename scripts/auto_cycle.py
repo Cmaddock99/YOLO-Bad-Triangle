@@ -1231,6 +1231,7 @@ def _run_auto_summary(runs_root: str) -> None:
         log(f"[warn] _run_auto_summary failed (non-fatal): {exc}")
 
 
+
 def _update_cycle_report() -> None:
     """Regenerate outputs/cycle_report.csv + outputs/cycle_report.md (non-fatal)."""
     try:
@@ -1889,6 +1890,7 @@ def main() -> None:
                 _run_auto_summary(state["runs_root"])
 
             log(f"All phases complete. Reports: {state['report_root']}")
+            log(f"[brief] Run /research-brief in Claude Code for cross-cycle analysis.")
 
             if not args.loop:
                 break

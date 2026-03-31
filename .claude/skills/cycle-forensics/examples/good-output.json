@@ -1,39 +1,93 @@
 {
   "skill": "cycle-forensics",
-  "cycle_path": "outputs/framework_reports/20260330_091500",
+  "cycle_path": "outputs/cycle_history/cycle_20260329_125124.json",
   "status": "partial",
+  "checkpoint_context": {
+    "ab_eval_present": false,
+    "clean_validation_present": false,
+    "deployment_status": "not_evaluated"
+  },
   "rankings": {
     "attack_damage": [
       {
         "attack": "deepfool",
-        "damage_pct": 88.7
+        "damage_pct": 63.6
       },
       {
-        "attack": "pgd",
-        "damage_pct": 41.2
+        "attack": "dispersion_reduction",
+        "damage_pct": 60.3
+      },
+      {
+        "attack": "square",
+        "damage_pct": 39.5
       }
     ],
     "defense_recovery": [
       {
-        "attack": "pgd",
+        "attack": "square",
         "defense": "c_dog",
-        "recovery_pct": 28.4
+        "recovery_pct": 11.0
       },
       {
-        "attack": "fgsm",
+        "attack": "square",
+        "defense": "bit_depth",
+        "recovery_pct": 9.8
+      },
+      {
+        "attack": "square",
+        "defense": "jpeg_preprocess",
+        "recovery_pct": 5.8
+      },
+      {
+        "attack": "dispersion_reduction",
         "defense": "c_dog",
-        "recovery_pct": 24.1
+        "recovery_pct": 7.0
+      },
+      {
+        "attack": "deepfool",
+        "defense": "c_dog",
+        "recovery_pct": 5.7
+      },
+      {
+        "attack": "deepfool",
+        "defense": "bit_depth",
+        "recovery_pct": 1.2
+      },
+      {
+        "attack": "dispersion_reduction",
+        "defense": "bit_depth",
+        "recovery_pct": -1.7
+      },
+      {
+        "attack": "dispersion_reduction",
+        "defense": "jpeg_preprocess",
+        "recovery_pct": -10.1
+      },
+      {
+        "attack": "deepfool",
+        "defense": "jpeg_preprocess",
+        "recovery_pct": -13.6
       }
     ]
   },
   "anomalies": [
     {
-      "type": "missing_pair",
-      "detail": "deepfool+c_dog row missing for one image budget, recovery ranking uses available pair only."
+      "type": "image_count_mismatch",
+      "detail": "square and dispersion_reduction Phase 4 runs used 50-image cap; baseline and deepfool used 500 images. Recovery rankings for square and dispersion_reduction are approximate — mAP50 values are not directly comparable to baseline."
+    },
+    {
+      "type": "param_bound_hit",
+      "detail": "square attack.params.eps=0.3 equals the configured maximum. Coordinate descent converged at the search boundary — the true optimal epsilon may be higher. Consider expanding eps_max beyond 0.3 in the next cycle."
+    },
+    {
+      "type": "negative_recovery",
+      "detail": "jpeg_preprocess degrades mAP50 under attack for deepfool (-13.6%) and dispersion_reduction (-10.1%). bit_depth also degrades dispersion_reduction (-1.7%). These are real losses, not artifacts — jpeg compression appears to interfere with the model's residual signal under these attack configurations."
     }
   ],
   "highlights": [
-    "deepfool remains the highest-damage attack in this cycle.",
-    "c_dog shows strongest recovery on pgd among comparable pairs."
+    "deepfool is the most damaging attack at 63.6% mAP50 loss — highest priority for defense improvement.",
+    "c_dog is the only defense with positive recovery across all three attacks (5.7–11.0%).",
+    "jpeg_preprocess consistently degrades performance under attack; its ranking as a top defense in Phase 2 may reflect smoke-run artifact rather than full-dataset behavior.",
+    "square and dispersion_reduction image count mismatch means their damage percentages are approximate — treat 39.5% and 60.3% as directional, not precise."
   ]
 }

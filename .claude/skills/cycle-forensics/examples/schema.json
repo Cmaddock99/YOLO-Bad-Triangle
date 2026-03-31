@@ -27,6 +27,33 @@
         "insufficient_data"
       ]
     },
+    "checkpoint_context": {
+      "type": "object",
+      "description": "Optional. Present when eval_ab_*.json artifacts are available or A/B eval context is known.",
+      "additionalProperties": false,
+      "required": [
+        "ab_eval_present",
+        "clean_validation_present",
+        "deployment_status"
+      ],
+      "properties": {
+        "ab_eval_present": {
+          "type": "boolean"
+        },
+        "clean_validation_present": {
+          "type": "boolean"
+        },
+        "deployment_status": {
+          "type": "string",
+          "enum": [
+            "not_evaluated",
+            "conditional_pass",
+            "pass",
+            "fail"
+          ]
+        }
+      }
+    },
     "rankings": {
       "type": "object",
       "additionalProperties": false,
@@ -98,7 +125,10 @@
               "missing_pair",
               "image_count_mismatch",
               "outlier_shift",
-              "missing_data"
+              "missing_data",
+              "negative_recovery",
+              "param_bound_hit",
+              "conditional_ab_eval"
             ]
           },
           "detail": {

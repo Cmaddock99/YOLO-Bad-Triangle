@@ -1,6 +1,6 @@
 {
   "skill": "artifact-contract-checker",
-  "run_path": "outputs/framework_runs/yolo26n__fgsm__c_dog",
+  "run_path": "outputs/framework_runs/yolo26n__deepfool__c_dog",
   "status": "warn",
   "required_files": {
     "metrics.json": true,
@@ -9,7 +9,15 @@
   },
   "optional_files": [
     {
-      "path": "outputs/framework_runs/yolo26n__fgsm__c_dog/resolved_config.yaml",
+      "path": "outputs/cycle_state.json",
+      "present": true
+    },
+    {
+      "path": "outputs/eval_ab_*.json",
+      "present": false
+    },
+    {
+      "path": "outputs/framework_runs/yolo26n__deepfool__c_dog/resolved_config.yaml",
       "present": false
     }
   ],
@@ -17,19 +25,34 @@
     {
       "name": "prediction_count_alignment",
       "result": "pass",
-      "detail": "Prediction records align with reported processed image count."
+      "detail": "predictions.jsonl contains 500 records; run_summary.json reports 500 images processed."
     },
     {
       "name": "reproducibility_field_presence",
       "result": "pass",
-      "detail": "run_summary includes reproducibility section."
+      "detail": "run_summary.json includes reproducibility section with seed=42."
+    },
+    {
+      "name": "validation_status_value",
+      "result": "pass",
+      "detail": "metrics.json validation.status = 'complete' (correct value)."
+    },
+    {
+      "name": "clean_validation_present",
+      "result": "warn",
+      "detail": "eval_ab_*.json not found in outputs/. If this artifact set is being used for a checkpoint deployment decision, clean (no-attack) baseline A/B validation is required before confirming readiness."
     }
   ],
   "issues": [
     {
       "severity": "warn",
       "type": "provenance",
-      "detail": "resolved_config.yaml not found; run remains analyzable but provenance depth is reduced."
+      "detail": "resolved_config.yaml not found; run is analyzable but full config provenance cannot be verified."
+    },
+    {
+      "severity": "warn",
+      "type": "provenance",
+      "detail": "eval_ab_*.json absent; clean checkpoint A/B validation not confirmed. Deployment decisions require this run (see clean_validation_present check)."
     }
   ],
   "ready_for_analysis": true

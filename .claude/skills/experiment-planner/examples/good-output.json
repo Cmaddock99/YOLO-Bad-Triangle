@@ -2,46 +2,73 @@
   "skill": "experiment-planner",
   "status": "ok",
   "planning_basis": {
-    "source_path": "outputs/framework_reports/20260330_091500",
+    "source_path": "outputs/cycle_history/cycle_20260329_125124.json",
     "budget": "max_runs=4",
-    "allowed_attacks": [
-      "fgsm",
-      "pgd",
-      "deepfool"
-    ],
-    "allowed_defenses": [
-      "c_dog",
-      "median_preprocess"
-    ]
+    "allowed_attacks": ["fgsm", "pgd", "deepfool", "square", "dispersion_reduction", "cw", "eot_pgd"],
+    "allowed_defenses": ["c_dog", "bit_depth", "jpeg_preprocess", "median_preprocess"]
   },
   "queue": [
     {
       "priority": 1,
-      "run_name_hint": "yolo26n__deepfool__c_dog",
+      "run_name_hint": "yolo26n__none__c_dog__clean_ab",
       "params": {
-        "attack": "deepfool",
+        "attack": "none",
         "defense": "c_dog",
         "runner.max_images": 500,
         "validation.enabled": true
       },
-      "expected_value": "Highest uncertainty reduction for weakest current recovery region.",
-      "cost_estimate": "high",
-      "stop_condition": "Stop if defended drop remains above 85% for two consecutive comparable runs.",
-      "risk_note": "Deepfool pair coverage is sparse in current cycle."
+      "expected_value": "Unblocks finetuned checkpoint deployment decision. Clean (no-attack) baseline is the only missing piece preventing a full pass on the adversarial finetuning A/B eval. Run both checkpoints (dpc_unet_final_golden.pt and dpc_unet_adversarial_finetuned.pt) and compare mAP50.",
+      "cost_estimate": "medium",
+      "stop_condition": "Single run sufficient — compare the two checkpoints and record delta.",
+      "risk_note": "Finetuned checkpoint has CONDITIONAL PASS on attacked conditions only. This run is required before any deployment decision. Use DPC_UNET_CHECKPOINT_PATH env var to switch checkpoints between runs."
     },
     {
       "priority": 2,
-      "run_name_hint": "yolo26n__pgd__median_preprocess",
+      "run_name_hint": "yolo26n__deepfool__c_dog__eps015",
       "params": {
-        "attack": "pgd",
-        "defense": "median_preprocess",
+        "attack": "deepfool",
+        "defense": "c_dog",
+        "attack.params.epsilon": 0.15,
+        "attack.params.steps": 50,
         "runner.max_images": 500,
         "validation.enabled": true
       },
-      "expected_value": "Cross-defense signal for second-highest damage attack.",
-      "cost_estimate": "medium",
-      "stop_condition": "Stop if recovery gain is below 3 percentage points versus c_dog baseline.",
-      "risk_note": "Potential apples-to-oranges comparison if image budgets diverge."
+      "expected_value": "Confirms whether finetuned checkpoint advantage holds under harder deepfool config (current Phase 4 tuned params used eps=0.1; A/B delta was only +0.006). Stronger epsilon should widen the performance gap if finetuning is genuinely effective.",
+      "cost_estimate": "high",
+      "stop_condition": "Stop if defended mAP50 under deepfool eps=0.15 drops below 0.15 — at that point the defense is no longer viable regardless of checkpoint.",
+      "risk_note": "deepfool damage at eps=0.1 was 63.6%. eps=0.15 may saturate. Compare only against same-param baseline to avoid comparability issues."
+    },
+    {
+      "priority": 3,
+      "run_name_hint": "yolo26n__dispersion_reduction__c_dog__full",
+      "params": {
+        "attack": "dispersion_reduction",
+        "defense": "c_dog",
+        "attack.params.epsilon": 0.15,
+        "attack.params.steps": 20,
+        "runner.max_images": 500,
+        "validation.enabled": true
+      },
+      "expected_value": "Upgrades dispersion_reduction Phase 4 result from 50-image cap to full 500-image dataset. Current recovery_pct of +7.0% for c_dog is based on a small sample and is not directly comparable to deepfool results.",
+      "cost_estimate": "high",
+      "stop_condition": "Single full-dataset run sufficient to resolve the image count mismatch anomaly.",
+      "risk_note": "dispersion_reduction estimated at ~30s/image — 500 images is approximately 4.2h NUC CPU. Run overnight. Current 50-image result (recovery +7.0%) may shift significantly at full scale."
+    },
+    {
+      "priority": 4,
+      "run_name_hint": "yolo26n__square__c_dog__eps04",
+      "params": {
+        "attack": "square",
+        "defense": "c_dog",
+        "attack.params.eps": 0.4,
+        "attack.params.n_queries": 450,
+        "runner.max_images": 50,
+        "validation.enabled": true
+      },
+      "expected_value": "Probes whether square attack is genuinely bounded at eps=0.3 or whether coordinate descent hit the search wall. If eps=0.4 increases damage substantially, expand eps_max in the next tune phase.",
+      "cost_estimate": "low",
+      "stop_condition": "If mAP50 drop at eps=0.4 is less than 3 percentage points larger than at eps=0.3, the bound is not a meaningful gap.",
+      "risk_note": "Parameter bound hit detected: square eps=0.3 was the configured max in Phase 4. This run requires manually overriding eps beyond the current auto_cycle bounds."
     }
   ],
   "blocked_by": []
