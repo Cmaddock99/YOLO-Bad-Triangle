@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "artifact-contract-checker output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "skill",
+    "run_path",
+    "status",
+    "required_files",
+    "optional_files",
+    "consistency_checks",
+    "issues",
+    "ready_for_analysis"
+  ],
+  "properties": {
+    "skill": {
+      "const": "artifact-contract-checker"
+    },
+    "run_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "warn",
+        "fail"
+      ]
+    },
+    "required_files": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "minProperties": 1
+    },
+    "optional_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "present"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "present": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "consistency_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "result",
+          "detail"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "warn",
+              "fail"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "severity",
+          "type",
+          "detail"
+        ],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "fail",
+              "warn"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "missing_required",
+              "consistency",
+              "provenance"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "ready_for_analysis": {
+      "type": "boolean"
+    }
+  }
+}

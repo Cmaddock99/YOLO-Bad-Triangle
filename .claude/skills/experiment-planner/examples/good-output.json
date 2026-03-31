@@ -1,0 +1,48 @@
+{
+  "skill": "experiment-planner",
+  "status": "ok",
+  "planning_basis": {
+    "source_path": "outputs/framework_reports/20260330_091500",
+    "budget": "max_runs=4",
+    "allowed_attacks": [
+      "fgsm",
+      "pgd",
+      "deepfool"
+    ],
+    "allowed_defenses": [
+      "c_dog",
+      "median_preprocess"
+    ]
+  },
+  "queue": [
+    {
+      "priority": 1,
+      "run_name_hint": "yolo26n__deepfool__c_dog",
+      "params": {
+        "attack": "deepfool",
+        "defense": "c_dog",
+        "runner.max_images": 500,
+        "validation.enabled": true
+      },
+      "expected_value": "Highest uncertainty reduction for weakest current recovery region.",
+      "cost_estimate": "high",
+      "stop_condition": "Stop if defended drop remains above 85% for two consecutive comparable runs.",
+      "risk_note": "Deepfool pair coverage is sparse in current cycle."
+    },
+    {
+      "priority": 2,
+      "run_name_hint": "yolo26n__pgd__median_preprocess",
+      "params": {
+        "attack": "pgd",
+        "defense": "median_preprocess",
+        "runner.max_images": 500,
+        "validation.enabled": true
+      },
+      "expected_value": "Cross-defense signal for second-highest damage attack.",
+      "cost_estimate": "medium",
+      "stop_condition": "Stop if recovery gain is below 3 percentage points versus c_dog baseline.",
+      "risk_note": "Potential apples-to-oranges comparison if image budgets diverge."
+    }
+  ],
+  "blocked_by": []
+}

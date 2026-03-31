@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "parity-judge output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "skill",
+    "status",
+    "inputs",
+    "comparability",
+    "metric_deltas",
+    "artifact_mismatches",
+    "likely_causes"
+  ],
+  "properties": {
+    "skill": {
+      "const": "parity-judge"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "inconclusive"
+      ]
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "legacy_root",
+        "framework_root",
+        "tolerances"
+      ],
+      "properties": {
+        "legacy_root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "framework_root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tolerances": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "comparability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "is_comparable",
+        "issues"
+      ],
+      "properties": {
+        "is_comparable": {
+          "type": "boolean"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "metric_deltas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "metric",
+          "legacy",
+          "framework",
+          "abs_delta",
+          "pct_delta",
+          "within_tolerance"
+        ],
+        "properties": {
+          "metric": {
+            "type": "string",
+            "minLength": 1
+          },
+          "legacy": {
+            "type": "number"
+          },
+          "framework": {
+            "type": "number"
+          },
+          "abs_delta": {
+            "type": "number"
+          },
+          "pct_delta": {
+            "type": "number"
+          },
+          "within_tolerance": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "artifact_mismatches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "detail"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "missing_file",
+              "schema_shape",
+              "count_mismatch",
+              "config_mismatch"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "likely_causes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

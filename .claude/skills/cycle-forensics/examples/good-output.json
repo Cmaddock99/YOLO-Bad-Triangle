@@ -1,0 +1,39 @@
+{
+  "skill": "cycle-forensics",
+  "cycle_path": "outputs/framework_reports/20260330_091500",
+  "status": "partial",
+  "rankings": {
+    "attack_damage": [
+      {
+        "attack": "deepfool",
+        "damage_pct": 88.7
+      },
+      {
+        "attack": "pgd",
+        "damage_pct": 41.2
+      }
+    ],
+    "defense_recovery": [
+      {
+        "attack": "pgd",
+        "defense": "c_dog",
+        "recovery_pct": 28.4
+      },
+      {
+        "attack": "fgsm",
+        "defense": "c_dog",
+        "recovery_pct": 24.1
+      }
+    ]
+  },
+  "anomalies": [
+    {
+      "type": "missing_pair",
+      "detail": "deepfool+c_dog row missing for one image budget, recovery ranking uses available pair only."
+    }
+  ],
+  "highlights": [
+    "deepfool remains the highest-damage attack in this cycle.",
+    "c_dog shows strongest recovery on pgd among comparable pairs."
+  ]
+}
