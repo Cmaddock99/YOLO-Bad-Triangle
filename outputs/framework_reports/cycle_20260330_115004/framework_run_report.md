@@ -1,6 +1,6 @@
 # Framework Run Comparison Report
 
-Total discovered framework runs: **8**
+Total discovered framework runs: **20**
 
 ## Run Inventory
 
@@ -14,6 +14,18 @@ Total discovered framework runs: **8**
 | `attack_pgd` | `yolo` | `pgd` | `none` | `missing` |  | 0.7503 |
 | `attack_square` | `yolo` | `square` | `none` | `missing` |  | 0.7183 |
 | `baseline_none` | `yolo` | `none` | `none` | `missing` |  | 0.7623 |
+| `defended_deepfool_bit_depth` | `yolo` | `deepfool` | `bit_depth` | `missing` |  | 0.7219 |
+| `defended_deepfool_c_dog` | `yolo` | `deepfool` | `c_dog` | `missing` |  | 0.7710 |
+| `defended_deepfool_jpeg_preprocess` | `yolo` | `deepfool` | `jpeg_preprocess` | `missing` |  | 0.7870 |
+| `defended_deepfool_median_preprocess` | `yolo` | `deepfool` | `median_preprocess` | `missing` |  | 0.7746 |
+| `defended_dispersion_reduction_bit_depth` | `yolo` | `dispersion_reduction` | `bit_depth` | `missing` |  | 0.7595 |
+| `defended_dispersion_reduction_c_dog` | `yolo` | `dispersion_reduction` | `c_dog` | `missing` |  | 0.7444 |
+| `defended_dispersion_reduction_jpeg_preprocess` | `yolo` | `dispersion_reduction` | `jpeg_preprocess` | `missing` |  | 0.7423 |
+| `defended_dispersion_reduction_median_preprocess` | `yolo` | `dispersion_reduction` | `median_preprocess` | `missing` |  | 0.7469 |
+| `defended_square_bit_depth` | `yolo` | `square` | `bit_depth` | `missing` |  | 0.7400 |
+| `defended_square_c_dog` | `yolo` | `square` | `c_dog` | `missing` |  | 0.7468 |
+| `defended_square_jpeg_preprocess` | `yolo` | `square` | `jpeg_preprocess` | `missing` |  | 0.7403 |
+| `defended_square_median_preprocess` | `yolo` | `square` | `median_preprocess` | `missing` |  | 0.7397 |
 
 ## Attack Effectiveness
 
@@ -29,7 +41,20 @@ Total discovered framework runs: **8**
 
 ## Defense Recovery
 
-No defended runs found. Run with `--defenses` to enable defense sweep.
+| Model | Attack | Defense | Objective | Target class | ROI | mAP50 attacked | mAP50 defended | Recovery |
+|---|---|---|---|---:|---|---:|---:|---:|
+| `yolo` | `deepfool` | `bit_depth` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `c_dog` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `jpeg_preprocess` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `median_preprocess` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `dispersion_reduction` | `bit_depth` | `` |  | `` |  |  |  |
+| `yolo` | `dispersion_reduction` | `c_dog` | `` |  | `` |  |  |  |
+| `yolo` | `dispersion_reduction` | `jpeg_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `dispersion_reduction` | `median_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `bit_depth` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `c_dog` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `jpeg_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `median_preprocess` | `` |  | `` |  |  |  |
 
 ## Per-Class Detection Drop
 
