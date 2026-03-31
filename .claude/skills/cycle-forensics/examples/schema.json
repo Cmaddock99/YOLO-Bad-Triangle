@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "cycle-forensics output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "skill",
+    "cycle_path",
+    "status",
+    "rankings",
+    "anomalies",
+    "highlights"
+  ],
+  "properties": {
+    "skill": {
+      "const": "cycle-forensics"
+    },
+    "cycle_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "partial",
+        "insufficient_data"
+      ]
+    },
+    "rankings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attack_damage",
+        "defense_recovery"
+      ],
+      "properties": {
+        "attack_damage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "attack",
+              "damage_pct"
+            ],
+            "properties": {
+              "attack": {
+                "type": "string",
+                "minLength": 1
+              },
+              "damage_pct": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "defense_recovery": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "attack",
+              "defense",
+              "recovery_pct"
+            ],
+            "properties": {
+              "attack": {
+                "type": "string",
+                "minLength": 1
+              },
+              "defense": {
+                "type": "string",
+                "minLength": 1
+              },
+              "recovery_pct": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "anomalies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "detail"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "missing_pair",
+              "image_count_mismatch",
+              "outlier_shift",
+              "missing_data"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "highlights": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

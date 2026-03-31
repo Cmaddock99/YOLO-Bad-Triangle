@@ -1,0 +1,36 @@
+{
+  "skill": "artifact-contract-checker",
+  "run_path": "outputs/framework_runs/yolo26n__fgsm__c_dog",
+  "status": "warn",
+  "required_files": {
+    "metrics.json": true,
+    "predictions.jsonl": true,
+    "run_summary.json": true
+  },
+  "optional_files": [
+    {
+      "path": "outputs/framework_runs/yolo26n__fgsm__c_dog/resolved_config.yaml",
+      "present": false
+    }
+  ],
+  "consistency_checks": [
+    {
+      "name": "prediction_count_alignment",
+      "result": "pass",
+      "detail": "Prediction records align with reported processed image count."
+    },
+    {
+      "name": "reproducibility_field_presence",
+      "result": "pass",
+      "detail": "run_summary includes reproducibility section."
+    }
+  ],
+  "issues": [
+    {
+      "severity": "warn",
+      "type": "provenance",
+      "detail": "resolved_config.yaml not found; run remains analyzable but provenance depth is reduced."
+    }
+  ],
+  "ready_for_analysis": true
+}
