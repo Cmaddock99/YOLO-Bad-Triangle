@@ -200,6 +200,13 @@ FLAGGED_DEFENSES: set[str] = set()
 # so the retraining loop can measure improvement across cycles.
 PINNED_DEFENSES: list[str] = ["c_dog"]
 
+# Populated at startup from the warm-start file. Defenses that had negative
+# average mAP50 recovery across all measured attacks in the previous cycle's
+# Phase 4 are excluded from Phase 2 promotion. Resets each cycle — a defense
+# that improves in Phase 4 next cycle is automatically un-demoted.
+# PINNED_DEFENSES always override this (c_dog is never demoted).
+PHASE4_DEMOTED_DEFENSES: set[str] = set()
+
 
 # ── Startup param-space validation ────────────────────────────────────────────
 
@@ -538,6 +545,51 @@ def phase2(state: dict) -> bool:
     return True
 
 
+def _compute_phase4_demotions(validation_results: dict) -> list[str]:
+    """Return defenses whose average mAP50 recovery across all Phase 4 attacks is negative.
+
+    These defenses made things worse on net in the last full-dataset validation.
+    They are excluded from Phase 2 promotion in the next cycle so the smoke-run
+    composite metric cannot keep promoting defenses that degrade mAP50 under attack.
+    """
+    baseline_entry = validation_results.get("validate_baseline", {})
+    baseline_map50 = baseline_entry.get("mAP50")
+    if not baseline_map50:
+        return []
+
+    recovery_by_defense: dict[str, list[float]] = {}
+    for key, val in validation_results.items():
+        if not key.startswith("validate_") or key.startswith("validate_atk_") or key == "validate_baseline":
+            continue
+        # key format: validate_<attack>_<defense>
+        suffix = key[len("validate_"):]
+        # split on last underscore to get defense — handles multi-word attack names
+        for defense in ALL_DEFENSES:
+            if suffix.endswith(f"_{defense}"):
+                attack_key = "validate_atk_" + suffix[: -(len(defense) + 1)]
+                atk_map50 = validation_results.get(attack_key, {}).get("mAP50")
+                def_map50 = val.get("mAP50")
+                if atk_map50 is None or def_map50 is None:
+                    break
+                denom = baseline_map50 - atk_map50
+                if abs(denom) < 1e-6:
+                    break
+                recovery = (def_map50 - atk_map50) / denom
+                recovery_by_defense.setdefault(defense, []).append(recovery)
+                break
+
+    demoted = []
+    for defense, vals in recovery_by_defense.items():
+        if not vals:
+            continue
+        avg = sum(vals) / len(vals)
+        if avg < 0.0:
+            demoted.append(defense)
+            log(f"  [phase4-demotion] {defense}: avg mAP50 recovery={avg:+.3f} across "
+                f"{len(vals)} attack(s) — excluded from Phase 2 promotion next cycle")
+    return demoted
+
+
 def _rank_defenses(state: dict) -> list[str]:
     runs_root = Path(state["runs_root"])
     baseline_m = read_metrics(runs_root / "baseline_none")
@@ -572,7 +624,18 @@ def _rank_defenses(state: dict) -> list[str]:
         log(f"  {defense:25s}  avg_composite_recovery={avg:.3f}  (n={len(vals)})")
 
     avg_scores.sort(reverse=True)
-    top = [d for _, d in avg_scores[:TOP_N_DEFENSES]]
+
+    # Exclude defenses demoted by Phase 4 mAP50 evidence from the previous cycle.
+    # PINNED_DEFENSES (c_dog) are never excluded regardless of demotion status.
+    eligible = [
+        (score, d) for score, d in avg_scores
+        if d not in PHASE4_DEMOTED_DEFENSES or d in PINNED_DEFENSES
+    ]
+    for _, d in avg_scores:
+        if d in PHASE4_DEMOTED_DEFENSES and d not in PINNED_DEFENSES:
+            log(f"  {d:25s}  DEMOTED — negative Phase 4 mAP50 recovery last cycle; skipping Phase 2 promotion")
+
+    top = [d for _, d in eligible[:TOP_N_DEFENSES]]
 
     # Ensure pinned defenses are always included (e.g. c_dog for retraining loop)
     for pd in PINNED_DEFENSES:
@@ -1213,6 +1276,9 @@ def save_cycle_history(state: dict) -> None:
     os.replace(tmp, out)
     log(f"Cycle history saved: {out}")
 
+    # Store on state so carry_forward_params() can compute Phase 4 demotions.
+    state["validation_results"] = validation_results
+
     _write_training_signal(state, validation_results)
     _update_cycle_report()
 
@@ -1730,8 +1796,17 @@ def carry_forward_params(state: dict) -> None:
                 space[key]["init"] = val
                 log(f"  carry-forward: {defense} {key} init → {val}")
 
+    # Compute Phase 4 demotions so the next cycle's Phase 2 skips defenses
+    # that had negative average mAP50 recovery in full-dataset validation.
+    demoted = _compute_phase4_demotions(state.get("validation_results", {}))
+    if demoted:
+        log(f"  carry-forward: demoted defenses (negative Phase 4 recovery): {demoted}")
+    else:
+        log("  carry-forward: no defenses demoted (all had non-negative Phase 4 recovery)")
+
     # Persist so the next process invocation picks up from here too
     warm = {"attack_params": best_atk, "defense_params": best_def,
+            "demoted_defenses": demoted,
             "saved_at": datetime.now().isoformat(),
             "cycle_id": state.get("cycle_id")}
     OUTPUTS.mkdir(parents=True, exist_ok=True)
@@ -1769,6 +1844,15 @@ def load_warm_start() -> None:
         for key, val in params.items():
             if key in space:
                 space[key]["init"] = val
+
+    # Restore Phase 4 demotions so the smoke-run Phase 2 ranker skips defenses
+    # that degraded mAP50 in the previous cycle's full-dataset validation.
+    demoted = warm.get("demoted_defenses", [])
+    if demoted:
+        for d in demoted:
+            if d not in PINNED_DEFENSES:
+                PHASE4_DEMOTED_DEFENSES.add(d)
+        log(f"  warm-start: Phase 2 demotions restored: {sorted(PHASE4_DEMOTED_DEFENSES)}")
 
     log(f"Warm-start loaded from {WARM_START_FILE} "
         f"(cycle: {warm.get('cycle_id', 'unknown')})")
