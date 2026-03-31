@@ -44,6 +44,10 @@ from pathlib import Path
 REPO = Path(__file__).parent.parent
 PYTHON = REPO / ".venv" / "bin" / "python"
 
+# Written automatically when --attack none is used. Presence of this file
+# enables research_brief.py to run after every cycle in auto_cycle.py.
+CLEAN_VALIDATION_SENTINEL = REPO / "outputs" / "eval_ab_clean.json"
+
 
 def _env(checkpoint_path: str) -> dict:
     env = {
@@ -198,6 +202,14 @@ def evaluate(
         output_json.parent.mkdir(parents=True, exist_ok=True)
         output_json.write_text(json.dumps(result, indent=2))
         print(f"\nResult written to: {output_json}")
+
+    # Auto-write clean validation sentinel when attack=none.
+    # This enables research_brief.py to run after every subsequent cycle.
+    if attack in ("none", ""):
+        CLEAN_VALIDATION_SENTINEL.parent.mkdir(parents=True, exist_ok=True)
+        CLEAN_VALIDATION_SENTINEL.write_text(json.dumps(result, indent=2))
+        print(f"\nClean validation sentinel written to: {CLEAN_VALIDATION_SENTINEL}")
+        print("research_brief.py will now run automatically after each cycle.")
 
     return 0 if delta >= -0.001 else 1
 

@@ -41,6 +41,35 @@ Shared project guidance for YOLO-Bad-Triangle skills and code changes.
 - Reporting outputs must stay deterministic and machine-parseable where a schema is defined.
 - If evidence is partial, downgrade status rather than filling gaps with assumptions.
 
+## Skills & analysis conventions
+
+### Checkpoint facts (current as of 2026-03-30)
+
+- `dpc_unet_final_golden.pt` — production baseline. Active via `DPC_UNET_CHECKPOINT_PATH` in `.env`.
+- `dpc_unet_adversarial_finetuned.pt` — adversarially finetuned checkpoint. Status: **CONDITIONAL PASS**.
+  - A/B eval (deepfool eps=0.1): finetuned +0.006 mAP50 (marginal)
+  - A/B eval (square eps=0.3): finetuned +0.027 mAP50 (meaningful)
+  - Clean (no-attack) A/B: **NOT YET RUN** — do not declare deployment readiness until this completes.
+
+### Canonical paths for skills
+
+- Cycle history: `outputs/cycle_history/<cycle_id>.json` (newest = latest cycle)
+- Cycle state: `outputs/cycle_state.json`
+- A/B eval artifacts: `outputs/eval_ab_*.json` (may not exist)
+- Framework reports: `outputs/framework_reports/<sweep_id>/`
+
+### mAP50 source rule
+
+Use Phase 4 `validate_*` rows from `cycle_history/<cycle_id>.json` as the authoritative source for mAP50. Phase 1/2 smoke runs use detection confidence metrics and are not comparable to Phase 4 full-dataset mAP50 values.
+
+### auto_summary false-positive warning
+
+`generate_auto_summary.py` may emit false-positive `NO_VALIDATION` and `DEFENSE_DEGRADES_PERFORMANCE` warnings. Root cause: Phase 1 smoke runs are processed before Phase 4 `validate_*` rows and may shadow them. Do not propagate these warnings without verifying that the source row in `validation_results` is from Phase 4.
+
+### Evidence integrity rule
+
+Do not infer missing evidence. If a metric, file, or result is absent, record it as unknown or missing explicitly — do not fill the gap with assumptions or interpolation.
+
 ## Maintenance guidance for skills
 
 - Keep project-wide rules in this file; keep each skill task-specific.
