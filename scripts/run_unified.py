@@ -65,6 +65,17 @@ def main() -> None:
     sweep.add_argument("--runs-root", default=None)
     sweep.add_argument("--report-root", default=None)
     sweep.add_argument("--attacks", default=None)
+    sweep.add_argument("--defenses", default=None)
+    sweep.add_argument("--preset", choices=("smoke", "full"), default=None)
+    sweep.add_argument("--workers", default=None)
+    sweep.add_argument("--phases", default=None)
+    sweep.add_argument("--seed", type=int, default=None)
+    sweep.add_argument("--max-images", type=int, default=None)
+    sweep.add_argument("--resume", action="store_true")
+    sweep.add_argument("--skip-errors", action="store_true")
+    sweep.add_argument("--team-summary", dest="team_summary", action="store_true")
+    sweep.add_argument("--no-team-summary", dest="team_summary", action="store_false")
+    sweep.set_defaults(team_summary=None)
     sweep.add_argument("--validation-enabled", action="store_true")
 
     args = parser.parse_args()
@@ -100,6 +111,26 @@ def main() -> None:
         command.extend(["--report-root", str(args.report_root)])
     if args.attacks:
         command.extend(["--attacks", str(args.attacks)])
+    if args.defenses:
+        command.extend(["--defenses", str(args.defenses)])
+    if args.preset:
+        command.extend(["--preset", str(args.preset)])
+    if args.workers:
+        command.extend(["--workers", str(args.workers)])
+    if args.phases:
+        command.extend(["--phases", str(args.phases)])
+    if args.seed is not None:
+        command.extend(["--seed", str(args.seed)])
+    if args.max_images is not None:
+        command.extend(["--max-images", str(args.max_images)])
+    if args.resume:
+        command.append("--resume")
+    if args.skip_errors:
+        command.append("--skip-errors")
+    if args.team_summary is True:
+        command.append("--team-summary")
+    if args.team_summary is False:
+        command.append("--no-team-summary")
     if args.validation_enabled:
         command.append("--validation-enabled")
     raise SystemExit(_run(command, component="run-unified", env=runtime_env))

@@ -103,7 +103,11 @@ def _run_command(
     _write(f"$ {rendered}", bar=bar)
     if dry_run:
         return True
-    result = subprocess.run(command, capture_output=True, text=True)
+    runtime_env = os.environ.copy()
+    src_path = str((REPO_ROOT / "src").resolve())
+    existing = runtime_env.get("PYTHONPATH", "")
+    runtime_env["PYTHONPATH"] = f"{src_path}:{existing}" if existing else src_path
+    result = subprocess.run(command, capture_output=True, text=True, env=runtime_env)
     if result.returncode != 0:
         if result.stdout:
             _write(result.stdout.rstrip(), bar=bar)
