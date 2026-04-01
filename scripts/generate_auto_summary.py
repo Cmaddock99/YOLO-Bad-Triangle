@@ -14,6 +14,7 @@ Outputs (written to --output-dir, default outputs/summaries/<runs_root_name>/):
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -92,7 +93,6 @@ def main() -> None:
         print(f"  {name:25s} {path}  ({size:,} bytes)")
 
     # Print warning count from warnings.json
-    import json
     warnings_data = json.loads(paths["warnings_json"].read_text(encoding="utf-8"))
     n_warnings = warnings_data.get("warning_count", 0)
     if n_warnings:
