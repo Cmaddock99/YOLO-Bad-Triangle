@@ -4,6 +4,9 @@ import math
 import unittest
 
 from lab.eval.framework_metrics import (
+    VALIDATION_STATUS_COMPLETE,
+    VALIDATION_STATUS_MISSING,
+    is_validation_success,
     sanitize_validation_metrics,
     summarize_prediction_metrics,
     validation_status,
@@ -51,6 +54,10 @@ class FrameworkMetricsTest(unittest.TestCase):
         self.assertAlmostEqual(summary["detections_per_image_mean"], 0.5)
         self.assertEqual(summary["confidence"]["count"], 1)
         self.assertAlmostEqual(summary["confidence"]["mean"], 0.9)
+
+    def test_is_validation_success_helper(self) -> None:
+        self.assertTrue(is_validation_success(VALIDATION_STATUS_COMPLETE))
+        self.assertFalse(is_validation_success(VALIDATION_STATUS_MISSING))
 
 
 if __name__ == "__main__":

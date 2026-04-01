@@ -51,7 +51,7 @@ def generate_summary(
     baseline_metrics: dict[str, Any] | None,
     attack_metrics: dict[str, Any] | None,
     defense_metrics: dict[str, Any] | None = None,
-) -> dict[str, float | str | None]:
+) -> dict[str, Any]:
     baseline_detections = _extract_total_detections(baseline_metrics)
     attack_detections = _extract_total_detections(attack_metrics)
     defense_detections = _extract_total_detections(defense_metrics)
@@ -68,6 +68,13 @@ def generate_summary(
     confidence_drop = compute_confidence_drop(baseline_avg_conf, attack_avg_conf)
 
     return {
+        "metric_basis": {
+            "attack_effectiveness": "normalized_detection_drop",
+            "defense_recovery": "normalized_detection_recovery",
+            "confidence_drop": "normalized_confidence_drop",
+        },
+        "attack_effectiveness_detection": detection_drop,
+        "defense_recovery_detection": defense_recovery,
         "attack_effectiveness": detection_drop,
         "defense_recovery": defense_recovery,
         "confidence_drop": confidence_drop,

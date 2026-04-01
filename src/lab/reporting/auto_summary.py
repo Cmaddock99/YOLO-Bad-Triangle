@@ -117,12 +117,31 @@ def _attacked_for(
     model: str,
     seed: int,
     attack: str,
+    *,
+    attack_signature: str | None = None,
 ) -> FrameworkRunRecord | None:
+    if attack_signature:
+        matched = next(
+            (
+                r
+                for r in records
+                if r.model == model
+                and r.seed == seed
+                and r.attack_signature == attack_signature
+                and is_none_like(r.defense)
+            ),
+            None,
+        )
+        if matched is not None:
+            return matched
     return next(
-        (r for r in records
-         if r.model == model and r.seed == seed
-         and normalize_name(r.attack) == attack
-         and is_none_like(r.defense)),
+        (
+            r
+            for r in records
+            if r.model == model and r.seed == seed
+            and normalize_name(r.attack) == attack
+            and is_none_like(r.defense)
+        ),
         None,
     )
 
@@ -216,7 +235,13 @@ def build_auto_summary_payload(
     for row in recovery_rows:
         model, seed, attack = row["model"], row["seed"], row["attack"]
         baseline_rec = _baseline_for(records, model, seed)
-        attacked_rec = _attacked_for(records, model, seed, attack)
+        attacked_rec = _attacked_for(
+            records,
+            model,
+            seed,
+            attack,
+            attack_signature=row.get("attack_signature"),
+        )
 
         b_det = _get_total_detections(baseline_rec) if baseline_rec else None
         a_det = _get_total_detections(attacked_rec) if attacked_rec else None
@@ -261,10 +286,17 @@ def build_auto_summary_payload(
 
         # Try to find any defended run for this attack
         defended_rec = next(
-            (r for r in records
-             if r.model == model and r.seed == seed
-             and normalize_name(r.attack) == attack
-             and not is_none_like(r.defense)),
+            (
+                r
+                for r in records
+                if r.model == model
+                and r.seed == seed
+                and not is_none_like(r.defense)
+                and (
+                    (attacked_rec is not None and r.attack_signature == attacked_rec.attack_signature)
+                    or normalize_name(r.attack) == attack
+                )
+            ),
             None,
         )
         row["objective_mode"] = attacked_rec.objective_mode if attacked_rec else None

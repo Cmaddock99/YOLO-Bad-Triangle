@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 
 class PredictionRecord(TypedDict):
@@ -39,4 +39,4 @@ def validate_prediction_record(record: dict[str, Any], *, index: int) -> None:
 
 def validate_prediction_records(records: list[PredictionRecord]) -> None:
     for idx, record in enumerate(records):
-        validate_prediction_record(record, index=idx)
+        validate_prediction_record(cast(dict[str, Any], record), index=idx)

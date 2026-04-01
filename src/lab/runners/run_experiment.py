@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import platform as _platform
 import random
 import sys
+import traceback
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -26,6 +29,7 @@ from lab.attacks.framework_registry import build_attack_plugin, list_available_a
 from lab.attacks.utils import iter_images
 from lab.defenses.framework_registry import build_defense_plugin, list_available_defense_plugins
 from lab.eval.framework_metrics import (
+    VALIDATION_STATUS_VALUES,
     sanitize_validation_metrics,
     summarize_prediction_metrics,
     validation_status,
@@ -83,7 +87,7 @@ def _assert_metrics_payload_contract(metrics_payload: dict[str, Any]) -> None:
         raise ValueError("metrics payload validation section must be a mapping.")
     if "status" not in validation:
         raise ValueError("metrics payload validation section missing required 'status' key.")
-    allowed_status = {"missing", "partial", "complete", "error"}
+    allowed_status = set(VALIDATION_STATUS_VALUES)
     status = validation["status"]
     if status not in allowed_status:
         raise ValueError(
@@ -108,6 +112,54 @@ def _is_none_name(name: str) -> bool:
     return name.strip().lower() in {"", "none", "identity"}
 
 
+def _stable_signature(payload: Any) -> str:
+    try:
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    except (TypeError, ValueError):
+        return "{}"
+
+
+def _sha256_file(path: Path) -> str | None:
+    try:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError:
+        return None
+
+
+def _build_attack_signature(
+    *,
+    attack_name: str,
+    attack_params: dict[str, Any],
+    resolved_objective: dict[str, Any],
+) -> str:
+    return _stable_signature(
+        {
+            "attack_name": attack_name.strip().lower(),
+            "objective_mode": resolved_objective.get("objective_mode") or attack_params.get("objective_mode"),
+            "target_class": (
+                resolved_objective.get("target_class")
+                if resolved_objective.get("target_class") is not None
+                else attack_params.get("target_class")
+            ),
+            "attack_roi": resolved_objective.get("attack_roi") or attack_params.get("attack_roi"),
+            "attack_params": attack_params,
+        }
+    )
+
+
+def _build_defense_signature(*, defense_name: str, defense_params: dict[str, Any]) -> str:
+    return _stable_signature(
+        {
+            "defense_name": defense_name.strip().lower(),
+            "defense_params": defense_params,
+        }
+    )
+
+
 def _collect_summary_candidates(
     *,
     output_root: Path,
@@ -123,6 +175,8 @@ def _collect_summary_candidates(
             "run_dir": current_run_dir,
             "attack": current_attack_name,
             "defense": current_defense_name,
+            "attack_signature": "",
+            "defense_signature": "",
             "metrics": current_metrics,
         }
     ]
@@ -152,6 +206,15 @@ def _collect_summary_candidates(
                 "run_dir": run_dir,
                 "attack": str((summary_payload.get("attack") or {}).get("name", "none")),
                 "defense": str((summary_payload.get("defense") or {}).get("name", "none")),
+                "attack_signature": _build_attack_signature(
+                    attack_name=str((summary_payload.get("attack") or {}).get("name", "none")),
+                    attack_params=dict((summary_payload.get("attack") or {}).get("params") or {}),
+                    resolved_objective=dict((summary_payload.get("attack") or {}).get("resolved_objective") or {}),
+                ),
+                "defense_signature": _build_defense_signature(
+                    defense_name=str((summary_payload.get("defense") or {}).get("name", "none")),
+                    defense_params=dict((summary_payload.get("defense") or {}).get("params") or {}),
+                ),
                 "metrics": metrics_payload,
             }
         )
@@ -162,6 +225,8 @@ def _select_related_summary_metrics(
     candidates: list[dict[str, Any]],
     *,
     current_attack_name: str,
+    current_attack_signature: str,
+    current_defense_signature: str,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
     baseline_candidate = next(
         (
@@ -191,7 +256,10 @@ def _select_related_summary_metrics(
         (
             item
             for item in candidates
-            if str(item.get("attack", "")).strip().lower() == attack_name
+            if (
+                str(item.get("attack_signature", "")) == current_attack_signature
+                or str(item.get("attack", "")).strip().lower() == attack_name
+            )
             and _is_none_name(str(item.get("defense", "none")))
         ),
         None,
@@ -200,8 +268,11 @@ def _select_related_summary_metrics(
         (
             item
             for item in candidates
-            if str(item.get("attack", "")).strip().lower() == attack_name
-            and not _is_none_name(str(item.get("defense", "none")))
+            if (
+                str(item.get("attack_signature", "")) == current_attack_signature
+                or str(item.get("attack", "")).strip().lower() == attack_name
+            )
+            and str(item.get("defense_signature", "")) == current_defense_signature
         ),
         None,
     )
@@ -334,6 +405,9 @@ class UnifiedExperimentRunner:
         validation_params = dict(as_mapping(validation_cfg, "params"))
         raw_validation_metrics: dict[str, Any] | None = None
         validation_error: str | None = None
+        validation_traceback: str | None = None
+        capability_supported = validation_enabled
+        capability_reason: str | None = None
         if validation_enabled:
             if not validation_dataset:
                 raise ValueError(
@@ -370,16 +444,30 @@ class UnifiedExperimentRunner:
                 raw_validation_metrics = model.validate(str(attacked_yaml), **validation_params)
             except Exception as exc:  # pragma: no cover - runtime path
                 validation_error = str(exc)
+                validation_traceback = traceback.format_exc(limit=12)
+        if isinstance(raw_validation_metrics, dict):
+            raw_status = str(raw_validation_metrics.get("_status") or "").strip().lower()
+            if raw_status == "not_supported":
+                capability_supported = False
+                capability_reason = "model_adapter_reports_not_supported"
         cleaned = sanitize_validation_metrics(raw_validation_metrics)
         state = validation_status(cleaned)
         if validation_error is not None:
             state = "error"
+            if capability_reason is None and validation_enabled:
+                capability_reason = "validation_runtime_error"
         if state == "partial":
             print(
                 "WARNING: validation metrics are partial — some metrics could not be computed. "
                 "Check that a validation dataset was provided and is accessible."
             )
-        return {**cleaned, "status": state}, validation_error
+        return {
+            **cleaned,
+            "status": state,
+            "capability_supported": capability_supported,
+            "capability_reason": capability_reason,
+            "error_traceback": validation_traceback,
+        }, validation_error
 
     def _generate_experiment_summary(
         self,
@@ -389,6 +477,9 @@ class UnifiedExperimentRunner:
         seed: int,
         attack_name: str,
         defense_name: str,
+        attack_params: dict[str, Any],
+        defense_params: dict[str, Any],
+        attack_metadata: dict[str, Any],
         metrics_payload: dict[str, Any],
         runner_cfg: dict[str, Any],
     ) -> None:
@@ -408,8 +499,22 @@ class UnifiedExperimentRunner:
             current_defense_name=defense_name,
             current_metrics=metrics_payload,
         )
+        current_attack_signature = _build_attack_signature(
+            attack_name=attack_name,
+            attack_params=attack_params,
+            resolved_objective=attack_metadata,
+        )
+        current_defense_signature = _build_defense_signature(
+            defense_name=defense_name,
+            defense_params=defense_params,
+        )
+        candidates[0]["attack_signature"] = current_attack_signature
+        candidates[0]["defense_signature"] = current_defense_signature
         baseline_metrics, attack_metrics, defense_metrics = _select_related_summary_metrics(
-            candidates, current_attack_name=attack_name
+            candidates,
+            current_attack_name=attack_name,
+            current_attack_signature=current_attack_signature,
+            current_defense_signature=current_defense_signature,
         )
         if baseline_metrics is None or attack_metrics is None:
             print(
@@ -512,6 +617,15 @@ class UnifiedExperimentRunner:
                 "error": validation_error,
             },
             "predictions": prediction_metrics,
+            "provenance": {
+                "transform_order": [
+                    "defense.preprocess",
+                    "attack.apply",
+                    "model.predict",
+                    "defense.postprocess",
+                ],
+                "attack_applied": attack is not None,
+            },
         }
         _assert_metrics_payload_contract(metrics_payload)
         metrics_file = run_dir / "metrics.json"
@@ -523,6 +637,9 @@ class UnifiedExperimentRunner:
             seed=seed,
             attack_name=attack_name or "none",
             defense_name=defense_name or "none",
+            attack_params=attack_params,
+            defense_params=defense_params,
+            attack_metadata=attack_metadata,
             metrics_payload=metrics_payload,
             runner_cfg=runner_cfg,
         )
@@ -532,6 +649,27 @@ class UnifiedExperimentRunner:
             yaml.safe_dump(_normalized_config_for_output(self.config), sort_keys=False),
             encoding="utf-8",
         )
+        config_fingerprint = _sha256_file(resolved_config_file)
+        checkpoint_candidates: list[str] = []
+        model_path_candidate = str(model_params.get("model", "")).strip()
+        if model_path_candidate:
+            checkpoint_candidates.append(model_path_candidate)
+        defense_checkpoint = str(defense_params.get("checkpoint_path", "")).strip()
+        if defense_checkpoint:
+            checkpoint_candidates.append(defense_checkpoint)
+        env_checkpoint = str(os.environ.get("DPC_UNET_CHECKPOINT_PATH", "")).strip()
+        if env_checkpoint:
+            checkpoint_candidates.append(env_checkpoint)
+        checkpoint_fingerprint: str | None = None
+        checkpoint_source: str | None = None
+        for candidate in checkpoint_candidates:
+            path = Path(candidate).expanduser()
+            if not path.is_absolute():
+                path = (Path.cwd() / path).resolve()
+            if path.is_file():
+                checkpoint_fingerprint = _sha256_file(path)
+                checkpoint_source = str(path)
+                break
 
         run_summary = {
             "schema_version": FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
@@ -547,13 +685,35 @@ class UnifiedExperimentRunner:
             "attack": {
                 "name": attack_name or "none",
                 "params": attack_params,
+                "signature": _build_attack_signature(
+                    attack_name=attack_name or "none",
+                    attack_params=attack_params,
+                    resolved_objective=attack_metadata,
+                ),
                 "resolved_objective": {
                     "objective_mode": attack_metadata.get("objective_mode"),
                     "target_class": attack_metadata.get("target_class"),
                     "attack_roi": attack_metadata.get("attack_roi"),
+                    "preserve_weight": attack_metadata.get("preserve_weight"),
                 },
             },
-            "defense": {"name": defense_name or "none", "params": defense_params},
+            "defense": {
+                "name": defense_name or "none",
+                "params": defense_params,
+                "signature": _build_defense_signature(
+                    defense_name=defense_name or "none",
+                    defense_params=defense_params,
+                ),
+            },
+            "pipeline": {
+                "transform_order": [
+                    "defense.preprocess",
+                    "attack.apply",
+                    "model.predict",
+                    "defense.postprocess",
+                ],
+                "attack_applied": attack is not None,
+            },
             "predict": predict_cfg,
             "validation": metrics_payload["validation"],
             "metrics_path": str(metrics_file),
@@ -563,6 +723,12 @@ class UnifiedExperimentRunner:
                 "torch_version": torch.__version__,
                 "platform": f"{sys.platform}-{_platform.machine()}",
                 "torch_seeded": True,
+            },
+            "provenance": {
+                "config_fingerprint_sha256": config_fingerprint,
+                "config_fingerprint_source": str(resolved_config_file),
+                "checkpoint_fingerprint_sha256": checkpoint_fingerprint,
+                "checkpoint_fingerprint_source": checkpoint_source,
             },
         }
         summary_file = run_dir / "run_summary.json"

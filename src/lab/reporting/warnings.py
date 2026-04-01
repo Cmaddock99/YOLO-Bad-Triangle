@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from lab.eval.framework_metrics import is_validation_success
+
 # Warning codes
 WARN_NO_BASELINE = "NO_BASELINE"
 WARN_MULTIPLE_BASELINES = "MULTIPLE_BASELINES"
@@ -46,7 +48,7 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
         )
 
     has_validation = any(
-        r.get("validation_status") == "success"
+        is_validation_success(r.get("validation_status"))
         for r in payload.get("attack_effectiveness_rows") or []
     )
     if not has_validation:
