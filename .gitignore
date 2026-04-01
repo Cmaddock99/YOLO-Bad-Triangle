@@ -10,6 +10,9 @@ venv/
 
 # Experiment outputs — ignore raw run data but keep summaries and reports
 outputs/framework_runs/
+outputs/report_tables/
+outputs/summaries/
+outputs/training_data/
 outputs/cycle_state.json
 outputs/cw_tune_state.json
 outputs/.cycle.lock
@@ -24,6 +27,8 @@ attacks/*/images/
 # Model artifacts
 *.pt
 *.pth
+*.pt.bak
+*.pt.bak*
 
 # Datasets
 coco/

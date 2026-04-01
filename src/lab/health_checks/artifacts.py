@@ -5,6 +5,7 @@ from pathlib import Path
 
 _ARTIFACT_SETS: dict[str, tuple[str, ...]] = {
     "demo_gate": ("metrics.json", "run_summary.json", "predictions.jsonl"),
+    "framework_run": ("metrics.json", "run_summary.json", "predictions.jsonl", "resolved_config.yaml"),
     "compat": ("metrics.json", "run_summary.json"),
 }
 

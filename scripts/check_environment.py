@@ -83,8 +83,47 @@ def check_dataset_path(dataset_path: str) -> CheckResult:
         if not ok
         else None
     )
-    label = "Dataset found" if ok else "Dataset missing"
-    return CheckResult(label, ok, instruction=instruction, detail=str(path))
+    if not ok:
+        return CheckResult("Dataset missing", False, instruction=instruction, detail=str(path))
+
+    image_files = [
+        *path.glob("*.jpg"),
+        *path.glob("*.jpeg"),
+        *path.glob("*.png"),
+    ]
+    labels_dir = path.parent / "labels"
+    if not image_files:
+        return CheckResult(
+            "Dataset missing images",
+            False,
+            instruction="Ensure dataset image directory contains .jpg/.jpeg/.png files.",
+            detail=str(path),
+        )
+    if not labels_dir.is_dir():
+        return CheckResult(
+            "Dataset labels missing",
+            False,
+            instruction="Expected sibling labels directory beside images (../labels).",
+            detail=str(labels_dir),
+        )
+    sample_images = sorted(image_files)[: min(25, len(image_files))]
+    missing_labels = [
+        image_path.name
+        for image_path in sample_images
+        if not (labels_dir / f"{image_path.stem}.txt").is_file()
+    ]
+    if missing_labels:
+        return CheckResult(
+            "Dataset label pairing failed",
+            False,
+            instruction="Add matching .txt labels for sampled images in ../labels.",
+            detail=f"missing labels for: {', '.join(missing_labels[:5])}",
+        )
+    return CheckResult(
+        "Dataset found",
+        True,
+        detail=f"{path} (sampled_pairs_ok={len(sample_images)})",
+    )
 
 
 def resolve_model_path(model_path: str | None) -> Path | None:
