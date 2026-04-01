@@ -10,6 +10,7 @@ import random
 import sys
 import traceback
 from copy import deepcopy
+import dataclasses
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -575,6 +576,16 @@ class UnifiedExperimentRunner:
         attack = None
         if attack_name not in {"", "none", "identity"}:
             attack = build_attack_plugin(attack_name, **attack_params)
+            # Enrich attack_params with effective resolved values from the plugin instance.
+            # This captures defaults for params not explicitly set in the config (e.g. Phase 1/2
+            # smoke runs that pass no explicit hyperparams).
+            if dataclasses.is_dataclass(attack):
+                _objective_fields = {"name", "objective_mode", "target_class", "preserve_weight", "attack_roi"}
+                attack_params = {
+                    f.name: getattr(attack, f.name)
+                    for f in dataclasses.fields(attack)
+                    if not f.name.startswith("_") and f.name not in _objective_fields
+                }
 
         defense_name = str(defense_cfg.get("name", "none")).strip().lower()
         defense_params = dict(as_mapping(defense_cfg, "params"))
