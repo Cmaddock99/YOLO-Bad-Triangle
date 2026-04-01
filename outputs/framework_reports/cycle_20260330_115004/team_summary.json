@@ -734,7 +734,7 @@
     "seed": 42.0,
     "total_detections": 100.0
   },
-  "report_root": "/home/lurch/YOLO-Bad-Triangle/outputs/framework_reports/cycle_20260330_115004",
+  "report_root": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_reports/cycle_20260330_115004",
   "strongest_attack_by_detection_drop": {
     "attack": "square",
     "avg_confidence": 0.7832209997706943,
