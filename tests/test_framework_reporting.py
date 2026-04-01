@@ -28,6 +28,9 @@ class FrameworkReportingTest(unittest.TestCase):
         defense: str = "none",
         seed: int = 42,
         model: str = "yolo",
+        attack_params: dict[str, object] | None = None,
+        defense_params: dict[str, object] | None = None,
+        resolved_objective: dict[str, object] | None = None,
     ) -> None:
         run_dir = root / run_name
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -35,10 +38,23 @@ class FrameworkReportingTest(unittest.TestCase):
             json.dumps(
                 {
                     "model": {"name": model},
-                    "attack": {"name": attack},
-                    "defense": {"name": defense},
+                    "attack": {
+                        "name": attack,
+                        "params": attack_params or {},
+                        "resolved_objective": resolved_objective or {},
+                    },
+                    "defense": {"name": defense, "params": defense_params or {}},
                     "seed": seed,
                     "prediction_record_count": 5,
+                    "pipeline": {
+                        "transform_order": [
+                            "defense.preprocess",
+                            "attack.apply",
+                            "model.predict",
+                            "defense.postprocess",
+                        ],
+                        "attack_applied": attack not in {"", "none", "identity"},
+                    },
                 }
             ),
             encoding="utf-8",
@@ -58,6 +74,15 @@ class FrameworkReportingTest(unittest.TestCase):
                         "mAP50": map50,
                         "mAP50-95": 0.4,
                     },
+                    "provenance": {
+                        "transform_order": [
+                            "defense.preprocess",
+                            "attack.apply",
+                            "model.predict",
+                            "defense.postprocess",
+                        ],
+                        "attack_applied": attack not in {"", "none", "identity"},
+                    },
                 }
             ),
             encoding="utf-8",
@@ -73,6 +98,44 @@ class FrameworkReportingTest(unittest.TestCase):
             rows = build_comparison_rows(records)
             self.assertEqual(len(rows), 1)
             self.assertAlmostEqual(float(rows[0]["mAP50_drop"]), 0.4)
+
+    def test_defense_recovery_pairs_by_attack_signature_not_name_only(self) -> None:
+        from lab.reporting.framework_comparison import build_defense_recovery_rows
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_run(root, "baseline_run", attack="none", map50=0.7)
+            self._write_run(
+                root,
+                "attack_fgsm_targeted",
+                attack="fgsm",
+                map50=0.2,
+                attack_params={"objective_mode": "target_class_misclassification", "target_class": 1},
+                resolved_objective={"objective_mode": "target_class_misclassification", "target_class": 1},
+            )
+            self._write_run(
+                root,
+                "attack_fgsm_untargeted",
+                attack="fgsm",
+                map50=0.4,
+                attack_params={"objective_mode": "untargeted"},
+                resolved_objective={"objective_mode": "untargeted"},
+            )
+            self._write_run(
+                root,
+                "defended_targeted",
+                attack="fgsm",
+                defense="jpeg",
+                map50=0.3,
+                attack_params={"objective_mode": "target_class_misclassification", "target_class": 1},
+                resolved_objective={"objective_mode": "target_class_misclassification", "target_class": 1},
+                defense_params={"quality": 75},
+            )
+            records = discover_framework_runs(root)
+            rows = build_defense_recovery_rows(records)
+            self.assertEqual(len(rows), 1)
+            # Must pair with targeted attack-only run (0.2), not untargeted (0.4).
+            self.assertAlmostEqual(float(rows[0]["attack_mAP50"]), 0.2)
 
     def test_markdown_render(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -98,6 +161,9 @@ class FrameworkReportingTest(unittest.TestCase):
         self.assertAlmostEqual(float(summary["attack_effectiveness"]), 0.3)
         self.assertAlmostEqual(float(summary["defense_recovery"]), 0.02)
         self.assertAlmostEqual(float(summary["confidence_drop"]), (0.9 - 0.8) / 0.9)
+        self.assertEqual(summary["attack_effectiveness_detection"], summary["attack_effectiveness"])
+        self.assertEqual(summary["defense_recovery_detection"], summary["defense_recovery"])
+        self.assertIn("metric_basis", summary)
 
     def test_generate_summary_interpretation_insufficient_when_detection_missing(self) -> None:
         baseline = {"predictions": {"confidence": {"mean": 0.9}}}

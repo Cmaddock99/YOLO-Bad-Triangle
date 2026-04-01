@@ -51,6 +51,18 @@ class _DummyEmptyPredictionModel(_DummyFrameworkModel):
         return []
 
 
+class _DummyUnsupportedValidationModel(_DummyFrameworkModel):
+    def validate(self, dataset: str, **kwargs: Any) -> dict[str, Any]:
+        del dataset, kwargs
+        return {
+            "mAP50": None,
+            "mAP50-95": None,
+            "precision": None,
+            "recall": None,
+            "_status": "not_supported",
+        }
+
+
 class FrameworkOutputContractTests(unittest.TestCase):
     def _write_image(self, path: Path) -> None:
         image = np.full((40, 60, 3), 127, dtype=np.uint8)
@@ -162,6 +174,18 @@ class FrameworkOutputContractTests(unittest.TestCase):
             run_summary = json.loads(run_summary_path.read_text(encoding="utf-8"))
             for key in ("run_dir", "metrics_path", "processed_image_count", "prediction_record_count"):
                 self.assertIn(key, run_summary)
+            self.assertIn("pipeline", run_summary)
+            self.assertEqual(
+                run_summary["pipeline"]["transform_order"],
+                ["defense.preprocess", "attack.apply", "model.predict", "defense.postprocess"],
+            )
+            self.assertIn("signature", run_summary["attack"])
+            self.assertIn("signature", run_summary["defense"])
+            self.assertIn("provenance", metrics)
+            self.assertEqual(
+                metrics["provenance"]["transform_order"],
+                ["defense.preprocess", "attack.apply", "model.predict", "defense.postprocess"],
+            )
 
             resolved = yaml.safe_load(resolved_config_path.read_text(encoding="utf-8"))
             self.assertEqual(resolved["attack"]["name"], "none")
@@ -194,6 +218,38 @@ class FrameworkOutputContractTests(unittest.TestCase):
             metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
             self.assertEqual(metrics["validation"]["status"], "error")
             self.assertIsNotNone(metrics["validation"]["error"])
+
+    def test_validation_not_supported_is_persisted_in_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            config = {
+                "model": {"name": "faster_rcnn", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": True, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 7, "output_root": str(root / "outputs"), "run_name": "contract_val_unsupported"},
+            }
+
+            with patch(
+                "lab.runners.run_experiment.build_model",
+                return_value=_DummyUnsupportedValidationModel(),
+            ):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            metrics_path = Path(summary["metrics_path"])
+            metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+            self.assertEqual(metrics["validation"]["status"], "missing")
+            self.assertEqual(metrics["validation"]["capability_supported"], False)
+            self.assertEqual(
+                metrics["validation"]["capability_reason"],
+                "model_adapter_reports_not_supported",
+            )
 
     def test_runner_fails_fast_on_empty_prediction_records(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

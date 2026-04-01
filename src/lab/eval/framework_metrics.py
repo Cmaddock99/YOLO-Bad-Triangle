@@ -8,6 +8,16 @@ from .derived_metrics import to_finite_float
 from .prediction_schema import PredictionRecord
 
 _VALIDATION_KEYS = ("precision", "recall", "mAP50", "mAP50-95")
+VALIDATION_STATUS_MISSING = "missing"
+VALIDATION_STATUS_PARTIAL = "partial"
+VALIDATION_STATUS_COMPLETE = "complete"
+VALIDATION_STATUS_ERROR = "error"
+VALIDATION_STATUS_VALUES = (
+    VALIDATION_STATUS_MISSING,
+    VALIDATION_STATUS_PARTIAL,
+    VALIDATION_STATUS_COMPLETE,
+    VALIDATION_STATUS_ERROR,
+)
 
 
 def sanitize_validation_metrics(raw: dict[str, Any] | None) -> dict[str, float | None]:
@@ -18,10 +28,14 @@ def sanitize_validation_metrics(raw: dict[str, Any] | None) -> dict[str, float |
 def validation_status(metrics: dict[str, float | None]) -> str:
     values = list(metrics.values())
     if all(value is None for value in values):
-        return "missing"
+        return VALIDATION_STATUS_MISSING
     if any(value is None for value in values):
-        return "partial"
-    return "complete"
+        return VALIDATION_STATUS_PARTIAL
+    return VALIDATION_STATUS_COMPLETE
+
+
+def is_validation_success(status: object) -> bool:
+    return str(status or "").strip().lower() == VALIDATION_STATUS_COMPLETE
 
 
 def summarize_prediction_metrics(records: list[PredictionRecord]) -> dict[str, Any]:

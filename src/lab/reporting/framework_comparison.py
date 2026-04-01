@@ -39,6 +39,16 @@ class FrameworkRunRecord:
     objective_mode: str | None
     target_class: int | None
     attack_roi: str | None
+    attack_signature: str
+    defense_signature: str
+    transform_order: tuple[str, ...]
+
+
+def _stable_json_signature(payload: Any) -> str:
+    try:
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    except (TypeError, ValueError):
+        return "{}"
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -74,6 +84,7 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
         validation = metrics.get("validation", {})
         attack_obj = (summary.get("attack") or {}).get("resolved_objective") or {}
         attack_params = (summary.get("attack") or {}).get("params") or {}
+        defense_params = (summary.get("defense") or {}).get("params") or {}
         objective_mode = attack_obj.get("objective_mode") or attack_params.get("objective_mode")
         target_class_raw = attack_obj.get("target_class")
         if target_class_raw is None:
@@ -85,6 +96,27 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
         attack_roi = attack_obj.get("attack_roi")
         if attack_roi is None:
             attack_roi = attack_params.get("attack_roi")
+        attack_signature = _stable_json_signature(
+            {
+                "attack_name": normalize_name((summary.get("attack") or {}).get("name", "")),
+                "objective_mode": objective_mode,
+                "target_class": target_class,
+                "attack_roi": attack_roi,
+                "attack_params": attack_params,
+            }
+        )
+        defense_signature = _stable_json_signature(
+            {
+                "defense_name": normalize_name((summary.get("defense") or {}).get("name", "")),
+                "defense_params": defense_params,
+            }
+        )
+        raw_transform_order = (
+            ((summary.get("pipeline") or {}).get("transform_order"))
+            or ((metrics.get("provenance") or {}).get("transform_order"))
+            or []
+        )
+        transform_order = tuple(str(step) for step in raw_transform_order if str(step).strip())
 
         records.append(
             FrameworkRunRecord(
@@ -106,6 +138,9 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
                 objective_mode=str(objective_mode) if objective_mode else None,
                 target_class=target_class,
                 attack_roi=str(attack_roi) if attack_roi is not None else None,
+                attack_signature=attack_signature,
+                defense_signature=defense_signature,
+                transform_order=transform_order,
             )
         )
 
@@ -239,7 +274,7 @@ def build_defense_recovery_rows(records: list[FrameworkRunRecord]) -> list[dict[
             # Find matching attack-only run
             attacked = next(
                 (r for r in runs
-                 if normalize_name(r.attack) == normalize_name(defended.attack)
+                 if r.attack_signature == defended.attack_signature
                  and is_none_like(r.defense)),
                 None,
             )
@@ -259,6 +294,7 @@ def build_defense_recovery_rows(records: list[FrameworkRunRecord]) -> list[dict[
                 "objective_mode": defended.objective_mode,
                 "target_class": defended.target_class,
                 "attack_roi": defended.attack_roi,
+                "attack_signature": defended.attack_signature,
                 "defended_run": defended.run_name,
                 "baseline_mAP50": b_map,
                 "attack_mAP50": a_map,

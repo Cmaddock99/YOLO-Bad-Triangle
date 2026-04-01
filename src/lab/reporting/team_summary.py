@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from lab.eval.framework_metrics import is_validation_success
 from .framework_comparison import is_none_like, normalize_name
 
 
@@ -63,7 +64,7 @@ def _build_attack_rows(rows: list[dict[str, str]]) -> tuple[dict[str, str], list
             continue
         detections = _to_optional_float(row.get("total_detections"))
         drop = None
-        if baseline_detections not in {None, 0.0} and detections is not None:
+        if baseline_detections is not None and baseline_detections != 0.0 and detections is not None:
             drop = (baseline_detections - detections) / baseline_detections
         attack_rows.append(
             {
@@ -158,7 +159,7 @@ def render_team_summary_markdown(payload: dict[str, Any]) -> str:
         map50 = row.get("map50")
         map50_text = "n/a" if map50 is None else f"{float(map50):.4f}"
         v_status = str(row.get("validation_status") or "")
-        source = "✓ mAP50" if v_status == "success" else "proxy (avg_conf)"
+        source = "✓ mAP50" if is_validation_success(v_status) else "proxy (avg_conf)"
         lines.append(
             f"| `{row.get('run_name')}` | `{row.get('attack')}` | "
             f"{drop_text} | {conf_text} | {map50_text} | {source} | "
