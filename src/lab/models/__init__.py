@@ -10,6 +10,7 @@ from .framework_registry import get_model_class, list_registered_models, registe
 __all__ = [
     "BaseModel",
     "YOLOModel",
+    "YOLOModelAdapter",
     "register_model",
     "get_model_class",
     "list_registered_models",
@@ -20,8 +21,8 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     if name == "YOLOModel":
-        module = import_module(".yolo_model", __name__)
-        return getattr(module, name)
+        module = import_module(".yolo_adapter", __name__)
+        return getattr(module, "YOLOModelAdapter")
     if name == "YOLOModelAdapter":
         module = import_module(".yolo_adapter", __name__)
         return getattr(module, name)
