@@ -31,6 +31,9 @@ jobs:
       - name: Lint (ruff)
         run: ruff check src tests scripts --output-format=github
 
+      - name: Type check (mypy practical lane)
+        run: mypy
+
       - name: Run tests
         run: pytest -q
 
@@ -58,7 +61,11 @@ jobs:
       - name: Validate output artifacts
         run: |
           python scripts/ci/validate_outputs.py \
-            --output-root outputs/framework_runs/ci/ci_demo
+            --output-root outputs/framework_runs/ci/ci_demo \
+            --contract-name framework_run \
+            --framework-run-dir outputs/framework_runs/ci/ci_demo \
+            --legacy-compat-csv tests/fixtures/schema/valid/legacy_compat.csv \
+            --require-schema
 
       - name: Generate framework report CSV
         run: |
@@ -97,3 +104,16 @@ jobs:
           name: plots
           path: outputs/plots/
           if-no-files-found: ignore
+
+      - name: Check generated artifact hygiene
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          allowed = {"outputs/dashboard.html"}
+          tracked = subprocess.check_output(["git", "ls-files", "outputs"]).decode().splitlines()
+          disallowed = [p for p in tracked if p not in allowed]
+          if disallowed:
+              raise SystemExit("Tracked generated output files are not allowed:\n" + "\n".join(disallowed))
+          print("Generated artifact hygiene OK.")
+          PY
