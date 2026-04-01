@@ -772,6 +772,11 @@ def main() -> int:  # noqa: C901 (acceptable complexity for a pipeline orchestra
         sweep_cmd.extend(["--max-images", str(args.max_images)])
 
     print(f"[SWEEP] Starting → log: {sweep_log}")
+    print(
+        "[SWEEP] NOTE: demo uses a split report path (phases 1-3 here, report scripts in Stage 3b). "
+        "Treat demo outputs as non-comparable with full sweep-and-report phase-4 bundles unless aligned.",
+        file=sys.stderr,
+    )
     sweep_rc = _run_subprocess(sweep_cmd, sweep_log, env=env)
     if sweep_rc != 0:
         print(f"[SWEEP] FAILED (exit {sweep_rc}); see {sweep_log}", file=sys.stderr)

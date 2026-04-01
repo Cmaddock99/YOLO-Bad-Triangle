@@ -20,6 +20,7 @@ ci:
       else
         echo "ruff not installed; skipping lint"
       fi
+    - mypy
     - pytest -q
     - |
       python - <<'PY'
@@ -40,7 +41,11 @@ ci:
         --set runner.run_name=ci_demo
     - |
       python scripts/ci/validate_outputs.py \
-        --output-root outputs/framework_runs/ci/ci_demo
+        --output-root outputs/framework_runs/ci/ci_demo \
+        --contract-name framework_run \
+        --framework-run-dir outputs/framework_runs/ci/ci_demo \
+        --legacy-compat-csv tests/fixtures/schema/valid/legacy_compat.csv \
+        --require-schema
     - |
       python scripts/generate_framework_report.py \
         --runs-root outputs/framework_runs/ci \
@@ -49,6 +54,16 @@ ci:
     - test -s outputs/metrics_summary.csv
     - echo "=== metrics_summary.csv (head) ==="
     - head -n 6 outputs/metrics_summary.csv
+    - |
+      python - <<'PY'
+      import subprocess
+      allowed = {"outputs/dashboard.html"}
+      tracked = subprocess.check_output(["git", "ls-files", "outputs"]).decode().splitlines()
+      disallowed = [p for p in tracked if p not in allowed]
+      if disallowed:
+          raise SystemExit("Tracked generated output files are not allowed:\n" + "\n".join(disallowed))
+      print("Generated artifact hygiene OK.")
+      PY
   artifacts:
     when: always
     paths:
