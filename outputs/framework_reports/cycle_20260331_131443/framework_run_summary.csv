@@ -7,3 +7,5 @@ attack_fgsm,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260331_
 attack_pgd,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260331_131443/attack_pgd,yolo,pgd,none,42,untargeted_conf_suppression,,,32,31,92,0.7503096875937089,missing,,,,
 attack_square,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260331_131443/attack_square,yolo,square,none,42,,,,8,8,18,0.7183249162303077,missing,,,,
 baseline_none,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260331_131443/baseline_none,yolo,none,none,42,,,,32,32,100,0.7622534918785095,missing,,,,
+defended_square_bit_depth,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260331_131443/defended_square_bit_depth,yolo,square,bit_depth,42,,,,32,30,91,0.7399992746311229,missing,,,,
+defended_square_c_dog,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260331_131443/defended_square_c_dog,yolo,square,c_dog,42,,,,32,30,89,0.7468258537603228,missing,,,,

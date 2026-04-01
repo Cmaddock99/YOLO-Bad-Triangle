@@ -1,6 +1,6 @@
 # Framework Run Comparison Report
 
-Total discovered framework runs: **8**
+Total discovered framework runs: **10**
 
 ## Run Inventory
 
@@ -14,6 +14,8 @@ Total discovered framework runs: **8**
 | `attack_pgd` | `yolo` | `pgd` | `none` | `missing` |  | 0.7503 |
 | `attack_square` | `yolo` | `square` | `none` | `missing` |  | 0.7183 |
 | `baseline_none` | `yolo` | `none` | `none` | `missing` |  | 0.7623 |
+| `defended_square_bit_depth` | `yolo` | `square` | `bit_depth` | `missing` |  | 0.7400 |
+| `defended_square_c_dog` | `yolo` | `square` | `c_dog` | `missing` |  | 0.7468 |
 
 ## Attack Effectiveness
 
@@ -29,7 +31,10 @@ Total discovered framework runs: **8**
 
 ## Defense Recovery
 
-No defended runs found. Run with `--defenses` to enable defense sweep.
+| Model | Attack | Defense | Objective | Target class | ROI | mAP50 attacked | mAP50 defended | Recovery |
+|---|---|---|---|---:|---|---:|---:|---:|
+| `yolo` | `square` | `bit_depth` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `c_dog` | `` |  | `` |  |  |  |
 
 ## Per-Class Detection Drop
 

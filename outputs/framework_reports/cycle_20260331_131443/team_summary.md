@@ -1,7 +1,7 @@
 # Team Summary
 
-- Total discovered runs: **8**
-- Attack runs analyzed: **7**
+- Total discovered runs: **10**
+- Attack runs analyzed: **9**
 - Baseline run: `baseline_none`
 
 ## Headline
@@ -19,4 +19,6 @@
 | `attack_eot_pgd` | `eot_pgd` | 64.0% | 0.7928 | n/a | proxy (avg_conf) | Strong attack effect |
 | `attack_blur` | `blur` | 27.0% | 0.7566 | n/a | proxy (avg_conf) | Strong attack effect |
 | `attack_fgsm` | `fgsm` | 19.0% | 0.7764 | n/a | proxy (avg_conf) | Strong attack effect |
+| `defended_square_c_dog` | `square` | 11.0% | 0.7468 | n/a | proxy (avg_conf) | Strong attack effect |
+| `defended_square_bit_depth` | `square` | 9.0% | 0.7400 | n/a | proxy (avg_conf) | Strong attack effect |
 | `attack_pgd` | `pgd` | 8.0% | 0.7503 | n/a | proxy (avg_conf) | Moderate robustness |

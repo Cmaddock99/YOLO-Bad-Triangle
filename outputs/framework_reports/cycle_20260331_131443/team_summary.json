@@ -67,6 +67,28 @@
       "validation_status": "missing"
     },
     {
+      "attack": "square",
+      "avg_confidence": 0.7468258537603228,
+      "detection_drop": 0.11,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_square_c_dog",
+      "seed": 42.0,
+      "total_detections": 89.0,
+      "validation_status": "missing"
+    },
+    {
+      "attack": "square",
+      "avg_confidence": 0.7399992746311229,
+      "detection_drop": 0.09,
+      "interpretation": "Strong attack effect",
+      "map50": null,
+      "run_name": "defended_square_bit_depth",
+      "seed": 42.0,
+      "total_detections": 91.0,
+      "validation_status": "missing"
+    },
+    {
       "attack": "pgd",
       "avg_confidence": 0.7503096875937089,
       "detection_drop": 0.08,
@@ -97,6 +119,6 @@
     "total_detections": 18.0,
     "validation_status": "missing"
   },
-  "total_attack_runs": 7,
-  "total_runs": 8
+  "total_attack_runs": 9,
+  "total_runs": 10
 }
