@@ -151,7 +151,7 @@ More detail:
 2. `UnifiedExperimentRunner` builds the attack, defense, and YOLO model from registered plugins.
 3. Attack plugin's `apply(image)` is called per image.
 4. Defense plugin's `preprocess(image)` is called before prediction; `postprocess(predictions)` after.
-5. `YOLOModel` runs prediction and optional mAP50 validation.
+5. `YOLOModelAdapter` (via model registry) runs prediction and optional mAP50 validation.
 6. Outputs written to `outputs/framework_runs/<run_name>/` (metrics.json, predictions.jsonl, run_summary.json).
 
 ## 7) Output files and how to read them
