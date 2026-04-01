@@ -21,7 +21,7 @@ Parse any arguments the user passed after `/sweep`. Map them to the sweep_and_re
 Then run the following command in the background using the Bash tool:
 
 ```bash
-DPC_UNET_CHECKPOINT_PATH=dpc_unet_adversarial_finetuned.pt PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
+DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
   --attacks <attacks> \
   --defenses <defenses> \
   --preset full \
@@ -35,7 +35,7 @@ DPC_UNET_CHECKPOINT_PATH=dpc_unet_adversarial_finetuned.pt PYTHONPATH=src ./.ven
 - `--phases`: omit (run all phases 1,2,3,4)
 - `--workers`: always `1` (more than 1 causes memory crashes with DPC-UNet)
 
-**Always include** `DPC_UNET_CHECKPOINT_PATH=dpc_unet_adversarial_finetuned.pt` and `PYTHONPATH=src` as env vars.
+**Always include** `DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt` and `PYTHONPATH=src` as env vars.
 
 After launching the background task, tell the user:
 - What attacks and defenses are being swept

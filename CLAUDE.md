@@ -40,6 +40,7 @@ Shared project guidance for YOLO-Bad-Triangle skills and code changes.
 - Do not recommend non-comparable experiments as reliable next steps.
 - Reporting outputs must stay deterministic and machine-parseable where a schema is defined.
 - If evidence is partial, downgrade status rather than filling gaps with assumptions.
+- Do not infer deployment readiness from attacked-only A/B results. Clean (no-attack) baseline A/B must be confirmed before a deployment decision.
 
 ## Skills & analysis conventions
 
@@ -66,6 +67,10 @@ Use Phase 4 `validate_*` rows from `cycle_history/<cycle_id>.json` as the author
 
 `generate_auto_summary.py` may emit false-positive `NO_VALIDATION` and `DEFENSE_DEGRADES_PERFORMANCE` warnings. Root cause: Phase 1 smoke runs are processed before Phase 4 `validate_*` rows and may shadow them. Do not propagate these warnings without verifying that the source row in `validation_results` is from Phase 4.
 
+### Stale cycle state rule
+
+`outputs/cycle_state.json` may be stale. If its `cycle_id` does not match the target run context or the latest `cycle_history` entry, do not treat it as authoritative for the current analysis. Surface the mismatch explicitly as a `stale_cycle_state` anomaly or warn-level issue. Always prefer the resolved cycle artifact over cycle_state when they conflict.
+
 ### Evidence integrity rule
 
 Do not infer missing evidence. If a metric, file, or result is absent, record it as unknown or missing explicitly — do not fill the gap with assumptions or interpolation.
@@ -77,3 +82,8 @@ Do not infer missing evidence. If a metric, file, or result is absent, record it
 - Use least-privilege `allowed-tools` and set `disable-model-invocation: true` for manual-only strategic skills.
 - Prefer `context: fork` for isolated planner/judge workflows.
 - Keep `SKILL.md` concise; place detailed examples and contracts in support files.
+
+## Local configuration policy
+
+- Follow `docs/LOCAL_CONFIG_POLICY.md` for local-vs-shared config governance.
+- Keep editor-local state and secrets out of version control; use `.env` and ignored local settings.
