@@ -1593,17 +1593,41 @@ def maybe_pause_for_checkpoint_update(state: dict, *, next_phase: int) -> None:
 
 
 def git_pull() -> None:
-    """Pull latest changes from remote. Called at the start of each new cycle
-    so new plugins, param-space tweaks, and bug fixes are picked up automatically.
-    Uses merge (not fast-forward-only) so NUC's local cycle commits don't block pulls."""
+    """Pull latest changes from remote. Called between cycles so new plugins,
+    param-space tweaks, and bug fixes are picked up automatically.
+    Uses merge (-X ours) so NUC cycle commits don't block pulls.
+    Stashes local output-file changes around the merge so they survive.
+    Self-restarts via os.execv() when new commits are merged, so updated
+    Python code takes effect immediately without manual intervention."""
+    import os as _os
     try:
+        # Stash uncommitted local changes (output files) so merge stays clean
+        stash = subprocess.run(
+            ["git", "stash", "push", "-u", "-m",
+             f"auto-stash-before-pull-{datetime.now().strftime('%Y%m%d%H%M%S')}"],
+            cwd=str(REPO), capture_output=True, text=True,
+        )
+        stashed = stash.returncode == 0 and "No local changes" not in stash.stdout
+
         result = subprocess.run(
             ["git", "pull", "--no-rebase", "-X", "ours", "origin", "main"],
             cwd=str(REPO), capture_output=True, text=True,
         )
+
+        # Restore stash before anything else (even if pull failed)
+        if stashed:
+            subprocess.run(["git", "stash", "pop"], cwd=str(REPO), capture_output=True)
+
         if result.returncode == 0:
             msg = result.stdout.strip() or "already up to date"
             log(f"git_pull: {msg}")
+            # New commits merged — replace this process with a fresh one so
+            # updated Python code loads immediately. os.execv keeps the same
+            # PID; the lock fd is inherited and the new process re-acquires
+            # its own lock cleanly via a separate file description.
+            if "Already up to date" not in result.stdout:
+                log("git_pull: new code merged — restarting process to load changes")
+                _os.execv(sys.executable, [sys.executable] + sys.argv)
         else:
             log(f"git_pull: failed — {result.stderr.strip()}")
     except Exception as exc:
