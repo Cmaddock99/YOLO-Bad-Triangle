@@ -8,7 +8,8 @@ Usage (auto, from training signal):
     PYTHONPATH=src ./.venv/bin/python scripts/export_training_data.py --from-signal
 
 Output:
-    outputs/dpc_unet_training.zip (~150 MB)
+    outputs/training_exports/<cycle_id>_training_data.zip  (when --from-signal or called by auto_cycle)
+    outputs/training_exports/training_data.zip             (manual fallback)
 
 Upload the zip to your Google Drive root, then open notebooks/finetune_dpc_unet.ipynb in Colab.
 """
@@ -17,13 +18,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import zipfile
 from pathlib import Path
 
 REPO = Path(__file__).parent.parent
 CLEAN_DIR_DEFAULT = "coco/val2017_subset500/images"
 CHECKPOINT_DEFAULT = "dpc_unet_final_golden.pt"
-OUTPUT_ZIP_DEFAULT = "outputs/dpc_unet_training.zip"
+OUTPUT_ZIP_DEFAULT = "outputs/training_exports/training_data.zip"
 SIGNAL_PATH_DEFAULT = "outputs/cycle_training_signal.json"
 
 # Fallback attacks when no signal and no --attacks flag given
@@ -48,21 +50,24 @@ def _resolve_sweep_root(raw: str) -> Path:
     if raw:
         sweep_root = (REPO / raw).resolve()
         if not sweep_root.is_dir():
-            raise FileNotFoundError(f"Sweep root not found: {sweep_root}")
+            raise FileNotFoundError(f"Runs root not found: {sweep_root}")
         return sweep_root
 
-    candidates = sorted(
-        (REPO / "outputs" / "framework_runs").glob("sweep_*"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    for candidate in candidates:
-        if candidate.is_dir():
-            return candidate.resolve()
+    framework_runs = REPO / "outputs" / "framework_runs"
+    # Search sweep_* first (legacy naming), then cycle_* (current auto_cycle naming)
+    for glob_pattern in ("sweep_*", "cycle_*"):
+        candidates = sorted(
+            framework_runs.glob(glob_pattern),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for candidate in candidates:
+            if candidate.is_dir():
+                return candidate.resolve()
 
     raise FileNotFoundError(
-        "No sweep directory found under outputs/framework_runs/. "
-        "Run a sweep first or pass --sweep-root explicitly."
+        "No run directory found under outputs/framework_runs/. "
+        "Run a cycle or sweep first, or pass --sweep-root explicitly."
     )
 
 
@@ -103,13 +108,15 @@ def main() -> None:
     args = parser.parse_args()
 
     # ── Resolve attack list ───────────────────────────────────────────────────
+    signal_cycle_id: str | None = None
     if args.from_signal:
         signal_path = REPO / args.signal_path
         signal = _load_signal(signal_path)
         worst_attack = signal["worst_attack"]
+        signal_cycle_id = signal.get("cycle_id")
         attacks_to_export = [worst_attack]
         print(f"Training signal: worst_attack={worst_attack} "
-              f"(cycle {signal.get('cycle_id', '?')}, "
+              f"(cycle {signal_cycle_id or '?'}, "
               f"recovery={signal.get('weakest_defense_recovery', '?')})")
         print(f"  Exporting adversarial pairs for: {attacks_to_export}")
     elif args.attacks:
@@ -120,27 +127,50 @@ def main() -> None:
     if not attacks_to_export:
         raise ValueError("No attacks selected for export. Use --attacks or --from-signal.")
 
-    # Map attack name → run directory name (sweep convention)
+    # Map attack name → run directory name (cycle/sweep convention: attack_<name>)
     attacks_map = {a: f"attack_{a}" for a in attacks_to_export}
 
     sweep_root = _resolve_sweep_root(args.sweep_root)
     clean_dir = REPO / args.clean_dir
     checkpoint = REPO / args.checkpoint
-    output_zip = REPO / args.output_zip
+
+    # ── Resolve output zip path ───────────────────────────────────────────────
+    # If caller did not override --output-zip and we have a cycle_id from signal,
+    # use a cycle-specific path instead of the generic default.
+    if args.output_zip == OUTPUT_ZIP_DEFAULT and signal_cycle_id:
+        output_zip = REPO / "outputs" / "training_exports" / f"{signal_cycle_id}_training_data.zip"
+    else:
+        output_zip = REPO / args.output_zip
 
     # ── Validate inputs ───────────────────────────────────────────────────────
     if not clean_dir.is_dir():
         raise FileNotFoundError(f"Clean images directory not found: {clean_dir}")
-    for short_name, run_name in attacks_map.items():
-        adv_dir = sweep_root / run_name / "images"
-        if not adv_dir.is_dir():
-            raise FileNotFoundError(
-                f"Adversarial images not found: {adv_dir}\n"
-                f"Run the sweep first: scripts/sweep_and_report.py --attacks {short_name}\n"
-                f"Or pass the correct sweep directory: --sweep-root {args.sweep_root}"
-            )
     if not checkpoint.is_file():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
+
+    # Collect usable attack dirs — warn on missing/empty, fail gracefully if none found.
+    usable_attacks: dict[str, list[Path]] = {}
+    for short_name, run_name in attacks_map.items():
+        adv_dir = sweep_root / run_name / "images"
+        images = (
+            sorted(adv_dir.glob("*.jpg")) + sorted(adv_dir.glob("*.png"))
+            if adv_dir.is_dir() else []
+        )
+        if not images:
+            print(
+                f"[warn] No attacked images found for '{short_name}' "
+                f"in {adv_dir} — skipping this attack."
+            )
+        else:
+            usable_attacks[short_name] = images
+
+    if not usable_attacks:
+        print(
+            f"[warn] No usable attacked image pairs found under {sweep_root}. "
+            "Phase 1/2 smoke runs must have completed before export. "
+            "Skipping export — no zip written."
+        )
+        sys.exit(0)
 
     output_zip.parent.mkdir(parents=True, exist_ok=True)
 
@@ -149,16 +179,14 @@ def main() -> None:
         raise FileNotFoundError(f"No images found in {clean_dir}")
 
     print(f"Packing training data into {output_zip} ...")
-    print(f"  Sweep root:       {sweep_root}")
+    print(f"  Runs root:        {sweep_root}")
     print(f"  Clean images:     {len(clean_images)}")
 
     with zipfile.ZipFile(output_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for img in clean_images:
             zf.write(img, f"clean/{img.name}")
 
-        for short_name, run_name in attacks_map.items():
-            adv_dir = sweep_root / run_name / "images"
-            adv_images = sorted(adv_dir.glob("*.jpg")) + sorted(adv_dir.glob("*.png"))
+        for short_name, adv_images in usable_attacks.items():
             for img in adv_images:
                 zf.write(img, f"adversarial/{short_name}/{img.name}")
             print(f"  {short_name:<12} adversarial: {len(adv_images)}")
@@ -169,10 +197,8 @@ def main() -> None:
     size_mb = output_zip.stat().st_size / 1024 / 1024
     print(f"\nDone. {output_zip} ({size_mb:.1f} MB)")
     print("\nNext steps:")
-    print("  1. Upload outputs/dpc_unet_training.zip to your Google Drive root")
-    print("  2. Open notebooks/finetune_dpc_unet.ipynb in Google Colab")
-    print("  3. Runtime → Change runtime type → T4 GPU")
-    print("  4. Run all cells")
+    print(f"  python scripts/train_dpc_unet_local.py --training-zip {output_zip}")
+    print("  (or upload to Google Drive and use notebooks/finetune_dpc_unet.ipynb on Colab)")
 
 
 if __name__ == "__main__":
