@@ -1,17 +1,41 @@
-# Local Config Governance
+# Local Config Policy
 
-This repository separates shared project rules from local machine settings.
+This repository separates shared project state from machine-local state.
 
-- Shared and reviewable: `.cursor/rules/**`, `.env.example`, `configs/**`, docs under `docs/`.
-- Local-only (must not be committed): `.env`, `.cursor/settings.json`, editor state, generated outputs under `outputs/` except `outputs/dashboard.html`.
+## Shared and reviewable
 
-## Policy checks
+- `configs/**`
+- `schemas/**`
+- `docs/**`
+- `src/**`
+- `tests/**`
+- selected historical summary artifacts under `outputs/**`
 
-- CI enforces output hygiene by failing if tracked files under `outputs/` are found outside the allowlist.
-- Keep local overrides in ignored files only; promote reusable settings into tracked docs or templates.
+## Local-only and untracked
+
+- `.env`
+- editor settings and local IDE state
+- raw run directories such as `outputs/framework_runs/**`
+- local state and lock files such as `outputs/cycle_state.json`
+- transfer bundles and handoff files such as `outputs/*.zip` and `outputs/*.pdf`
+- machine-specific training exports and temporary demo artifacts
+
+## Important nuance about `outputs/`
+
+The repo already versions selected historical report artifacts for longitudinal
+analysis, including cycle history, generated reports, and dashboards. That does
+not mean every file under `outputs/` belongs in git.
+
+Rule of thumb:
+
+- Version summary artifacts that support comparison or reporting.
+- Do not version raw run payloads, locks, transient state, transfer bundles, or
+  one-off local scratch outputs.
 
 ## Practical workflow
 
 - Put secrets and machine-specific paths in `.env`.
-- Keep team conventions in docs/rules, not editor-local settings.
-- If a generated file is accidentally tracked, move it to ignore policy and untrack it in a separate cleanup change.
+- Keep reusable settings in tracked configs or docs.
+- If you generate a new output and are not sure whether it belongs in git,
+  default to leaving it untracked until the team explicitly decides it is a
+  report artifact worth preserving.

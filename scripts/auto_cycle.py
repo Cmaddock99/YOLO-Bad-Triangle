@@ -64,6 +64,21 @@ PAUSE_FILE = OUTPUTS / ".cycle.pause"
 HISTORY_DIR = OUTPUTS / "cycle_history"
 LOG_DIR = REPO / "logs"
 PYTHON = REPO / ".venv" / "bin" / "python"
+CURRENT_PIPELINE_SEMANTICS = "attack_then_defense"
+LEGACY_PIPELINE_SEMANTICS = "defense_then_attack"
+UNKNOWN_PIPELINE_SEMANTICS = "legacy_unknown"
+CURRENT_PIPELINE_TRANSFORM_ORDER = (
+    "attack.apply",
+    "defense.preprocess",
+    "model.predict",
+    "defense.postprocess",
+)
+LEGACY_PIPELINE_TRANSFORM_ORDER = (
+    "defense.preprocess",
+    "attack.apply",
+    "model.predict",
+    "defense.postprocess",
+)
 
 # ── Attack / defense catalogues ───────────────────────────────────────────────
 
@@ -328,6 +343,32 @@ def _composite_score(m: dict, baseline_conf: float, baseline_det: int) -> float:
 
 def get_map50(m: dict) -> float | None:
     return m.get("validation", {}).get("mAP50")
+
+
+def _infer_pipeline_semantics(summary_payload: dict, metrics_payload: dict) -> str:
+    semantic_order = str(
+        ((summary_payload.get("pipeline") or {}).get("semantic_order"))
+        or ((metrics_payload.get("provenance") or {}).get("semantic_order"))
+        or ""
+    ).strip().lower()
+    if semantic_order in {
+        CURRENT_PIPELINE_SEMANTICS,
+        LEGACY_PIPELINE_SEMANTICS,
+        UNKNOWN_PIPELINE_SEMANTICS,
+    }:
+        return semantic_order
+
+    raw_transform_order = (
+        ((summary_payload.get("pipeline") or {}).get("transform_order"))
+        or ((metrics_payload.get("provenance") or {}).get("transform_order"))
+        or []
+    )
+    transform_order = tuple(str(step) for step in raw_transform_order if str(step).strip())
+    if transform_order == CURRENT_PIPELINE_TRANSFORM_ORDER:
+        return CURRENT_PIPELINE_SEMANTICS
+    if transform_order == LEGACY_PIPELINE_TRANSFORM_ORDER:
+        return LEGACY_PIPELINE_SEMANTICS
+    return UNKNOWN_PIPELINE_SEMANTICS
 
 
 # ── Subprocess helpers ────────────────────────────────────────────────────────
@@ -1227,11 +1268,14 @@ def save_cycle_history(state: dict) -> None:
 
     # Collect Phase-4 validation metrics from completed runs
     validation_results = {}
+    pipeline_semantics_seen: set[str] = set()
     runs_root = Path(state["runs_root"])
     for mf in sorted(runs_root.glob("validate_*/metrics.json")):
         try:
             m = json.loads(mf.read_text())
             s = json.loads((mf.parent / "run_summary.json").read_text())
+            pipeline_semantics = _infer_pipeline_semantics(s, m)
+            pipeline_semantics_seen.add(pipeline_semantics)
             validation_results[mf.parent.name] = {
                 "attack":   s.get("attack",  {}).get("name"),
                 "defense":  s.get("defense", {}).get("name"),
@@ -1241,14 +1285,23 @@ def save_cycle_history(state: dict) -> None:
                 "precision":m.get("validation", {}).get("precision"),
                 "recall":   m.get("validation", {}).get("recall"),
                 "detections": m["predictions"].get("total_detections"),
+                "pipeline_semantics": pipeline_semantics,
             }
         except Exception:
             pass
+
+    if len(pipeline_semantics_seen) == 1:
+        cycle_pipeline_semantics = next(iter(pipeline_semantics_seen))
+    elif not pipeline_semantics_seen:
+        cycle_pipeline_semantics = UNKNOWN_PIPELINE_SEMANTICS
+    else:
+        cycle_pipeline_semantics = "mixed"
 
     summary = {
         "cycle_id":          state["cycle_id"],
         "started_at":        state.get("started_at"),
         "finished_at":       state.get("finished_at"),
+        "pipeline_semantics": cycle_pipeline_semantics,
         "top_attacks":       state.get("top_attacks", []),
         "top_defenses":      state.get("top_defenses", []),
         "best_attack_params":state.get("best_attack_params", {}),
@@ -2018,7 +2071,7 @@ def main() -> None:
                 _export_training_data(state)
 
             log(f"All phases complete. Reports: {state['report_root']}")
-            log(f"[brief] Run /research-brief in Claude Code for cross-cycle analysis.")
+            log("[brief] Run /research-brief in Claude Code for cross-cycle analysis.")
 
             if not args.loop:
                 break

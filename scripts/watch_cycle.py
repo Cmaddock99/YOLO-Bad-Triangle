@@ -16,11 +16,9 @@ import argparse
 import datetime
 import json
 import pathlib
-import sys
 import time
 
 from rich import box
-from rich.columns import Columns
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel

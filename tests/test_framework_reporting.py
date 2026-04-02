@@ -31,9 +31,29 @@ class FrameworkReportingTest(unittest.TestCase):
         attack_params: dict[str, object] | None = None,
         defense_params: dict[str, object] | None = None,
         resolved_objective: dict[str, object] | None = None,
+        semantic_order: str | None = "attack_then_defense",
+        transform_order: tuple[str, ...] | None = None,
     ) -> None:
         run_dir = root / run_name
         run_dir.mkdir(parents=True, exist_ok=True)
+        if transform_order is None:
+            transform_order = (
+                "attack.apply",
+                "defense.preprocess",
+                "model.predict",
+                "defense.postprocess",
+            )
+        pipeline_payload: dict[str, object] = {
+            "transform_order": list(transform_order),
+            "attack_applied": attack not in {"", "none", "identity"},
+        }
+        provenance_payload: dict[str, object] = {
+            "transform_order": list(transform_order),
+            "attack_applied": attack not in {"", "none", "identity"},
+        }
+        if semantic_order is not None:
+            pipeline_payload["semantic_order"] = semantic_order
+            provenance_payload["semantic_order"] = semantic_order
         (run_dir / "run_summary.json").write_text(
             json.dumps(
                 {
@@ -46,15 +66,7 @@ class FrameworkReportingTest(unittest.TestCase):
                     "defense": {"name": defense, "params": defense_params or {}},
                     "seed": seed,
                     "prediction_record_count": 5,
-                    "pipeline": {
-                        "transform_order": [
-                            "defense.preprocess",
-                            "attack.apply",
-                            "model.predict",
-                            "defense.postprocess",
-                        ],
-                        "attack_applied": attack not in {"", "none", "identity"},
-                    },
+                    "pipeline": pipeline_payload,
                 }
             ),
             encoding="utf-8",
@@ -74,15 +86,7 @@ class FrameworkReportingTest(unittest.TestCase):
                         "mAP50": map50,
                         "mAP50-95": 0.4,
                     },
-                    "provenance": {
-                        "transform_order": [
-                            "defense.preprocess",
-                            "attack.apply",
-                            "model.predict",
-                            "defense.postprocess",
-                        ],
-                        "attack_applied": attack not in {"", "none", "identity"},
-                    },
+                    "provenance": provenance_payload,
                 }
             ),
             encoding="utf-8",
@@ -145,6 +149,48 @@ class FrameworkReportingTest(unittest.TestCase):
             report = render_markdown_report(records)
             self.assertIn("# Framework Run Comparison Report", report)
             self.assertIn("baseline_run", report)
+            self.assertIn("attack_then_defense", report)
+
+    def test_legacy_defended_runs_are_marked_incomparable(self) -> None:
+        from lab.reporting.framework_comparison import build_defense_recovery_rows
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_run(root, "baseline_run", attack="none", map50=0.7)
+            self._write_run(root, "attack_run", attack="fgsm", map50=0.2)
+            self._write_run(
+                root,
+                "defended_legacy",
+                attack="fgsm",
+                defense="jpeg",
+                map50=0.35,
+                semantic_order=None,
+                transform_order=(
+                    "defense.preprocess",
+                    "attack.apply",
+                    "model.predict",
+                    "defense.postprocess",
+                ),
+            )
+            self._write_run(
+                root,
+                "defended_current",
+                attack="fgsm",
+                defense="median_preprocess",
+                map50=0.4,
+            )
+
+            records = discover_framework_runs(root)
+            recovery_rows = build_defense_recovery_rows(records)
+            self.assertEqual(len(recovery_rows), 1)
+            self.assertEqual(recovery_rows[0]["defended_run"], "defended_current")
+            legacy_record = next(record for record in records if record.run_name == "defended_legacy")
+            self.assertEqual(legacy_record.semantic_order, "defense_then_attack")
+
+            report = render_markdown_report(records)
+            self.assertIn("Comparability Warning", report)
+            self.assertIn("defended_legacy", report)
+            self.assertIn("excluded from recovery comparisons", report)
 
     def test_generate_summary_interpretation_rules(self) -> None:
         baseline = {

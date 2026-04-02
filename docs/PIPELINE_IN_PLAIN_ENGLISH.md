@@ -1,72 +1,87 @@
 # The Pipeline in Plain English
 
-This file explains how this project works without heavy jargon.
+This file explains the current experiment flow without heavy jargon.
 
 ## Big picture
 
-You are testing this question:
+The lab is trying to answer a simple question:
 
-**"How much do different attacks hurt YOLO, and how much do defenses help recover performance?"**
+**How much does YOLO performance change under different attacks, and what happens when we add a defense?**
 
-Each experiment run does the same sequence:
+## What one run does
 
-1. Start from a folder of source images.
-2. Apply an attack (or do nothing).
-3. Apply a defense (or do nothing).
-4. Run YOLO prediction on the final images.
-5. Run YOLO validation on those same final images to get quality metrics (precision/recall/mAP).
-6. Append one row to `metrics_summary.csv`.
-7. Plot results from that CSV.
+A single run currently goes through these steps:
+
+1. Start from a folder of images.
+2. Optionally apply an attack.
+3. Optionally preprocess the attacked image with a defense.
+4. Run YOLO prediction on the resulting image.
+5. Optionally run validation to get mAP, precision, and recall.
+6. Write structured output files for analysis.
+
+The current implementation order is:
+
+`attack.apply -> defense.preprocess -> model.predict -> defense.postprocess`
+
+That means the repo's current "defended" runs really are "apply the attack, then
+measure whether the defense recovers some of the loss." Run artifacts also
+store a plain-English marker: `semantic_order=attack_then_defense`.
 
 ## What gets saved
 
-For each run, you get:
+For each run:
 
-- `outputs/framework_runs/<run_name>/metrics.json` — detection counts, avg confidence, mAP50
-- `outputs/framework_runs/<run_name>/predictions.jsonl` — per-image predictions
-- `outputs/framework_runs/<run_name>/run_summary.json` — run metadata (attack, defense, config)
+- `outputs/framework_runs/<run_name>/metrics.json`
+- `outputs/framework_runs/<run_name>/predictions.jsonl`
+- `outputs/framework_runs/<run_name>/run_summary.json`
+- `outputs/framework_runs/<run_name>/resolved_config.yaml`
 
-## Why two types of metrics exist
+For each sweep:
 
-The CSV has two metric groups:
+- `outputs/framework_reports/<sweep_id>/framework_run_report.md`
+- `outputs/framework_reports/<sweep_id>/framework_run_summary.csv`
+- `outputs/framework_reports/<sweep_id>/team_summary.json`
+- `outputs/framework_reports/<sweep_id>/team_summary.md`
 
-- **Confidence stats** (`avg_conf`, `median_conf`, `p25_conf`, `p75_conf`):
-  - Computed from prediction label files.
-  - Tell you how confident detections were.
+## Why there are two metric families
 
-- **Validation quality stats** (`precision`, `recall`, `mAP50`, `mAP50-95`):
-  - Computed from YOLO validation output.
-  - Tell you true detection quality against labels.
+### Prediction metrics
 
-If validation is missing or disabled, those final four fields can be empty.
+These come from the predictions themselves:
 
-## Where to edit behavior
+- image count
+- images with detections
+- total detections
+- average confidence
 
-- Add new attacks in `src/lab/attacks/` (follow `docs/ATTACK_TEMPLATE.md`)
-- Add new defenses in `src/lab/defenses/` (follow `docs/DEFENSE_TEMPLATE.md`)
-- Experiment orchestration is in `src/lab/runners/run_experiment.py`
-- Metrics parsing is in `src/lab/eval/`
-- Report generation is in `src/lab/reporting/`
+They are fast and useful for smoke runs and tuning loops.
 
-## Typical "add a new method" workflow
+### Validation metrics
 
-1. Copy the attack or defense template file in this repo.
-2. Create your module under `src/lab/attacks/` or `src/lab/defenses/`.
-3. Register it with `@register_attack_plugin(...)` or `@register_defense_plugin(...)`.
-4. Reference it with `--set attack.name=your_name` or `--set defense.name=your_name`.
-5. Run a smoke test:
-   ```bash
-   PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
-     --config configs/default.yaml \
-     --set attack.name=your_name \
-     --set runner.max_images=4
-   ```
+These come from a validation pass against labels:
 
-## How to think about results
+- precision
+- recall
+- mAP50
+- mAP50-95
 
-- If confidence stats change but mAP50 does not, the model is still robust.
-- If both degrade, the attack is hurting real detection quality.
-- If defense recovers mAP50, the defense is helping.
+These are the stronger numbers for final comparison.
 
-That is the entire loop: change attack/defense, rerun, inspect outputs, iterate. For
-automated iterative cycles with warm-start and training feedback, see `docs/LOOP_DESIGN.md`.
+## Where to change behavior
+
+- Add attacks in `src/lab/attacks/`
+- Add defenses in `src/lab/defenses/`
+- Change run orchestration in `src/lab/runners/run_experiment.py`
+- Change reporting in `src/lab/reporting/`
+- Change validation and metric logic in `src/lab/eval/`
+
+## Typical workflow
+
+1. Dry-run a config.
+2. Run one smoke experiment.
+3. Run a sweep.
+4. Read the report artifacts.
+5. If needed, use `scripts/auto_cycle.py --loop` for iterative tuning.
+
+That is the current loop. The canonical commands are documented in the root
+`README.md`.

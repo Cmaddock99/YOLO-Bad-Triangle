@@ -1,6 +1,7 @@
-# Defense evaluation matrix sweep config.
-# Run with: python scripts/run_defense_eval_sweep.py
-# Generates one run per (model, attack, defense) combination under outputs/defense_eval_matrix/
+# Reference defense-evaluation matrix config.
+# There is no dedicated `scripts/run_defense_eval_sweep.py` entrypoint in the
+# current repository. Treat this file as a parameter reference and feed the
+# equivalent values into `scripts/sweep_and_report.py` or `scripts/run_unified.py`.
 
 base_config: configs/default.yaml
 output_root: outputs/defense_eval_matrix

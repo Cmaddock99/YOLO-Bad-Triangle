@@ -1,19 +1,65 @@
 # YOLO-Bad-Triangle
 
-Adversarial robustness experimentation framework for YOLO object detection. Run attacks, apply defenses, and measure recovery — all from a single sweep command.
+YOLO-Bad-Triangle is a modular adversarial-ML lab for YOLO object detection.
+It is built to run repeatable attack and defense experiments, write structured
+artifacts, and generate report-ready summaries that a teammate can compare over
+time.
+
+The repository is framework-first:
+
+- Canonical single-run entrypoint: `scripts/run_unified.py run-one`
+- Canonical sweep entrypoint: `scripts/sweep_and_report.py`
+- Closed-loop automation: `scripts/auto_cycle.py --loop`
+
+## What the project does
+
+Each run uses a config-driven pipeline to:
+
+1. load a YOLO model and dataset,
+2. optionally apply an attack,
+3. optionally apply a defense preprocessing stage,
+4. run prediction and optional validation,
+5. write structured outputs for analysis and reporting.
+
+The current runner records this exact transform order in every run artifact:
+
+`attack.apply -> defense.preprocess -> model.predict -> defense.postprocess`
+
+Run artifacts also record `semantic_order=attack_then_defense` so reporting can
+distinguish this canonical era from older legacy outputs.
 
 ## Setup
 
 ```bash
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 PYTHONPATH=src ./.venv/bin/python scripts/check_environment.py
 ```
 
-## Quickstart
+The supported local dev/test combo is Python 3.11.x with
+`ultralytics==8.4.23`, `torch==2.5.1`, and `torchvision==0.20.1`.
 
-**Smoke test (8 images):**
+If you plan to use `c_dog` or `c_dog_ensemble`, set a local checkpoint path in
+`.env` or your shell:
+
+```bash
+export DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt
+```
+
+## Canonical workflow
+
+### 1. Dry-run the config
+
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
+  --config configs/default.yaml \
+  --dry-run
+```
+
+### 2. Run one smoke experiment
+
 ```bash
 PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
   --config configs/default.yaml \
@@ -21,107 +67,98 @@ PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
   --set runner.run_name=smoke_fgsm
 ```
 
-**Full sweep with parallel workers:**
+### 3. Run a sweep
+
 ```bash
 PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
   --attacks fgsm,pgd,deepfool \
   --defenses c_dog,median_preprocess \
   --preset full \
-  --workers auto \
+  --workers 1 \
   --validation-enabled
 ```
 
-**See all available attacks and defenses:**
+`--workers auto` uses `os.cpu_count()`, but each worker launches a full YOLO
+job. On a single GPU or memory-constrained machine, `--workers 1` is usually
+the safer choice.
+
+### 4. List live plugin names
+
 ```bash
 PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py --list-plugins
 ```
 
-**Run tests:**
+### 5. Run the closed-loop cycle
+
 ```bash
-PYTHONPATH=src ./.venv/bin/python -m unittest discover -s tests -p 'test_*.py'
+PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py --loop
 ```
 
-## Sweep flags
+Use the loop only after a smoke run and a regular sweep are working.
 
-| Flag | Description |
-|---|---|
-| `--attacks all` | Every registered attack plugin |
-| `--defenses all` | Every registered defense plugin |
-| `--workers N` / `--workers auto` | Parallel experiments |
-| `--preset smoke` / `--preset full` | 8 images vs all 500 |
-| `--validation-enabled` | Compute mAP50 after each run |
-| `--resume` | Skip runs that already completed |
-| `--skip-errors` | Continue on failure, report at end |
+## Quality gates
 
-`--workers auto` picks `os.cpu_count()` parallel subprocesses. Each worker runs a full YOLO job; on **one GPU** that often reduces throughput or causes OOM, so use `--workers 1` unless you have enough devices or CPU-only runs.
+```bash
+./.venv/bin/ruff check src tests scripts
+./.venv/bin/mypy
+./.venv/bin/pytest -q
+```
 
 ## Outputs
 
-Each run writes to `outputs/framework_runs/<run_name>/`:
+Single-run artifacts land in `outputs/framework_runs/<run_name>/`:
 
-```
-metrics.json        # mAP50, avg confidence, detection counts
-predictions.jsonl   # per-image predictions
-run_summary.json    # run metadata (attack, defense, model, config)
-```
+- `metrics.json`
+- `predictions.jsonl`
+- `run_summary.json`
+- `resolved_config.yaml`
+- `experiment_summary.json` when `summary.enabled=true`
 
-Reports land in `outputs/framework_reports/<sweep_id>/`:
+Sweep and report artifacts land in `outputs/framework_reports/<sweep_id>/`:
 
-```
-framework_run_report.md     # attack effectiveness + defense recovery table
-framework_run_summary.csv   # same data as CSV
-team_summary.json / .md     # high-level summary
-```
+- `framework_run_report.md`
+- `framework_run_summary.csv`
+- `team_summary.json`
+- `team_summary.md`
+- `summary_<attack>.txt` files
 
-## Attacks
+Cycle automation writes additional longitudinal artifacts such as:
 
-| Name | Type |
-|---|---|
-| `fgsm` | Gradient — fast, single-step L∞ |
-| `pgd` | Gradient — iterative L∞ |
-| `deepfool` | Gradient — minimal perturbation |
-| `eot_pgd` | Gradient — expectation over transformations |
-| `blur` | Non-gradient — Gaussian blur |
-| `jpeg_attack` | Non-gradient — JPEG compression |
-| `square` | Query-based black-box L∞ |
+- `outputs/cycle_history/*.json`
+- `outputs/cycle_report.md`
+- `outputs/cycle_report.csv`
+- `outputs/dashboard.html`
 
-## Defenses
+This repository intentionally versions selected historical report artifacts
+under `outputs/` for trend tracking. Raw run directories, lock files, state
+files, transfer bundles, and other local-only artifacts should not be tracked.
 
-| Name | Description |
-|---|---|
-| `c_dog` | DPC-UNet learned denoiser |
-| `c_dog_ensemble` | Median blur → DPC-UNet → sharpening |
-| `median_preprocess` | Median blur preprocessing |
-| `jpeg_preprocess` | JPEG re-encode preprocessing |
-| `bit_depth` | Bit-depth reduction preprocessing |
+## Project map
 
-`c_dog` and `c_dog_ensemble` require a checkpoint. Set once in `.env` (already configured):
-```bash
-DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt
-```
+- `src/lab/runners/` - core runner and CLI helpers
+- `src/lab/attacks/` - registered attack plugins
+- `src/lab/defenses/` - registered defense plugins
+- `src/lab/models/` - model adapters
+- `src/lab/eval/` - prediction and validation metrics
+- `src/lab/reporting/` - comparison, summaries, warnings
+- `src/lab/health_checks/` - artifact and schema validation helpers
+- `configs/` - shared YAML configs
+- `schemas/v1/` - JSON schemas for structured artifacts
+- `scripts/` - user-facing orchestration and reporting scripts
+- `tests/` - unit and integration coverage
 
-## Architecture
+## Registered vs active defenses
 
-```
-scripts/run_unified.py          ← canonical entry point
-scripts/sweep_and_report.py     ← sweep orchestrator
-  └── src/lab/runners/run_experiment.py  ← UnifiedExperimentRunner
-        ├── attack plugin       (src/lab/attacks/)
-        ├── defense plugin      (src/lab/defenses/)
-        ├── YOLO model          (src/lab/models/)
-        └── eval + reporting    (src/lab/eval/, src/lab/reporting/)
-```
+The plugin registry includes `c_dog_ensemble`, but the current auto-cycle
+catalog excludes it. The active auto-cycle defense set is narrower than the full
+registered defense list by design.
 
-Config: `configs/default.yaml`. Override anything with `--set key=value` (dotted paths).
+## Documentation
 
-## Colab (GPU)
-
-Open `notebooks/finetune_dpc_unet.ipynb` in Google Colab, switch runtime to T4 GPU, then run all cells. Used for DPC-UNet adversarial fine-tuning after each cycle. See `docs/LOOP_DESIGN.md` for the full retraining workflow. Before committing notebook changes from Colab, clear outputs (or strip cells) so git diffs stay small.
-
-## Docs
-
-- `docs/LOOP_DESIGN.md` — closed adversarial loop design and what "done" looks like
-- `docs/PIPELINE_IN_PLAIN_ENGLISH.md` — how it all fits together
-- `docs/ATTACK_TEMPLATE.md` — adding a new attack
-- `docs/DEFENSE_TEMPLATE.md` — adding a new defense
-- `docs/TEAM_GUIDE.md` — onboarding guide
+- `PROJECT_STATE.md` - current repo map and canonical paths
+- `docs/TEAM_GUIDE.md` - teammate onboarding guide
+- `docs/PIPELINE_IN_PLAIN_ENGLISH.md` - plain-language walkthrough
+- `docs/LOOP_DESIGN.md` - auto-cycle design and longitudinal workflow
+- `docs/ATTACK_TEMPLATE.md` - adding a new attack
+- `docs/DEFENSE_TEMPLATE.md` - adding a new defense
+- `docs/LOCAL_CONFIG_POLICY.md` - local-vs-shared config rules

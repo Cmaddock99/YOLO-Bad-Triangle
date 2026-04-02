@@ -23,8 +23,10 @@ from tqdm import tqdm
 import yaml
 
 from lab.config.contracts import (
+    CURRENT_PIPELINE_TRANSFORM_ORDER,
     FRAMEWORK_METRICS_SCHEMA_VERSION,
     FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
+    PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
 )
 from lab.attacks.framework_registry import build_attack_plugin, list_available_attack_plugins
 from lab.attacks.utils import iter_images
@@ -344,18 +346,18 @@ class UnifiedExperimentRunner:
             if image is None:
                 skipped_unreadable += 1
                 continue
-            defended_image, _ = defense.preprocess(image, attack_hint=attack_name)
-            transformed = defended_image
+            transformed = image
             if attack is not None:
                 transformed, attack_meta = attack.apply(
-                    defended_image,
+                    image,
                     model=model,
                     seed=int(seed) + index,
                 )
                 if not attack_metadata:
                     attack_metadata = cast(dict[str, Any], dict(attack_meta))
+            defended_image, _ = defense.preprocess(transformed, attack_hint=attack_name)
             target = prepared_dir / image_path.name
-            wrote = cv2.imwrite(str(target), transformed)
+            wrote = cv2.imwrite(str(target), defended_image)
             if not wrote:
                 failed_writes += 1
                 continue
@@ -629,12 +631,8 @@ class UnifiedExperimentRunner:
             },
             "predictions": prediction_metrics,
             "provenance": {
-                "transform_order": [
-                    "defense.preprocess",
-                    "attack.apply",
-                    "model.predict",
-                    "defense.postprocess",
-                ],
+                "transform_order": list(CURRENT_PIPELINE_TRANSFORM_ORDER),
+                "semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
                 "attack_applied": attack is not None,
             },
         }
@@ -717,12 +715,8 @@ class UnifiedExperimentRunner:
                 ),
             },
             "pipeline": {
-                "transform_order": [
-                    "defense.preprocess",
-                    "attack.apply",
-                    "model.predict",
-                    "defense.postprocess",
-                ],
+                "transform_order": list(CURRENT_PIPELINE_TRANSFORM_ORDER),
+                "semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
                 "attack_applied": attack is not None,
             },
             "predict": predict_cfg,

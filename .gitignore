@@ -6,7 +6,9 @@ __pycache__/
 
 # Virtual environments
 .venv/
+.venv-*
 venv/
+.python-build/
 
 # Experiment outputs — ignore raw run data but keep summaries and reports
 outputs/framework_runs/
