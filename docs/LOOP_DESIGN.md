@@ -1,7 +1,8 @@
 # Loop Design
 
-The goal of YOLO-Bad-Triangle is to demonstrate a closed adversarial robustness loop:
-each cycle should produce a measurably harder-to-attack model than the one before it.
+The goal of YOLO-Bad-Triangle is to demonstrate a closed adversarial robustness
+loop: each cycle should produce a measurably harder-to-attack model than the one
+before it.
 
 ## The Four-Phase Cycle
 
@@ -39,8 +40,13 @@ After Phase 4, `_write_training_signal()` writes `outputs/cycle_training_signal.
 }
 ```
 
-This identifies the attack that defenses recovered from least — the best target for
-adversarial retraining of DPC-UNet.
+This identifies the worst measured attack and the weakest measured defense for
+that attack.
+
+Important caveat: `weakest_defense` is a diagnostic field, not a guarantee that
+the chosen defense is trainable. If you use the signal to plan DPC-UNet
+retraining, confirm that the selected defense is one the model can actually
+improve.
 
 ## Connecting to Colab Retraining
 
@@ -116,16 +122,19 @@ the retraining signal is not pointing at the right attack — consider switching
 
 ## Defense Catalogue
 
-Active defenses in `ALL_DEFENSES` (genuine signal, no inherent accuracy cost):
+Active defenses in `ALL_DEFENSES`:
 
 | Defense | Mechanism |
 |---|---|
 | `c_dog` | DPC-UNet learned denoiser (the novel defense) |
-| `c_dog_ensemble` | DPC-UNet + median pre-filter |
 | `median_preprocess` | Median blur input preprocessing |
 | `jpeg_preprocess` | JPEG re-encode input preprocessing |
 | `bit_depth` | Bit-depth reduction preprocessing |
 
-**Removed:** `random_resize` — inherent mAP50 cost (~−0.25) from padding-induced anchor
-misalignment exceeds any attack-recovery benefit. Available via `--defenses random_resize`
-for standalone testing but excluded from cycle rankings.
+Registered but currently excluded from `ALL_DEFENSES`:
+
+- `c_dog_ensemble`
+- `random_resize`
+
+They remain available for manual experiments, but the current automated cycle
+does not rank or tune them.

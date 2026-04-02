@@ -12,6 +12,7 @@ class CycleReportComparabilityTest(unittest.TestCase):
                 "cycle_id": "cycle_legacy",
                 "started_at": "2026-03-23T00:00:00",
                 "finished_at": "2026-03-23T01:00:00",
+                "pipeline_semantics": "defense_then_attack",
                 "top_attacks": ["pgd"],
                 "top_defenses": ["confidence_filter"],
                 "validation_results": {
@@ -23,6 +24,7 @@ class CycleReportComparabilityTest(unittest.TestCase):
                 "cycle_id": "cycle_current",
                 "started_at": "2026-03-26T00:00:00",
                 "finished_at": "2026-03-26T01:00:00",
+                "pipeline_semantics": "attack_then_defense",
                 "top_attacks": ["deepfool", "eot_pgd", "blur"],
                 "top_defenses": ["bit_depth", "jpeg_preprocess"],
                 "validation_results": {
@@ -42,6 +44,7 @@ class CycleReportComparabilityTest(unittest.TestCase):
         self.assertIn("Comparability Notes", markdown)
         self.assertIn("Current Catalogue Trends", markdown)
         self.assertIn("Legacy Catalogue Trends", markdown)
+        self.assertIn("attack_then_defense", markdown)
 
 
 if __name__ == "__main__":

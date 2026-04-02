@@ -6,6 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from lab.config.contracts import (
+    CURRENT_PIPELINE_TRANSFORM_ORDER,
+    LEGACY_PIPELINE_TRANSFORM_ORDER,
+    PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
+    PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK,
+    PIPELINE_SEMANTIC_LEGACY_UNKNOWN,
+)
 from lab.eval.derived_metrics import compute_normalized_defense_recovery
 
 NONE_LIKE_NAMES = {"", "none", "identity"}
@@ -42,6 +49,7 @@ class FrameworkRunRecord:
     attack_signature: str
     defense_signature: str
     transform_order: tuple[str, ...]
+    semantic_order: str
 
 
 def _stable_json_signature(payload: Any) -> str:
@@ -65,6 +73,36 @@ def _as_optional_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def infer_pipeline_semantic_order(
+    *,
+    semantic_order: object,
+    transform_order: tuple[str, ...],
+) -> str:
+    normalized_semantic_order = normalize_name(semantic_order)
+    if normalized_semantic_order in {
+        PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
+        PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK,
+        PIPELINE_SEMANTIC_LEGACY_UNKNOWN,
+    }:
+        return normalized_semantic_order
+    if transform_order == CURRENT_PIPELINE_TRANSFORM_ORDER:
+        return PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE
+    if transform_order == LEGACY_PIPELINE_TRANSFORM_ORDER:
+        return PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK
+    return PIPELINE_SEMANTIC_LEGACY_UNKNOWN
+
+
+def _semantic_order_counts(records: list[FrameworkRunRecord]) -> dict[str, int]:
+    counts = {
+        PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE: 0,
+        PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK: 0,
+        PIPELINE_SEMANTIC_LEGACY_UNKNOWN: 0,
+    }
+    for record in records:
+        counts[record.semantic_order] = counts.get(record.semantic_order, 0) + 1
+    return counts
 
 
 def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
@@ -117,6 +155,13 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
             or []
         )
         transform_order = tuple(str(step) for step in raw_transform_order if str(step).strip())
+        semantic_order = infer_pipeline_semantic_order(
+            semantic_order=(
+                ((summary.get("pipeline") or {}).get("semantic_order"))
+                or ((metrics.get("provenance") or {}).get("semantic_order"))
+            ),
+            transform_order=transform_order,
+        )
 
         records.append(
             FrameworkRunRecord(
@@ -141,6 +186,7 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
                 attack_signature=attack_signature,
                 defense_signature=defense_signature,
                 transform_order=transform_order,
+                semantic_order=semantic_order,
             )
         )
 
@@ -172,6 +218,7 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "run_name", "run_dir", "model", "attack", "defense", "seed",
+        "semantic_order",
         "objective_mode", "target_class", "attack_roi",
         "prediction_count", "images_with_detections", "total_detections",
         "avg_confidence", "validation_status", "precision", "recall",
@@ -188,6 +235,7 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
                 "attack": record.attack,
                 "defense": record.defense,
                 "seed": record.seed,
+                "semantic_order": record.semantic_order,
                 "objective_mode": record.objective_mode,
                 "target_class": record.target_class,
                 "attack_roi": record.attack_roi,
@@ -269,7 +317,15 @@ def build_defense_recovery_rows(records: list[FrameworkRunRecord]) -> list[dict[
             None,
         )
         # Find defended runs (has attack AND has defense)
-        defended_runs = [r for r in runs if not is_none_like(r.attack) and not is_none_like(r.defense)]
+        defended_runs = [
+            r
+            for r in runs
+            if (
+                not is_none_like(r.attack)
+                and not is_none_like(r.defense)
+                and r.semantic_order == PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE
+            )
+        ]
         for defended in defended_runs:
             # Find matching attack-only run
             attacked = next(
@@ -381,17 +437,40 @@ def render_markdown_report(records: list[FrameworkRunRecord]) -> str:
         lines.append("No framework runs found.")
         return "\n".join(lines)
 
+    semantic_counts = _semantic_order_counts(records)
+    discovered_semantics = {record.semantic_order for record in records}
+    excluded_defended_runs = [
+        record
+        for record in records
+        if not is_none_like(record.defense)
+        and record.semantic_order != PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE
+    ]
+    if len(discovered_semantics) > 1 or PIPELINE_SEMANTIC_LEGACY_UNKNOWN in discovered_semantics:
+        lines += [
+            "## Comparability Warning",
+            "",
+            "Discovered runs span multiple pipeline semantics.",
+            "Defense recovery rows below include only runs recorded with `attack_then_defense` semantics.",
+            "Legacy or unknown-era defended runs remain in inventory but are excluded from recovery comparisons.",
+            "",
+            f"- `attack_then_defense` runs: **{semantic_counts.get(PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE, 0)}**",
+            f"- `defense_then_attack` runs: **{semantic_counts.get(PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK, 0)}**",
+            f"- `legacy_unknown` runs: **{semantic_counts.get(PIPELINE_SEMANTIC_LEGACY_UNKNOWN, 0)}**",
+            "",
+        ]
+
     # Run inventory
     lines += [
         "## Run Inventory",
         "",
-        "| Run | Model | Attack | Defense | Validation | mAP50 | Avg conf |",
-        "|---|---|---|---|---|---:|---:|",
+        "| Run | Model | Attack | Defense | Semantics | Validation | mAP50 | Avg conf |",
+        "|---|---|---|---|---|---|---:|---:|",
     ]
     for record in records:
         lines.append(
             f"| `{record.run_name}` | `{record.model}` | `{record.attack}` | `{record.defense}` | "
-            f"`{record.validation_status}` | {_fmt(record.map50)} | {_fmt(record.avg_confidence)} |"
+            f"`{record.semantic_order}` | `{record.validation_status}` | {_fmt(record.map50)} | "
+            f"{_fmt(record.avg_confidence)} |"
         )
 
     # Attack effectiveness
@@ -416,6 +495,12 @@ def render_markdown_report(records: list[FrameworkRunRecord]) -> str:
     # Defense recovery
     recovery_rows = build_defense_recovery_rows(records)
     lines += ["", "## Defense Recovery", ""]
+    if excluded_defended_runs:
+        lines.append(
+            "Defended runs from legacy or unknown pipeline eras are excluded from this table to avoid "
+            "mixing incomparable recovery semantics."
+        )
+        lines.append("")
     if not recovery_rows:
         lines.append("No defended runs found. Run with `--defenses` to enable defense sweep.")
     else:

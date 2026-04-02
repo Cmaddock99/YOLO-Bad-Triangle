@@ -54,16 +54,7 @@ ci:
     - test -s outputs/metrics_summary.csv
     - echo "=== metrics_summary.csv (head) ==="
     - head -n 6 outputs/metrics_summary.csv
-    - |
-      python - <<'PY'
-      import subprocess
-      allowed = {"outputs/dashboard.html"}
-      tracked = subprocess.check_output(["git", "ls-files", "outputs"]).decode().splitlines()
-      disallowed = [p for p in tracked if p not in allowed]
-      if disallowed:
-          raise SystemExit("Tracked generated output files are not allowed:\n" + "\n".join(disallowed))
-      print("Generated artifact hygiene OK.")
-      PY
+    - python scripts/ci/check_tracked_outputs.py
   artifacts:
     when: always
     paths:

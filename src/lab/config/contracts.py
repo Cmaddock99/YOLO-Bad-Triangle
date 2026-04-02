@@ -36,6 +36,23 @@ LEGACY_COMPAT_CSV_SCHEMA_VERSION = SCHEMA_ID_LEGACY_COMPAT_CSV
 CANONICAL_RUNTIME_ENTRYPOINT = "scripts/run_unified.py"
 CANONICAL_RUNTIME_COMMANDS = ("run-one", "sweep")
 
+# Canonical pipeline semantics markers and transform orders.
+PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE = "attack_then_defense"
+PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK = "defense_then_attack"
+PIPELINE_SEMANTIC_LEGACY_UNKNOWN = "legacy_unknown"
+CURRENT_PIPELINE_TRANSFORM_ORDER = (
+    "attack.apply",
+    "defense.preprocess",
+    "model.predict",
+    "defense.postprocess",
+)
+LEGACY_PIPELINE_TRANSFORM_ORDER = (
+    "defense.preprocess",
+    "attack.apply",
+    "model.predict",
+    "defense.postprocess",
+)
+
 # Toggle dotted keys used in run configs.
 TOGGLE_VALIDATION_ENABLED = "validation.enabled"
 TOGGLE_SUMMARY_ENABLED = "summary.enabled"
@@ -55,4 +72,3 @@ ATTACK_OBJECTIVE_MODES = (
     ATTACK_OBJECTIVE_TARGET_CLASS,
     ATTACK_OBJECTIVE_CLASS_HIDE,
 )
-

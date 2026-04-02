@@ -22,6 +22,10 @@ from typing import Any
 REPO = Path(__file__).parent.parent
 HISTORY_DIR_DEFAULT = REPO / "outputs" / "cycle_history"
 OUTPUTS = REPO / "outputs"
+CURRENT_PIPELINE_SEMANTICS = "attack_then_defense"
+LEGACY_PIPELINE_SEMANTICS = "defense_then_attack"
+UNKNOWN_PIPELINE_SEMANTICS = "legacy_unknown"
+MIXED_PIPELINE_SEMANTICS = "mixed"
 
 
 # ── Data loading ──────────────────────────────────────────────────────────────
@@ -86,10 +90,23 @@ def _parse_validation(validation_results: dict) -> tuple[dict | None, dict, dict
     return baseline, attack_map, defended_map
 
 
+def _cycle_pipeline_semantics(cycle: dict[str, Any]) -> str:
+    normalized = str(cycle.get("pipeline_semantics") or "").strip().lower()
+    if normalized in {
+        CURRENT_PIPELINE_SEMANTICS,
+        LEGACY_PIPELINE_SEMANTICS,
+        UNKNOWN_PIPELINE_SEMANTICS,
+        MIXED_PIPELINE_SEMANTICS,
+    }:
+        return normalized
+    return UNKNOWN_PIPELINE_SEMANTICS
+
+
 # ── CSV generation ────────────────────────────────────────────────────────────
 
 CSV_FIELDS = [
     "cycle_num", "cycle_id", "finished_at",
+    "pipeline_semantics",
     "attack", "defense",
     "baseline_mAP50", "attack_mAP50", "defended_mAP50",
     "detection_drop_pct", "recovery_pct",
@@ -126,6 +143,7 @@ def _build_csv_rows(cycles: list[dict]) -> list[dict[str, Any]]:
                 "cycle_num": i,
                 "cycle_id": cycle_id,
                 "finished_at": finished_at,
+                "pipeline_semantics": _cycle_pipeline_semantics(cycle),
                 "attack": atk,
                 "defense": "none",
                 "baseline_mAP50": baseline_map50,
@@ -154,6 +172,7 @@ def _build_csv_rows(cycles: list[dict]) -> list[dict[str, Any]]:
                 "cycle_num": i,
                 "cycle_id": cycle_id,
                 "finished_at": finished_at,
+                "pipeline_semantics": _cycle_pipeline_semantics(cycle),
                 "attack": atk,
                 "defense": dfn,
                 "baseline_mAP50": baseline_map50,
@@ -254,23 +273,50 @@ def build_markdown(cycles: list[dict]) -> str:
     current_defenses = set(latest_cycle.get("top_defenses", []))
     comparable_cycles = 0
     legacy_cycles = 0
+    pipeline_semantics_counts = {
+        CURRENT_PIPELINE_SEMANTICS: 0,
+        LEGACY_PIPELINE_SEMANTICS: 0,
+        UNKNOWN_PIPELINE_SEMANTICS: 0,
+        MIXED_PIPELINE_SEMANTICS: 0,
+    }
     for cycle in cycles:
         cat_attacks = set(cycle.get("top_attacks", []))
         if current_attacks and cat_attacks and cat_attacks.issubset(current_attacks):
             comparable_cycles += 1
         else:
             legacy_cycles += 1
+        pipeline_semantics = _cycle_pipeline_semantics(cycle)
+        pipeline_semantics_counts[pipeline_semantics] = (
+            pipeline_semantics_counts.get(pipeline_semantics, 0) + 1
+        )
 
     lines += [
         "## Comparability Notes",
         "",
         "Cycle history includes catalogue eras with different attack/defense sets.",
         "Current trends focus on the latest catalogue; legacy trends are shown separately.",
+        "Pipeline semantics are also tracked so post-switch defended runs can be distinguished from older eras.",
         "",
         f"- Comparable cycles (latest-catalogue aligned): **{comparable_cycles}**",
         f"- Legacy/non-comparable cycles: **{legacy_cycles}**",
+        f"- `attack_then_defense` cycles: **{pipeline_semantics_counts[CURRENT_PIPELINE_SEMANTICS]}**",
+        f"- `defense_then_attack` cycles: **{pipeline_semantics_counts[LEGACY_PIPELINE_SEMANTICS]}**",
+        f"- `legacy_unknown` cycles: **{pipeline_semantics_counts[UNKNOWN_PIPELINE_SEMANTICS]}**",
+        f"- `mixed` cycles: **{pipeline_semantics_counts[MIXED_PIPELINE_SEMANTICS]}**",
         "",
     ]
+    if (
+        pipeline_semantics_counts[CURRENT_PIPELINE_SEMANTICS] > 0
+        and (
+            pipeline_semantics_counts[LEGACY_PIPELINE_SEMANTICS] > 0
+            or pipeline_semantics_counts[UNKNOWN_PIPELINE_SEMANTICS] > 0
+            or pipeline_semantics_counts[MIXED_PIPELINE_SEMANTICS] > 0
+        )
+    ):
+        lines += [
+            "Treat defended results from the `attack_then_defense` era as the canonical post-switch series.",
+            "",
+        ]
 
     # ── Baseline mAP50 trend ──
     baseline_map50s = []

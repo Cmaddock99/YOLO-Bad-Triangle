@@ -63,9 +63,40 @@ class _DummyUnsupportedValidationModel(_DummyFrameworkModel):
         }
 
 
+class _RecordingAttack:
+    def __init__(self) -> None:
+        self.input_means: list[int] = []
+        self.seeds: list[int] = []
+
+    def apply(self, image: np.ndarray, *, model: Any, seed: int) -> tuple[np.ndarray, dict[str, Any]]:
+        del model
+        self.input_means.append(int(image.mean()))
+        self.seeds.append(seed)
+        transformed = np.clip(image.astype(np.int16) + 5, 0, 255).astype(np.uint8)
+        return transformed, {"objective_mode": "untargeted_conf_suppression"}
+
+
+class _RecordingDefense:
+    def __init__(self) -> None:
+        self.preprocess_inputs: list[tuple[int, str | None]] = []
+
+    def preprocess(
+        self,
+        image: np.ndarray,
+        *,
+        attack_hint: str | None = None,
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        self.preprocess_inputs.append((int(image.mean()), attack_hint))
+        defended = np.clip(image.astype(np.int16) + 10, 0, 255).astype(np.uint8)
+        return defended, {}
+
+    def postprocess(self, records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        return list(records), {}
+
+
 class FrameworkOutputContractTests(unittest.TestCase):
-    def _write_image(self, path: Path) -> None:
-        image = np.full((40, 60, 3), 127, dtype=np.uint8)
+    def _write_image(self, path: Path, *, pixel_value: int = 127) -> None:
+        image = np.full((40, 60, 3), pixel_value, dtype=np.uint8)
         ok = cv2.imwrite(str(path), image)
         self.assertTrue(ok)
 
@@ -177,15 +208,17 @@ class FrameworkOutputContractTests(unittest.TestCase):
             self.assertIn("pipeline", run_summary)
             self.assertEqual(
                 run_summary["pipeline"]["transform_order"],
-                ["defense.preprocess", "attack.apply", "model.predict", "defense.postprocess"],
+                ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
+            self.assertEqual(run_summary["pipeline"]["semantic_order"], "attack_then_defense")
             self.assertIn("signature", run_summary["attack"])
             self.assertIn("signature", run_summary["defense"])
             self.assertIn("provenance", metrics)
             self.assertEqual(
                 metrics["provenance"]["transform_order"],
-                ["defense.preprocess", "attack.apply", "model.predict", "defense.postprocess"],
+                ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
+            self.assertEqual(metrics["provenance"]["semantic_order"], "attack_then_defense")
 
             resolved = yaml.safe_load(resolved_config_path.read_text(encoding="utf-8"))
             self.assertEqual(resolved["attack"]["name"], "none")
@@ -305,6 +338,52 @@ class FrameworkOutputContractTests(unittest.TestCase):
             with patch("lab.runners.run_experiment.build_model", return_value=_DummyMalformedModel()):
                 with self.assertRaises(ValueError):
                     UnifiedExperimentRunner(config=config).run()
+
+    def test_runner_applies_attack_before_defense_and_persists_semantics(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.png", pixel_value=100)
+
+            attack = _RecordingAttack()
+            defense = _RecordingDefense()
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "fgsm", "params": {}},
+                "defense": {"name": "median_preprocess", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 123, "output_root": str(root / "outputs"), "run_name": "attack_then_defense"},
+            }
+
+            with (
+                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
+                patch("lab.runners.run_experiment.build_attack_plugin", return_value=attack),
+                patch("lab.runners.run_experiment.build_defense_plugin", return_value=defense),
+            ):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_dir = Path(summary["run_dir"])
+            prepared = cv2.imread(str(run_dir / "images" / "a.png"))
+            self.assertIsNotNone(prepared)
+            self.assertEqual(attack.input_means, [100])
+            self.assertEqual(defense.preprocess_inputs, [(105, "fgsm")])
+            self.assertEqual(int(prepared[0, 0, 0]), 115)
+
+            metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
+            run_summary = json.loads((run_dir / "run_summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                metrics["provenance"]["transform_order"],
+                ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
+            )
+            self.assertEqual(metrics["provenance"]["semantic_order"], "attack_then_defense")
+            self.assertEqual(
+                run_summary["pipeline"]["transform_order"],
+                ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
+            )
+            self.assertEqual(run_summary["pipeline"]["semantic_order"], "attack_then_defense")
 
     def test_metrics_payload_contract_accepts_valid_payload(self) -> None:
         payload = {
