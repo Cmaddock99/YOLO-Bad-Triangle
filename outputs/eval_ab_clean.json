@@ -1,0 +1,28 @@
+{
+  "schema": "eval_ab_clean/v1",
+  "description": "Clean (no-attack) A/B validation: golden vs finetuned checkpoint through c_dog defense",
+  "attack": "none",
+  "defense": "c_dog",
+  "image_count": 500,
+  "golden": {
+    "checkpoint": "dpc_unet_final_golden.pt",
+    "run_name": "clean_ab_golden",
+    "mAP50": 0.5806070548387819,
+    "mAP50_95": 0.42416142035345983,
+    "precision": 0.6758694445925653,
+    "recall": 0.5231849391091561,
+    "validation_status": "complete"
+  },
+  "finetuned": {
+    "checkpoint": "dpc_unet_adversarial_finetuned.pt",
+    "run_name": "clean_ab_finetuned",
+    "mAP50": 0.5838827260414725,
+    "mAP50_95": 0.42760628153660607,
+    "precision": 0.694550313161051,
+    "recall": 0.520407397770659,
+    "validation_status": "complete"
+  },
+  "delta_mAP50": 0.0032756712026905666,
+  "verdict": "PASS \u2014 finetuned checkpoint shows no clean accuracy regression; marginally better than golden on clean images.",
+  "deployment_recommendation": "finetuned checkpoint cleared for deployment"
+}
