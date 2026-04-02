@@ -1297,6 +1297,34 @@ def _run_auto_summary(runs_root: str) -> None:
         log(f"[warn] _run_auto_summary failed (non-fatal): {exc}")
 
 
+def _export_training_data(state: dict) -> None:
+    """Pack clean/adversarial image pairs into a cycle-specific zip — non-fatal.
+
+    Output: outputs/training_exports/<cycle_id>_training_data.zip
+    Exits non-fatally if no attacked images are found (Phase 1/2 not yet run).
+    """
+    cycle_id = state.get("cycle_id", "unknown")
+    runs_root = str(state.get("runs_root", ""))
+    output_zip = str(OUTPUTS / "training_exports" / f"{cycle_id}_training_data.zip")
+    try:
+        result = subprocess.run(
+            [str(PYTHON), "scripts/export_training_data.py",
+             "--sweep-root", runs_root,
+             "--output-zip", output_zip],
+            cwd=str(REPO), env=_env(), timeout=300,
+        )
+        if result.returncode == 0:
+            if (REPO / output_zip).exists() or Path(output_zip).exists():
+                log(f"Training data exported → {output_zip}")
+                log(f"[brief] To finetune: python scripts/train_dpc_unet_local.py "
+                    f"--training-zip {output_zip}")
+            # exit 0 with no zip = graceful skip (no attacked images found); already logged by script
+        else:
+            log(f"[warn] export_training_data exited {result.returncode} (non-fatal)")
+    except Exception as exc:
+        log(f"[warn] export_training_data failed (non-fatal): {exc}")
+
+
 
 def _update_cycle_report() -> None:
     """Regenerate outputs/cycle_report.csv + outputs/cycle_report.md (non-fatal)."""
@@ -1418,15 +1446,25 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
                 values = list(defense_recovery.get(atk, {}).values())
                 avg_recovery[atk] = (sum(values) / len(values)) if values else 0.0
 
+            worst_atk_map50 = attack_rows[0][0]
+            damage_pct = (
+                round((baseline_map50 - worst_atk_map50) / baseline_map50 * 100, 2)
+                if baseline_map50 else None
+            )
             signal = {
                 "cycle_id": state["cycle_id"],
+                "runs_root": str(state.get("runs_root", "")),
                 "generated_at": state.get("finished_at"),
                 "ranking_source": "phase4_map50",
                 "worst_attack": worst_attack,
                 "worst_attack_params": state.get("best_attack_params", {}).get(worst_attack, {}),
+                "baseline_mAP50": round(baseline_map50, 6) if baseline_map50 is not None else None,
+                "attacked_mAP50": round(worst_atk_map50, 6),
+                "worst_attack_damage_pct": damage_pct,
                 "weakest_defense": weakest_defense,
                 "weakest_defense_recovery": round(weakest_recovery, 4),
                 "all_attack_avg_recovery": {atk: round(score, 4) for atk, score in avg_recovery.items()},
+                "checkpoint_path": os.environ.get("DPC_UNET_CHECKPOINT_PATH", ""),
             }
             sig_path = OUTPUTS / "cycle_training_signal.json"
             sig_tmp = sig_path.with_suffix(".tmp")
@@ -1481,13 +1519,18 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
 
         signal = {
             "cycle_id": state["cycle_id"],
+            "runs_root": str(state.get("runs_root", "")),
             "generated_at": state.get("finished_at"),
             "ranking_source": "phase4_detection_recovery",
             "worst_attack": worst_attack,
             "worst_attack_params": state.get("best_attack_params", {}).get(worst_attack, {}),
+            "baseline_mAP50": None,
+            "attacked_mAP50": None,
+            "worst_attack_damage_pct": None,
             "weakest_defense": weakest_defense,
             "weakest_defense_recovery": round(weakest_recovery, 4),
             "all_attack_avg_recovery": {a: round(s, 4) for s, a in atk_avg},
+            "checkpoint_path": os.environ.get("DPC_UNET_CHECKPOINT_PATH", ""),
         }
         sig_path = OUTPUTS / "cycle_training_signal.json"
         sig_tmp = sig_path.with_suffix(".tmp")
@@ -1972,6 +2015,7 @@ def main() -> None:
                 save_state(state)
                 generate_report(state)
                 _run_auto_summary(state["runs_root"])
+                _export_training_data(state)
 
             log(f"All phases complete. Reports: {state['report_root']}")
             log(f"[brief] Run /research-brief in Claude Code for cross-cycle analysis.")
