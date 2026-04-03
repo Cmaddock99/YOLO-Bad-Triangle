@@ -52,6 +52,9 @@ Thumbs.db
 !.cursor/rules/
 !.cursor/rules/**
 
+# Local scratch files (do not commit)
+outputs/audi_tracker.md
+
 # Local handoff artifacts (do not commit)
 outputs/*.zip
 outputs/*.pdf
