@@ -55,7 +55,7 @@ The intended flow after a cycle completes:
 1. **Read the signal** — `outputs/cycle_training_signal.json` identifies `worst_attack`
 2. **Generate training pairs** — `scripts/export_training_data.py --from-signal` packs
    adversarial images (using `worst_attack` at `worst_attack_params`) + clean images
-   into `outputs/dpc_unet_training.zip`
+   into `outputs/training_exports/<cycle_id>_training_data.zip`
 3. **Upload to Drive** — upload the zip to Google Drive root
 4. **Retrain in Colab** — open `notebooks/finetune_dpc_unet.ipynb`, add the signal-reading
    cell (see below), run all cells on a T4 GPU
@@ -66,7 +66,7 @@ The intended flow after a cycle completes:
 
 ### Colab Notebook Signal Cell
 
-Add this cell near the top of `finetune_dpc_unet.ipynb` (before the training loop):
+Add this cell near the top of `notebooks/finetune_dpc_unet.ipynb` (before the training loop):
 
 ```python
 import json, pathlib
