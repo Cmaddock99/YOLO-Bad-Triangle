@@ -7,12 +7,21 @@ import unittest
 from pathlib import Path
 
 from lab.reporting import (
+    build_auto_summary_payload,
     build_comparison_rows,
     build_team_summary_payload,
     discover_framework_runs,
     generate_summary,
     render_markdown_report,
     write_team_summary,
+)
+from lab.reporting.warnings import (
+    WARN_ATTACK_BELOW_NOISE,
+    WARN_DEFENSE_DEGRADES_PERFORMANCE,
+    WARN_LOW_ATTACK_COUNT,
+    WARN_MISSING_PER_CLASS,
+    WARN_MULTIPLE_BASELINES,
+    evaluate_warnings,
 )
 from scripts import print_summary as print_summary_cli
 
@@ -33,6 +42,11 @@ class FrameworkReportingTest(unittest.TestCase):
         resolved_objective: dict[str, object] | None = None,
         semantic_order: str | None = "attack_then_defense",
         transform_order: tuple[str, ...] | None = None,
+        validation_status: str = "complete",
+        total_detections: int = 10,
+        avg_confidence: float = 0.5,
+        per_class: dict[int, dict[str, object]] | None = None,
+        reporting_context: dict[str, str] | None = None,
     ) -> None:
         run_dir = root / run_name
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -54,33 +68,42 @@ class FrameworkReportingTest(unittest.TestCase):
         if semantic_order is not None:
             pipeline_payload["semantic_order"] = semantic_order
             provenance_payload["semantic_order"] = semantic_order
+        run_summary = {
+            "model": {"name": model},
+            "attack": {
+                "name": attack,
+                "params": attack_params or {},
+                "resolved_objective": resolved_objective or {},
+            },
+            "defense": {"name": defense, "params": defense_params or {}},
+            "seed": seed,
+            "prediction_record_count": 5,
+            "pipeline": pipeline_payload,
+        }
+        if reporting_context is not None:
+            run_summary["reporting_context"] = reporting_context
         (run_dir / "run_summary.json").write_text(
-            json.dumps(
-                {
-                    "model": {"name": model},
-                    "attack": {
-                        "name": attack,
-                        "params": attack_params or {},
-                        "resolved_objective": resolved_objective or {},
-                    },
-                    "defense": {"name": defense, "params": defense_params or {}},
-                    "seed": seed,
-                    "prediction_record_count": 5,
-                    "pipeline": pipeline_payload,
-                }
-            ),
+            json.dumps(run_summary),
             encoding="utf-8",
         )
+
+        predictions_payload: dict[str, object] = {
+            "images_with_detections": 5 if total_detections > 0 else 0,
+            "total_detections": total_detections,
+            "confidence": {"mean": avg_confidence},
+        }
+        if per_class is not None:
+            predictions_payload["per_class"] = {
+                str(class_id): values
+                for class_id, values in per_class.items()
+            }
+
         (run_dir / "metrics.json").write_text(
             json.dumps(
                 {
-                    "predictions": {
-                        "images_with_detections": 5,
-                        "total_detections": 10,
-                        "confidence": {"mean": 0.5},
-                    },
+                    "predictions": predictions_payload,
                     "validation": {
-                        "status": "complete",
+                        "status": validation_status,
                         "precision": 0.7,
                         "recall": 0.6,
                         "mAP50": map50,
@@ -102,6 +125,142 @@ class FrameworkReportingTest(unittest.TestCase):
             rows = build_comparison_rows(records)
             self.assertEqual(len(rows), 1)
             self.assertAlmostEqual(float(rows[0]["mAP50_drop"]), 0.4)
+
+    def test_discover_framework_runs_exposes_reporting_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_run(
+                root,
+                "validate_baseline",
+                attack="none",
+                map50=0.7,
+                reporting_context={
+                    "run_role": "baseline",
+                    "dataset_scope": "full",
+                    "authority": "authoritative",
+                    "source_phase": "phase4",
+                },
+            )
+
+            records = discover_framework_runs(root)
+            self.assertEqual(len(records), 1)
+            record = records[0]
+            self.assertEqual(record.run_role, "baseline")
+            self.assertEqual(record.dataset_scope, "full")
+            self.assertEqual(record.authority, "authoritative")
+            self.assertEqual(record.source_phase, "phase4")
+
+    def test_authoritative_metadata_drives_warning_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            diagnostic_baseline = {
+                "run_role": "baseline",
+                "dataset_scope": "smoke",
+                "authority": "diagnostic",
+                "source_phase": "phase1",
+            }
+            authoritative_baseline = {
+                "run_role": "baseline",
+                "dataset_scope": "full",
+                "authority": "authoritative",
+                "source_phase": "phase4",
+            }
+            authoritative_attack = {
+                "run_role": "attack_only",
+                "dataset_scope": "full",
+                "authority": "authoritative",
+                "source_phase": "phase4",
+            }
+            diagnostic_attack = {
+                "run_role": "attack_only",
+                "dataset_scope": "smoke",
+                "authority": "diagnostic",
+                "source_phase": "phase1",
+            }
+            authoritative_defense = {
+                "run_role": "defended",
+                "dataset_scope": "full",
+                "authority": "authoritative",
+                "source_phase": "phase4",
+            }
+            diagnostic_defense = {
+                "run_role": "defended",
+                "dataset_scope": "smoke",
+                "authority": "diagnostic",
+                "source_phase": "phase2",
+            }
+
+            self._write_run(
+                root,
+                "baseline_none",
+                attack="none",
+                map50=0.68,
+                validation_status="missing",
+                total_detections=90,
+                reporting_context=diagnostic_baseline,
+            )
+            self._write_run(
+                root,
+                "validate_baseline",
+                attack="none",
+                map50=0.70,
+                total_detections=140,
+                reporting_context=authoritative_baseline,
+            )
+            self._write_run(
+                root,
+                "attack_blur",
+                attack="blur",
+                map50=0.69,
+                validation_status="missing",
+                total_detections=138,
+                reporting_context=diagnostic_attack,
+            )
+            self._write_run(
+                root,
+                "validate_atk_fgsm",
+                attack="fgsm",
+                map50=0.20,
+                total_detections=50,
+                reporting_context=authoritative_attack,
+            )
+            self._write_run(
+                root,
+                "validate_atk_pgd",
+                attack="pgd",
+                map50=0.25,
+                total_detections=55,
+                reporting_context=authoritative_attack,
+            )
+            self._write_run(
+                root,
+                "defended_fgsm_bit_depth",
+                attack="fgsm",
+                defense="bit_depth",
+                map50=0.10,
+                total_detections=40,
+                reporting_context=diagnostic_defense,
+            )
+            self._write_run(
+                root,
+                "validate_fgsm_bit_depth",
+                attack="fgsm",
+                defense="bit_depth",
+                map50=0.45,
+                total_detections=95,
+                reporting_context=authoritative_defense,
+            )
+
+            payload = build_auto_summary_payload(root, bootstrap=False)
+            warnings = evaluate_warnings(payload)
+            codes = {warning["code"] for warning in warnings}
+
+            self.assertEqual(payload["baseline"]["run_name"], "validate_baseline")
+            self.assertNotIn(WARN_MULTIPLE_BASELINES, codes)
+            self.assertNotIn(WARN_LOW_ATTACK_COUNT, codes)
+            self.assertNotIn(WARN_ATTACK_BELOW_NOISE, codes)
+            self.assertNotIn(WARN_DEFENSE_DEGRADES_PERFORMANCE, codes)
+            self.assertIn(WARN_MISSING_PER_CLASS, codes)
 
     def test_defense_recovery_pairs_by_attack_signature_not_name_only(self) -> None:
         from lab.reporting.framework_comparison import build_defense_recovery_rows

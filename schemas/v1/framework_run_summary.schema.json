@@ -31,6 +31,47 @@
       "required": [
         "name"
       ]
+    },
+    "reporting_context": {
+      "type": "object",
+      "properties": {
+        "run_role": {
+          "type": "string",
+          "enum": [
+            "baseline",
+            "attack_only",
+            "defended",
+            "tune",
+            "consistency"
+          ]
+        },
+        "dataset_scope": {
+          "type": "string",
+          "enum": [
+            "smoke",
+            "tune",
+            "full"
+          ]
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "diagnostic",
+            "authoritative"
+          ]
+        },
+        "source_phase": {
+          "type": "string",
+          "enum": [
+            "phase1",
+            "phase2",
+            "phase3",
+            "phase4",
+            "manual"
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

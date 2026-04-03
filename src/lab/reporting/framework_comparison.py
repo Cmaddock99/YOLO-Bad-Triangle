@@ -12,6 +12,10 @@ from lab.config.contracts import (
     PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
     PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK,
     PIPELINE_SEMANTIC_LEGACY_UNKNOWN,
+    REPORTING_AUTHORITIES,
+    REPORTING_DATASET_SCOPES,
+    REPORTING_RUN_ROLES,
+    REPORTING_SOURCE_PHASES,
 )
 from lab.eval.derived_metrics import compute_normalized_defense_recovery
 
@@ -50,6 +54,10 @@ class FrameworkRunRecord:
     defense_signature: str
     transform_order: tuple[str, ...]
     semantic_order: str
+    run_role: str | None
+    dataset_scope: str | None
+    authority: str | None
+    source_phase: str | None
 
 
 def _stable_json_signature(payload: Any) -> str:
@@ -73,6 +81,67 @@ def _as_optional_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _normalized_optional_enum(value: object, allowed: tuple[str, ...]) -> str | None:
+    normalized = normalize_name(value)
+    if normalized in allowed:
+        return normalized
+    return None
+
+
+def _reporting_context_from_summary(summary: dict[str, Any]) -> dict[str, str | None]:
+    payload = (summary.get("reporting_context") or {})
+    if not isinstance(payload, dict):
+        payload = {}
+    return {
+        "run_role": _normalized_optional_enum(payload.get("run_role"), REPORTING_RUN_ROLES),
+        "dataset_scope": _normalized_optional_enum(payload.get("dataset_scope"), REPORTING_DATASET_SCOPES),
+        "authority": _normalized_optional_enum(payload.get("authority"), REPORTING_AUTHORITIES),
+        "source_phase": _normalized_optional_enum(payload.get("source_phase"), REPORTING_SOURCE_PHASES),
+    }
+
+
+def _select_baseline_record(
+    runs: list[FrameworkRunRecord],
+    *,
+    preferred_authority: str | None = None,
+) -> FrameworkRunRecord | None:
+    baselines = [r for r in runs if is_none_like(r.attack) and is_none_like(r.defense)]
+    if not baselines:
+        return None
+    if preferred_authority:
+        matched = [r for r in baselines if r.authority == preferred_authority]
+        if matched:
+            return matched[0]
+    return baselines[0]
+
+
+def _select_attack_only_record(
+    runs: list[FrameworkRunRecord],
+    *,
+    attack_signature: str | None = None,
+    attack_name: str | None = None,
+    preferred_authority: str | None = None,
+) -> FrameworkRunRecord | None:
+    matched = [
+        r
+        for r in runs
+        if not is_none_like(r.attack) and is_none_like(r.defense)
+    ]
+    if attack_signature:
+        signature_matches = [r for r in matched if r.attack_signature == attack_signature]
+        if signature_matches:
+            matched = signature_matches
+    elif attack_name is not None:
+        matched = [r for r in matched if normalize_name(r.attack) == normalize_name(attack_name)]
+    if not matched:
+        return None
+    if preferred_authority:
+        authority_matches = [r for r in matched if r.authority == preferred_authority]
+        if authority_matches:
+            return authority_matches[0]
+    return matched[0]
 
 
 def infer_pipeline_semantic_order(
@@ -162,6 +231,7 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
             ),
             transform_order=transform_order,
         )
+        reporting_context = _reporting_context_from_summary(summary)
 
         records.append(
             FrameworkRunRecord(
@@ -187,6 +257,10 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
                 defense_signature=defense_signature,
                 transform_order=transform_order,
                 semantic_order=semantic_order,
+                run_role=reporting_context["run_role"],
+                dataset_scope=reporting_context["dataset_scope"],
+                authority=reporting_context["authority"],
+                source_phase=reporting_context["source_phase"],
             )
         )
 
@@ -260,13 +334,10 @@ def build_comparison_rows(records: list[FrameworkRunRecord]) -> list[dict[str, A
 
     rows: list[dict[str, Any]] = []
     for (model, seed), runs in grouped.items():
-        baseline = next(
-            (r for r in runs if is_none_like(r.attack) and is_none_like(r.defense)),
-            None,
-        )
         for run in runs:
             if is_none_like(run.attack) or not is_none_like(run.defense):
                 continue
+            baseline = _select_baseline_record(runs, preferred_authority=run.authority)
             row = {
                 "model": model,
                 "seed": seed,
@@ -299,6 +370,10 @@ def build_comparison_rows(records: list[FrameworkRunRecord]) -> list[dict[str, A
                     baseline.avg_confidence if baseline else None,
                     run.avg_confidence,
                 ),
+                "run_role": run.run_role,
+                "dataset_scope": run.dataset_scope,
+                "authority": run.authority,
+                "source_phase": run.source_phase,
             }
             rows.append(row)
     return rows
@@ -312,10 +387,6 @@ def build_defense_recovery_rows(records: list[FrameworkRunRecord]) -> list[dict[
 
     rows: list[dict[str, Any]] = []
     for (model, seed), runs in grouped.items():
-        baseline = next(
-            (r for r in runs if is_none_like(r.attack) and is_none_like(r.defense)),
-            None,
-        )
         # Find defended runs (has attack AND has defense)
         defended_runs = [
             r
@@ -327,12 +398,12 @@ def build_defense_recovery_rows(records: list[FrameworkRunRecord]) -> list[dict[
             )
         ]
         for defended in defended_runs:
+            baseline = _select_baseline_record(runs, preferred_authority=defended.authority)
             # Find matching attack-only run
-            attacked = next(
-                (r for r in runs
-                 if r.attack_signature == defended.attack_signature
-                 and is_none_like(r.defense)),
-                None,
+            attacked = _select_attack_only_record(
+                runs,
+                attack_signature=defended.attack_signature,
+                preferred_authority=defended.authority,
             )
             b_map = baseline.map50 if baseline else None
             a_map = attacked.map50 if attacked else None
@@ -360,6 +431,10 @@ def build_defense_recovery_rows(records: list[FrameworkRunRecord]) -> list[dict[
                 "attack_avg_conf": a_conf,
                 "defended_avg_conf": d_conf,
                 "avg_conf_recovery": _recovery(b_conf, a_conf, d_conf),
+                "run_role": defended.run_role,
+                "dataset_scope": defended.dataset_scope,
+                "authority": defended.authority,
+                "source_phase": defended.source_phase,
             }
             rows.append(row)
     return rows
@@ -383,22 +458,18 @@ def build_per_class_rows(records: list[FrameworkRunRecord]) -> list[dict[str, An
 
     rows: list[dict[str, Any]] = []
     for (model, seed), runs in grouped.items():
-        baseline = next(
-            (r for r in runs if is_none_like(r.attack) and is_none_like(r.defense)),
-            None,
-        )
-        if baseline is None:
-            continue
-        baseline_metrics = _read_json(baseline.run_dir / "metrics.json")
-        baseline_pc: dict[int, dict] = {
-            int(k): v
-            for k, v in (baseline_metrics.get("predictions", {}).get("per_class") or {}).items()
-        }
-        if not baseline_pc:
-            continue
-
         for run in runs:
             if is_none_like(run.attack) or not is_none_like(run.defense):
+                continue
+            baseline = _select_baseline_record(runs, preferred_authority=run.authority)
+            if baseline is None:
+                continue
+            baseline_metrics = _read_json(baseline.run_dir / "metrics.json")
+            baseline_pc: dict[int, dict] = {
+                int(k): v
+                for k, v in (baseline_metrics.get("predictions", {}).get("per_class") or {}).items()
+            }
+            if not baseline_pc:
                 continue
             attack_metrics = _read_json(run.run_dir / "metrics.json")
             attack_pc: dict[int, dict] = {
@@ -422,6 +493,10 @@ def build_per_class_rows(records: list[FrameworkRunRecord]) -> list[dict[str, An
                     "baseline_count": b_count,
                     "attack_count": a_count,
                     "detection_drop": drop,
+                    "run_role": run.run_role,
+                    "dataset_scope": run.dataset_scope,
+                    "authority": run.authority,
+                    "source_phase": run.source_phase,
                 })
     return rows
 

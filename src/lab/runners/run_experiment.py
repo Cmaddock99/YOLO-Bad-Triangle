@@ -27,6 +27,7 @@ from lab.config.contracts import (
     FRAMEWORK_METRICS_SCHEMA_VERSION,
     FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
     PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
+    REPORTING_CONTEXT_KEYS,
 )
 from lab.attacks.framework_registry import build_attack_plugin, list_available_attack_plugins
 from lab.attacks.utils import iter_images
@@ -57,6 +58,21 @@ def _normalized_config_for_output(config: dict[str, Any]) -> dict[str, Any]:
         if name is None or not str(name).strip():
             value["name"] = "none"
     return normalized
+
+
+def _resolved_reporting_context(config: dict[str, Any]) -> dict[str, str]:
+    section = as_mapping(config, "reporting_context")
+    if not section:
+        return {}
+    payload: dict[str, str] = {}
+    for key in REPORTING_CONTEXT_KEYS:
+        value = section.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            payload[key] = text
+    return payload
 
 
 def _collect_images(source_dir: Path, max_images: int) -> list[Path]:
@@ -543,6 +559,7 @@ class UnifiedExperimentRunner:
         runner_cfg = as_mapping(self.config, "runner")
         predict_cfg = as_mapping(self.config, "predict")
         validation_cfg = as_mapping(self.config, "validation")
+        reporting_context = _resolved_reporting_context(self.config)
 
         model_name = str(model_cfg.get("name", ""))
         if not model_name:
@@ -736,6 +753,8 @@ class UnifiedExperimentRunner:
                 "checkpoint_fingerprint_source": checkpoint_source,
             },
         }
+        if reporting_context:
+            run_summary["reporting_context"] = reporting_context
         summary_file = run_dir / "run_summary.json"
         summary_file.write_text(json.dumps(run_summary, indent=2, sort_keys=True), encoding="utf-8")
         return run_summary

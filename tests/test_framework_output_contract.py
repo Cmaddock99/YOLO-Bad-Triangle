@@ -205,6 +205,7 @@ class FrameworkOutputContractTests(unittest.TestCase):
             run_summary = json.loads(run_summary_path.read_text(encoding="utf-8"))
             for key in ("run_dir", "metrics_path", "processed_image_count", "prediction_record_count"):
                 self.assertIn(key, run_summary)
+            self.assertNotIn("reporting_context", run_summary)
             self.assertIn("pipeline", run_summary)
             self.assertEqual(
                 run_summary["pipeline"]["transform_order"],
@@ -223,6 +224,36 @@ class FrameworkOutputContractTests(unittest.TestCase):
             resolved = yaml.safe_load(resolved_config_path.read_text(encoding="utf-8"))
             self.assertEqual(resolved["attack"]["name"], "none")
             self.assertEqual(resolved["defense"]["name"], "none")
+
+    def test_runner_persists_reporting_context_when_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            reporting_context = {
+                "run_role": "baseline",
+                "dataset_scope": "full",
+                "authority": "authoritative",
+                "source_phase": "phase4",
+            }
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": True, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "reporting_context": reporting_context,
+                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "contract_reporting_ctx"},
+            }
+
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(run_summary["reporting_context"], reporting_context)
 
     def test_validation_exception_sets_error_status_without_crash(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

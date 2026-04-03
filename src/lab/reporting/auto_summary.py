@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from lab.config.contracts import (
+    REPORTING_AUTHORITY_AUTHORITATIVE,
     SCHEMA_ID_CYCLE_SUMMARY,
     SCHEMA_ID_WARNINGS,
 )
@@ -15,6 +16,8 @@ from lab.eval.derived_metrics import compute_normalized_defense_recovery
 from lab.reporting.framework_comparison import (
     FrameworkRunRecord,
     _read_json,
+    _select_attack_only_record,
+    _select_baseline_record,
     build_comparison_rows,
     build_defense_recovery_rows,
     build_per_class_rows,
@@ -104,11 +107,12 @@ def _to_opt_float(value: Any) -> float | None:
 
 
 def _baseline_for(records: list[FrameworkRunRecord], model: str, seed: int) -> FrameworkRunRecord | None:
-    return next(
-        (r for r in records
-         if r.model == model and r.seed == seed
-         and is_none_like(r.attack) and is_none_like(r.defense)),
-        None,
+    return _select_baseline_record(
+        [
+            r
+            for r in records
+            if r.model == model and r.seed == seed
+        ],
     )
 
 
@@ -119,30 +123,17 @@ def _attacked_for(
     attack: str,
     *,
     attack_signature: str | None = None,
+    preferred_authority: str | None = None,
 ) -> FrameworkRunRecord | None:
-    if attack_signature:
-        matched = next(
-            (
-                r
-                for r in records
-                if r.model == model
-                and r.seed == seed
-                and r.attack_signature == attack_signature
-                and is_none_like(r.defense)
-            ),
-            None,
-        )
-        if matched is not None:
-            return matched
-    return next(
-        (
+    return _select_attack_only_record(
+        [
             r
             for r in records
             if r.model == model and r.seed == seed
-            and normalize_name(r.attack) == attack
-            and is_none_like(r.defense)
-        ),
-        None,
+        ],
+        attack_signature=attack_signature,
+        attack_name=attack,
+        preferred_authority=preferred_authority,
     )
 
 
@@ -173,7 +164,12 @@ def build_auto_summary_payload(
 
     # ---------- baseline ----------
     baseline_candidates = [r for r in records if is_none_like(r.attack) and is_none_like(r.defense)]
-    baseline_record: FrameworkRunRecord | None = baseline_candidates[0] if baseline_candidates else None
+    authoritative_baselines = [
+        r for r in baseline_candidates
+        if r.authority == REPORTING_AUTHORITY_AUTHORITATIVE
+    ]
+    selected_baselines = authoritative_baselines if authoritative_baselines else baseline_candidates
+    baseline_record: FrameworkRunRecord | None = selected_baselines[0] if selected_baselines else None
     baseline_info: dict[str, Any] | None = None
     if baseline_record:
         baseline_info = {
@@ -184,7 +180,11 @@ def build_auto_summary_payload(
             "avg_confidence": baseline_record.avg_confidence,
             "mAP50": baseline_record.map50,
             "validation_status": baseline_record.validation_status,
-            "candidate_count": len(baseline_candidates),
+            "candidate_count": len(selected_baselines),
+            "run_role": baseline_record.run_role,
+            "dataset_scope": baseline_record.dataset_scope,
+            "authority": baseline_record.authority,
+            "source_phase": baseline_record.source_phase,
         }
 
     # ---------- attack effectiveness rows ----------
@@ -194,6 +194,12 @@ def build_auto_summary_payload(
     for row in comparison_rows:
         model, seed = row["model"], row["seed"]
         baseline_rec = _baseline_for(records, model, seed)
+        preferred_authority = str(row.get("authority") or "") or None
+        if preferred_authority is not None:
+            baseline_rec = _select_baseline_record(
+                [r for r in records if r.model == model and r.seed == seed],
+                preferred_authority=preferred_authority,
+            )
         # Look up the specific run this row was built from (set by build_comparison_rows)
         attacked_run_name = row.get("attack_run")
         attacked_rec = next((r for r in records if r.run_name == attacked_run_name), None)
@@ -234,13 +240,18 @@ def build_auto_summary_payload(
 
     for row in recovery_rows:
         model, seed, attack = row["model"], row["seed"], row["attack"]
-        baseline_rec = _baseline_for(records, model, seed)
+        preferred_authority = str(row.get("authority") or "") or None
+        baseline_rec = _select_baseline_record(
+            [r for r in records if r.model == model and r.seed == seed],
+            preferred_authority=preferred_authority,
+        )
         attacked_rec = _attacked_for(
             records,
             model,
             seed,
             attack,
             attack_signature=row.get("attack_signature"),
+            preferred_authority=preferred_authority,
         )
 
         b_det = _get_total_detections(baseline_rec) if baseline_rec else None
@@ -276,7 +287,11 @@ def build_auto_summary_payload(
     for row in per_class_rows:
         model, seed, attack = row["model"], row["seed"], row["attack"]
         class_id = row["class_id"]
-        baseline_rec = _baseline_for(records, model, seed)
+        preferred_authority = str(row.get("authority") or "") or None
+        baseline_rec = _select_baseline_record(
+            [r for r in records if r.model == model and r.seed == seed],
+            preferred_authority=preferred_authority,
+        )
         # attack_run was set per-run by build_per_class_rows; look up the exact record
         attacked_run_name = row.get("attack_run")
         attacked_rec = next((r for r in records if r.run_name == attacked_run_name), None) if attacked_run_name else None
@@ -292,6 +307,7 @@ def build_auto_summary_payload(
                 if r.model == model
                 and r.seed == seed
                 and not is_none_like(r.defense)
+                and (preferred_authority is None or r.authority == preferred_authority)
                 and (
                     (attacked_rec is not None and r.attack_signature == attacked_rec.attack_signature)
                     or normalize_name(r.attack) == attack

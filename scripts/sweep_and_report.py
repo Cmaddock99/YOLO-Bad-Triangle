@@ -169,6 +169,10 @@ def _experiment_command(
     objective_mode: str | None = None,
     target_class: int | None = None,
     attack_roi: str | None = None,
+    reporting_run_role: str | None = None,
+    reporting_dataset_scope: str | None = None,
+    reporting_authority: str | None = None,
+    reporting_source_phase: str | None = None,
 ) -> list[str]:
     command = [
         python_bin,
@@ -198,6 +202,14 @@ def _experiment_command(
         command.extend(["--set", f"attack.params.target_class={int(target_class)}"])
     if attack_roi:
         command.extend(["--set", f"attack.params.attack_roi={attack_roi}"])
+    if reporting_run_role:
+        command.extend(["--set", f"reporting_context.run_role={reporting_run_role}"])
+    if reporting_dataset_scope:
+        command.extend(["--set", f"reporting_context.dataset_scope={reporting_dataset_scope}"])
+    if reporting_authority:
+        command.extend(["--set", f"reporting_context.authority={reporting_authority}"])
+    if reporting_source_phase:
+        command.extend(["--set", f"reporting_context.source_phase={reporting_source_phase}"])
     return command
 
 
@@ -281,6 +293,21 @@ def main() -> None:
         help="smoke=fast sanity defaults (8 images), full=all images.",
     )
     parser.add_argument("--validation-enabled", action="store_true")
+    parser.add_argument(
+        "--reporting-dataset-scope",
+        choices=("smoke", "tune", "full"),
+        help="Optional reporting metadata stamped onto each launched run.",
+    )
+    parser.add_argument(
+        "--reporting-authority",
+        choices=("diagnostic", "authoritative"),
+        help="Optional reporting metadata stamped onto each launched run.",
+    )
+    parser.add_argument(
+        "--reporting-source-phase",
+        choices=("phase1", "phase2", "phase3", "phase4", "manual"),
+        help="Optional reporting metadata stamped onto each launched run.",
+    )
     parser.add_argument(
         "--objective-mode",
         choices=(
@@ -433,6 +460,10 @@ def main() -> None:
                         objective_mode=args.objective_mode,
                         target_class=args.target_class,
                         attack_roi=args.attack_roi,
+                        reporting_run_role="baseline",
+                        reporting_dataset_scope=args.reporting_dataset_scope,
+                        reporting_authority=args.reporting_authority,
+                        reporting_source_phase=args.reporting_source_phase,
                     ),
                     dry_run=args.dry_run,
                     skip_errors=args.skip_errors,
@@ -469,6 +500,10 @@ def main() -> None:
                     objective_mode=args.objective_mode,
                     target_class=args.target_class,
                     attack_roi=args.attack_roi,
+                    reporting_run_role="attack_only",
+                    reporting_dataset_scope=args.reporting_dataset_scope,
+                    reporting_authority=args.reporting_authority,
+                    reporting_source_phase=args.reporting_source_phase,
                 ),
                 dry_run=args.dry_run,
                 bar=bar,
@@ -532,6 +567,10 @@ def main() -> None:
                     objective_mode=args.objective_mode,
                     target_class=args.target_class,
                     attack_roi=args.attack_roi,
+                    reporting_run_role="defended",
+                    reporting_dataset_scope=args.reporting_dataset_scope,
+                    reporting_authority=args.reporting_authority,
+                    reporting_source_phase=args.reporting_source_phase,
                 ),
                 dry_run=args.dry_run,
                 bar=bar,

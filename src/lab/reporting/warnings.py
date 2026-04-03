@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from lab.config.contracts import REPORTING_AUTHORITY_AUTHORITATIVE
 from lab.eval.framework_metrics import is_validation_success
 
 # Warning codes
@@ -20,6 +21,25 @@ def _warn(code: str, message: str, **extra: Any) -> dict[str, Any]:
     entry: dict[str, Any] = {"code": code, "message": message}
     entry.update(extra)
     return entry
+
+
+def _normalize_text(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def _has_authoritative_rows(rows: list[dict[str, Any]]) -> bool:
+    return any(
+        _normalize_text(row.get("authority")) == REPORTING_AUTHORITY_AUTHORITATIVE
+        for row in rows
+    )
+
+
+def _prefer_authoritative_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    authoritative = [
+        row for row in rows
+        if _normalize_text(row.get("authority")) == REPORTING_AUTHORITY_AUTHORITATIVE
+    ]
+    return authoritative if authoritative else rows
 
 
 def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -47,9 +67,12 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
             )
         )
 
+    attack_rows: list[dict[str, Any]] = _prefer_authoritative_rows(
+        list(payload.get("attack_effectiveness_rows") or [])
+    )
     has_validation = any(
         is_validation_success(r.get("validation_status"))
-        for r in payload.get("attack_effectiveness_rows") or []
+        for r in attack_rows
     )
     if not has_validation:
         warnings.append(
@@ -60,7 +83,6 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
             )
         )
 
-    attack_rows: list[dict[str, Any]] = list(payload.get("attack_effectiveness_rows") or [])
     if len(attack_rows) < 2:
         warnings.append(
             _warn(
@@ -113,7 +135,9 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
             )
 
     # Deduplicate DEFENSE_RECOVERY_UNDEFINED and DEFENSE_DEGRADES_PERFORMANCE by (attack, defense)
-    defense_rows: list[dict[str, Any]] = list(payload.get("defense_recovery_rows") or [])
+    defense_rows: list[dict[str, Any]] = _prefer_authoritative_rows(
+        list(payload.get("defense_recovery_rows") or [])
+    )
     recovery_undef_seen: set[tuple[str, str]] = set()
     recovery_degrades_seen: set[tuple[str, str]] = set()
     for row in defense_rows:
@@ -150,7 +174,15 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
                     )
                 )
 
-    per_class_rows: list[dict[str, Any]] = list(payload.get("per_class_vulnerability_rows") or [])
+    raw_per_class_rows: list[dict[str, Any]] = list(payload.get("per_class_vulnerability_rows") or [])
+    per_class_rows: list[dict[str, Any]]
+    if _has_authoritative_rows(attack_rows):
+        per_class_rows = [
+            row for row in raw_per_class_rows
+            if _normalize_text(row.get("authority")) == REPORTING_AUTHORITY_AUTHORITATIVE
+        ]
+    else:
+        per_class_rows = _prefer_authoritative_rows(raw_per_class_rows)
     if not per_class_rows and attack_rows:
         warnings.append(
             _warn(
