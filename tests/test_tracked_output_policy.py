@@ -39,11 +39,16 @@ class TrackedOutputPolicyTest(unittest.TestCase):
             [
                 Path("outputs/review_bundle.zip"),
                 Path("outputs/report.pdf"),
+                Path("outputs/training_exports/cycle_001_training_data.zip"),
             ]
         )
         self.assertEqual(
             disallowed,
-            [Path("outputs/review_bundle.zip"), Path("outputs/report.pdf")],
+            [
+                Path("outputs/review_bundle.zip"),
+                Path("outputs/report.pdf"),
+                Path("outputs/training_exports/cycle_001_training_data.zip"),
+            ],
         )
 
     def test_main_returns_zero_when_policy_passes(self) -> None:

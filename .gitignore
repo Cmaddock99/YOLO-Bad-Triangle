@@ -15,6 +15,7 @@ outputs/framework_runs/
 outputs/report_tables/
 outputs/summaries/
 outputs/training_data/
+outputs/training_exports/
 outputs/cycle_state.json
 outputs/cw_tune_state.json
 outputs/.cycle.lock

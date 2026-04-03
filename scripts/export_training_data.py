@@ -46,24 +46,31 @@ def _load_signal(signal_path: Path) -> dict:
     return signal
 
 
-def _resolve_sweep_root(raw: str) -> Path:
+def _resolve_runs_root(raw: str, signal_cycle_id: str | None = None) -> Path:
     if raw:
-        sweep_root = (REPO / raw).resolve()
-        if not sweep_root.is_dir():
-            raise FileNotFoundError(f"Runs root not found: {sweep_root}")
-        return sweep_root
+        runs_root = (REPO / raw).resolve()
+        if not runs_root.is_dir():
+            raise FileNotFoundError(f"Runs root not found: {runs_root}")
+        return runs_root
+
+    if signal_cycle_id:
+        signal_root = (REPO / "outputs" / "framework_runs" / signal_cycle_id).resolve()
+        if signal_root.is_dir():
+            return signal_root
+        print(
+            f"[warn] Signal-linked runs root not found: {signal_root} "
+            "- falling back to latest outputs/framework_runs/* directory."
+        )
 
     framework_runs = REPO / "outputs" / "framework_runs"
-    # Search sweep_* first (legacy naming), then cycle_* (current auto_cycle naming)
-    for glob_pattern in ("sweep_*", "cycle_*"):
-        candidates = sorted(
-            framework_runs.glob(glob_pattern),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )
-        for candidate in candidates:
-            if candidate.is_dir():
-                return candidate.resolve()
+    candidates = [
+        candidate
+        for glob_pattern in ("sweep_*", "cycle_*")
+        for candidate in framework_runs.glob(glob_pattern)
+        if candidate.is_dir()
+    ]
+    if candidates:
+        return max(candidates, key=lambda path: path.stat().st_mtime).resolve()
 
     raise FileNotFoundError(
         "No run directory found under outputs/framework_runs/. "
@@ -93,8 +100,8 @@ def main() -> None:
         "--sweep-root",
         default="",
         help=(
-            "Root of the sweep run directory containing attack_* subdirs. "
-            "Defaults to latest outputs/framework_runs/sweep_* if omitted."
+            "Root of the run directory containing validate_atk_* or attack_* subdirs. "
+            "Defaults to the latest outputs/framework_runs/cycle_* or sweep_* directory if omitted."
         ),
     )
     parser.add_argument("--clean-dir", default=CLEAN_DIR_DEFAULT,
@@ -127,7 +134,7 @@ def main() -> None:
     if not attacks_to_export:
         raise ValueError("No attacks selected for export. Use --attacks or --from-signal.")
 
-    sweep_root = _resolve_sweep_root(args.sweep_root)
+    runs_root = _resolve_runs_root(args.sweep_root, signal_cycle_id)
     clean_dir = REPO / args.clean_dir
     checkpoint = REPO / args.checkpoint
 
@@ -152,7 +159,7 @@ def main() -> None:
         candidates = [f"validate_atk_{short_name}", f"attack_{short_name}"]
         chosen_dir: Path | None = None
         for run_name in candidates:
-            adv_dir = sweep_root / run_name / "images"
+            adv_dir = runs_root / run_name / "images"
             if adv_dir.is_dir():
                 chosen_dir = adv_dir
                 break
@@ -171,7 +178,7 @@ def main() -> None:
 
     if not usable_attacks:
         print(
-            f"[warn] No usable attacked image pairs found under {sweep_root}. "
+            f"[warn] No usable attacked image pairs found under {runs_root}. "
             "Phase 1/2 smoke runs must have completed before export. "
             "Skipping export — no zip written."
         )
@@ -184,7 +191,7 @@ def main() -> None:
         raise FileNotFoundError(f"No images found in {clean_dir}")
 
     print(f"Packing training data into {output_zip} ...")
-    print(f"  Runs root:        {sweep_root}")
+    print(f"  Runs root:        {runs_root}")
     print(f"  Clean images:     {len(clean_images)}")
 
     with zipfile.ZipFile(output_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:

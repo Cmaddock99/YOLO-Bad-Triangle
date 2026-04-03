@@ -19,6 +19,7 @@ DISALLOWED_PATTERNS = (
     "outputs/framework_runs/**",
     "outputs/report_tables/**",
     "outputs/training_data/**",
+    "outputs/training_exports/**",
     "outputs/demo/**",
     "outputs/audit_exports/**",
     "outputs/ci_demo/**",
