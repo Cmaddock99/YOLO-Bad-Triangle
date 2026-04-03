@@ -127,9 +127,6 @@ def main() -> None:
     if not attacks_to_export:
         raise ValueError("No attacks selected for export. Use --attacks or --from-signal.")
 
-    # Map attack name → run directory name (cycle/sweep convention: attack_<name>)
-    attacks_map = {a: f"attack_{a}" for a in attacks_to_export}
-
     sweep_root = _resolve_sweep_root(args.sweep_root)
     clean_dir = REPO / args.clean_dir
     checkpoint = REPO / args.checkpoint
@@ -149,19 +146,27 @@ def main() -> None:
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
 
     # Collect usable attack dirs — warn on missing/empty, fail gracefully if none found.
+    # Prefer Phase 4 validate_atk_<name>/images/ (500 images) over Phase 1 attack_<name>/images/ (32 images).
     usable_attacks: dict[str, list[Path]] = {}
-    for short_name, run_name in attacks_map.items():
-        adv_dir = sweep_root / run_name / "images"
+    for short_name in attacks_to_export:
+        candidates = [f"validate_atk_{short_name}", f"attack_{short_name}"]
+        chosen_dir: Path | None = None
+        for run_name in candidates:
+            adv_dir = sweep_root / run_name / "images"
+            if adv_dir.is_dir():
+                chosen_dir = adv_dir
+                break
         images = (
-            sorted(adv_dir.glob("*.jpg")) + sorted(adv_dir.glob("*.png"))
-            if adv_dir.is_dir() else []
+            sorted(chosen_dir.glob("*.jpg")) + sorted(chosen_dir.glob("*.png"))
+            if chosen_dir is not None else []
         )
         if not images:
             print(
                 f"[warn] No attacked images found for '{short_name}' "
-                f"in {adv_dir} — skipping this attack."
+                f"(tried: {', '.join(candidates)}) — skipping this attack."
             )
         else:
+            print(f"  {short_name}: using {chosen_dir.parent.name}/images/ ({len(images)} images)")
             usable_attacks[short_name] = images
 
     if not usable_attacks:
