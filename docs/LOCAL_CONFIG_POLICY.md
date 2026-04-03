@@ -18,6 +18,7 @@ This repository separates shared project state from machine-local state.
 - raw run directories such as `outputs/framework_runs/**`
 - local state and lock files such as `outputs/cycle_state.json`
 - transfer bundles and handoff files such as `outputs/*.zip` and `outputs/*.pdf`
+- new top-level scratch logs and notes such as `outputs/*.log` and `outputs/*.txt`
 - machine-specific training exports and temporary demo artifacts
 
 ## Important nuance about `outputs/`
@@ -31,6 +32,9 @@ Rule of thumb:
 - Version summary artifacts that support comparison or reporting.
 - Do not version raw run payloads, locks, transient state, transfer bundles, or
   one-off local scratch outputs.
+- A small set of older top-level log and text files remain tracked as historical
+  evidence. Treat them as grandfathered reference artifacts, not canonical
+  current outputs to copy forward.
 
 ## Practical workflow
 

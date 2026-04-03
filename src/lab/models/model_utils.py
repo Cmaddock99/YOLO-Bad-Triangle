@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-DEFAULT_YOLO_MODEL = "yolov8n.pt"
+DEFAULT_YOLO_MODEL = "yolo26n.pt"
 
 
 def normalize_model_path(model: str | None) -> str:

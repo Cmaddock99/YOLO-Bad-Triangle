@@ -55,6 +55,8 @@ Thumbs.db
 # Local handoff artifacts (do not commit)
 outputs/*.zip
 outputs/*.pdf
+outputs/*.log
+outputs/*.txt
 
 # Keep example configs and scripts tracked
 !configs/examples/
