@@ -11,8 +11,16 @@ class TrackedOutputPolicyTest(unittest.TestCase):
         paths = [
             Path("outputs/cycle_history/cycle_001.json"),
             Path("outputs/framework_reports/sweep_001/framework_run_report.md"),
+            Path("outputs/framework_reports/sweep_001/summary_blur.txt"),
             Path("outputs/cycle_report.csv"),
             Path("outputs/dashboard.html"),
+        ]
+        self.assertEqual(check_tracked_outputs.find_disallowed_tracked_outputs(paths), [])
+
+    def test_allows_grandfathered_top_level_logs_and_text(self) -> None:
+        paths = [
+            Path("outputs/delegated_phase4.log"),
+            Path("outputs/training_log_round2.txt"),
         ]
         self.assertEqual(check_tracked_outputs.find_disallowed_tracked_outputs(paths), [])
 
@@ -39,11 +47,31 @@ class TrackedOutputPolicyTest(unittest.TestCase):
             [
                 Path("outputs/review_bundle.zip"),
                 Path("outputs/report.pdf"),
+                Path("outputs/training_exports/cycle_001_training_data.zip"),
             ]
         )
         self.assertEqual(
             disallowed,
-            [Path("outputs/review_bundle.zip"), Path("outputs/report.pdf")],
+            [
+                Path("outputs/review_bundle.zip"),
+                Path("outputs/report.pdf"),
+                Path("outputs/training_exports/cycle_001_training_data.zip"),
+            ],
+        )
+
+    def test_rejects_new_top_level_log_and_text_artifacts(self) -> None:
+        disallowed = check_tracked_outputs.find_disallowed_tracked_outputs(
+            [
+                Path("outputs/foo.log"),
+                Path("outputs/foo.txt"),
+            ]
+        )
+        self.assertEqual(
+            disallowed,
+            [
+                Path("outputs/foo.log"),
+                Path("outputs/foo.txt"),
+            ],
         )
 
     def test_main_returns_zero_when_policy_passes(self) -> None:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Local DPC-UNet fine-tuning on adversarial examples (MPS/CPU).
 
-Adapted from finetune_dpc_unet.ipynb for local execution on Apple Silicon.
+Adapted from notebooks/finetune_dpc_unet.ipynb for local execution on Apple Silicon.
 Trains the DPC-UNet denoising defense on (adversarial, clean) image pairs.
 
 Usage:
@@ -10,7 +10,7 @@ Usage:
 
     # Override defaults:
     ./.venv/bin/python scripts/train_dpc_unet_local.py \
-        --epochs 40 --batch-size 8 --training-zip outputs/dpc_unet_training.zip
+        --epochs 40 --batch-size 8 --training-zip outputs/training_exports/training_data.zip
 
 After training:
     ./.venv/bin/python scripts/evaluate_checkpoint.py \
@@ -529,7 +529,7 @@ def train(args: argparse.Namespace) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Local DPC-UNet fine-tuning (MPS/CPU)")
-    parser.add_argument("--training-zip", default="outputs/dpc_unet_training.zip",
+    parser.add_argument("--training-zip", default="outputs/training_exports/training_data.zip",
                         help="Path to training data zip")
     parser.add_argument("--output", default="dpc_unet_adversarial_finetuned.pt",
                         help="Output checkpoint filename (relative to repo root)")

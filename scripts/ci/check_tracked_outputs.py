@@ -19,6 +19,7 @@ DISALLOWED_PATTERNS = (
     "outputs/framework_runs/**",
     "outputs/report_tables/**",
     "outputs/training_data/**",
+    "outputs/training_exports/**",
     "outputs/demo/**",
     "outputs/audit_exports/**",
     "outputs/ci_demo/**",
@@ -26,9 +27,25 @@ DISALLOWED_PATTERNS = (
     "outputs/.cw_tune.lock",
     "outputs/cycle_state.json",
     "outputs/cw_tune_state.json",
-    "outputs/*.zip",
-    "outputs/*.pdf",
 )
+
+GRANDFATHERED_LOCAL_ONLY_OUTPUTS = frozenset(
+    {
+        "outputs/delegated_phase4.log",
+        "outputs/eval_normalize_fix_blur.log",
+        "outputs/eval_normalize_fix_deepfool.log",
+        "outputs/eval_r2_blur.log",
+        "outputs/eval_r2_deepfool_old.log",
+        "outputs/eval_r2_deepfool_strong.log",
+        "outputs/sweep_deepfool_strong.log",
+        "outputs/sweep_eot_pgd_mac.log",
+        "outputs/training_log.txt",
+        "outputs/training_log_round2.txt",
+        "outputs/training_log_round2b.txt",
+    }
+)
+
+TOP_LEVEL_LOCAL_ONLY_SUFFIXES = frozenset({".zip", ".pdf", ".log", ".txt"})
 
 
 def _tracked_outputs() -> list[Path]:
@@ -47,11 +64,20 @@ def _matches_any(path: Path, patterns: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatch(normalized, pattern) for pattern in patterns)
 
 
+def _is_grandfathered_local_output(path: Path) -> bool:
+    return path.as_posix() in GRANDFATHERED_LOCAL_ONLY_OUTPUTS
+
+
+def _is_top_level_local_only_output(path: Path) -> bool:
+    return len(path.parts) == 2 and path.parts[0] == "outputs" and path.suffix in TOP_LEVEL_LOCAL_ONLY_SUFFIXES
+
+
 def find_disallowed_tracked_outputs(paths: Iterable[Path]) -> list[Path]:
     return [
         path
         for path in paths
-        if _matches_any(path, DISALLOWED_PATTERNS)
+        if (_matches_any(path, DISALLOWED_PATTERNS) or _is_top_level_local_only_output(path))
+        and not _is_grandfathered_local_output(path)
     ]
 
 

@@ -15,6 +15,7 @@ outputs/framework_runs/
 outputs/report_tables/
 outputs/summaries/
 outputs/training_data/
+outputs/training_exports/
 outputs/cycle_state.json
 outputs/cw_tune_state.json
 outputs/.cycle.lock
@@ -51,9 +52,14 @@ Thumbs.db
 !.cursor/rules/
 !.cursor/rules/**
 
+# Local scratch files (do not commit)
+outputs/audi_tracker.md
+
 # Local handoff artifacts (do not commit)
 outputs/*.zip
 outputs/*.pdf
+outputs/*.log
+outputs/*.txt
 
 # Keep example configs and scripts tracked
 !configs/examples/
