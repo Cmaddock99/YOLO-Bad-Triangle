@@ -22,7 +22,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from lab.runners.cli_utils import resolve_python_bin, with_src_pythonpath
+from lab.runners.cli_utils import (
+    build_repo_python_command,
+    build_run_experiment_command,
+    resolve_python_bin,
+    with_src_pythonpath,
+)
 
 
 def _log(component: str, severity: str, message: str) -> None:
@@ -83,28 +88,27 @@ def main() -> None:
     runtime_env = with_src_pythonpath(ROOT)
 
     if args.mode == "run-one":
-        command = [
-            python_bin,
-            str(ROOT / "src/lab/runners/run_experiment.py"),
-            "--config",
-            str(args.config),
-        ]
-        for override in args.overrides:
-            command.extend(["--set", override])
+        overrides = list(args.overrides)
         if args.seed is not None:
-            command.extend(["--set", f"runner.seed={args.seed}"])
+            overrides.append(f"runner.seed={args.seed}")
+        command = build_run_experiment_command(
+            ROOT,
+            args.config,
+            overrides,
+            python_bin=python_bin,
+        )
         if args.dry_run:
             command.append("--dry-run")
         if args.list_plugins:
             command.append("--list-plugins")
         raise SystemExit(_run(command, component="run-unified", env=runtime_env))
 
-    command = [
-        python_bin,
-        str(ROOT / "scripts/sweep_and_report.py"),
-        "--config",
-        str(args.config),
-    ]
+    command = build_repo_python_command(
+        ROOT,
+        "scripts/sweep_and_report.py",
+        ["--config", str(args.config)],
+        python_bin=python_bin,
+    )
     if args.runs_root:
         command.extend(["--runs-root", str(args.runs_root)])
     if args.report_root:

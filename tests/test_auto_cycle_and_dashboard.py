@@ -168,11 +168,57 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
                 sweep_phases="1,2",
                 preset="smoke",
                 max_images=32,
+                reporting_dataset_scope="smoke",
+                reporting_authority="diagnostic",
+                reporting_source_phase="phase1",
             )
             self.assertTrue(ok)
             command = run_mock.call_args.kwargs["args"] if "args" in run_mock.call_args.kwargs else run_mock.call_args[0][0]
             self.assertIn("--max-images", command)
             self.assertIn("32", command)
+            self.assertIn("--reporting-dataset-scope", command)
+            self.assertIn("smoke", command)
+            self.assertIn("--reporting-authority", command)
+            self.assertIn("diagnostic", command)
+            self.assertIn("--reporting-source-phase", command)
+            self.assertIn("phase1", command)
+
+    def test_phase1_passes_reporting_metadata_to_sweep(self) -> None:
+        state = {
+            "runs_root": "outputs/framework_runs/test",
+            "report_root": "outputs/framework_reports/test",
+        }
+        with mock.patch.object(auto_cycle, "ALL_ATTACKS", ["deepfool"]), mock.patch.object(
+            auto_cycle, "SLOW_ATTACKS", set()
+        ), mock.patch("scripts.auto_cycle.run_sweep", return_value=True) as run_sweep_mock, mock.patch(
+            "scripts.auto_cycle._rank_attacks",
+            return_value=["deepfool"],
+        ):
+            ok = auto_cycle.phase1(state)
+
+        self.assertTrue(ok)
+        kwargs = run_sweep_mock.call_args.kwargs
+        self.assertEqual(kwargs["reporting_dataset_scope"], "smoke")
+        self.assertEqual(kwargs["reporting_authority"], "diagnostic")
+        self.assertEqual(kwargs["reporting_source_phase"], "phase1")
+
+    def test_phase2_passes_reporting_metadata_to_sweep(self) -> None:
+        state = {
+            "top_attacks": ["deepfool"],
+            "runs_root": "outputs/framework_runs/test",
+            "report_root": "outputs/framework_reports/test",
+        }
+        with mock.patch("scripts.auto_cycle.run_sweep", return_value=True) as run_sweep_mock, mock.patch(
+            "scripts.auto_cycle._rank_defenses",
+            return_value=["bit_depth"],
+        ):
+            ok = auto_cycle.phase2(state)
+
+        self.assertTrue(ok)
+        kwargs = run_sweep_mock.call_args.kwargs
+        self.assertEqual(kwargs["reporting_dataset_scope"], "smoke")
+        self.assertEqual(kwargs["reporting_authority"], "diagnostic")
+        self.assertEqual(kwargs["reporting_source_phase"], "phase2")
 
     def test_phase4_slow_attacks_run_locally_with_image_cap(self) -> None:
         # Slow attacks (eot_pgd, square, dispersion_reduction) must run locally in
@@ -212,6 +258,36 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
                 call.get("max_images_override"),
                 f"deepfool should not have max_images_override: {call}",
             )
+        baseline_call = next(c for c in run_calls if c.get("run_name") == "validate_baseline")
+        self.assertEqual(
+            baseline_call.get("reporting_context"),
+            {
+                "run_role": "baseline",
+                "dataset_scope": "full",
+                "authority": "authoritative",
+                "source_phase": "phase4",
+            },
+        )
+        attack_call = next(c for c in run_calls if c.get("run_name") == "validate_atk_deepfool")
+        self.assertEqual(
+            attack_call.get("reporting_context"),
+            {
+                "run_role": "attack_only",
+                "dataset_scope": "full",
+                "authority": "authoritative",
+                "source_phase": "phase4",
+            },
+        )
+        defended_call = next(c for c in run_calls if c.get("run_name") == "validate_deepfool_bit_depth")
+        self.assertEqual(
+            defended_call.get("reporting_context"),
+            {
+                "run_role": "defended",
+                "dataset_scope": "full",
+                "authority": "authoritative",
+                "source_phase": "phase4",
+            },
+        )
 
     def test_carry_forward_filters_stale_catalog_params(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -279,6 +355,30 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
                 )
             self.assertFalse(ok)
 
+    def test_run_single_passes_reporting_context_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch("scripts.auto_cycle.subprocess.run") as run_mock:
+                run_mock.return_value.returncode = 0
+                ok = auto_cycle.run_single(
+                    attack="deepfool",
+                    defense="none",
+                    run_name="reporting_case",
+                    runs_root=tmp,
+                    reporting_context={
+                        "run_role": "tune",
+                        "dataset_scope": "tune",
+                        "authority": "diagnostic",
+                        "source_phase": "phase3",
+                    },
+                )
+
+            self.assertTrue(ok)
+            command = run_mock.call_args.kwargs["args"] if "args" in run_mock.call_args.kwargs else run_mock.call_args[0][0]
+            self.assertIn("reporting_context.run_role=tune", command)
+            self.assertIn("reporting_context.dataset_scope=tune", command)
+            self.assertIn("reporting_context.authority=diagnostic", command)
+            self.assertIn("reporting_context.source_phase=phase3", command)
+
     def test_phase3_applies_consistency_gate_before_tuning(self) -> None:
         state = {
             "top_attacks": ["deepfool"],
@@ -298,6 +398,110 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
             auto_cycle.phase3(state)
         gate_mock.assert_called_once()
         self.assertEqual(state["top_defenses"], ["bit_depth"])
+
+    def test_pre_tune_consistency_runs_are_stamped_consistency(self) -> None:
+        state = {
+            "top_attacks": ["deepfool"],
+            "top_defenses": ["bit_depth"],
+            "runs_root": "outputs/framework_runs/test",
+        }
+        run_calls: list[dict[str, object]] = []
+
+        def capture_run_single(**kwargs: object) -> bool:
+            run_calls.append(dict(kwargs))
+            return True
+
+        def fake_read_metrics(path: Path) -> dict | None:
+            name = Path(path).name
+            payloads = {
+                "baseline_none": {"predictions": {"confidence": {"mean": 0.9}, "total_detections": 100}},
+                "consistency_atk_deepfool": {"predictions": {"confidence": {"mean": 0.4}, "total_detections": 40}},
+                "consistency_deepfool_bit_depth": {"predictions": {"confidence": {"mean": 0.7}, "total_detections": 75}},
+            }
+            return payloads.get(name)
+
+        with mock.patch("scripts.auto_cycle.run_single", side_effect=capture_run_single), mock.patch(
+            "scripts.auto_cycle.read_metrics",
+            side_effect=fake_read_metrics,
+        ):
+            reranked = auto_cycle.pre_tune_consistency_check(state)
+
+        self.assertEqual(reranked, ["bit_depth"])
+        self.assertEqual(len(run_calls), 2)
+        for call in run_calls:
+            self.assertEqual(
+                call.get("reporting_context"),
+                {
+                    "run_role": "consistency",
+                    "dataset_scope": "smoke",
+                    "authority": "diagnostic",
+                    "source_phase": "phase3",
+                },
+            )
+
+    def test_run_and_score_attack_stamps_tune_reporting_context(self) -> None:
+        run_calls: list[dict[str, object]] = []
+
+        def capture_run_single(**kwargs: object) -> bool:
+            run_calls.append(dict(kwargs))
+            return True
+
+        with mock.patch("scripts.auto_cycle.run_single", side_effect=capture_run_single), mock.patch(
+            "scripts.auto_cycle.read_metrics",
+            return_value={"predictions": {"confidence": {"mean": 0.4}, "total_detections": 40}},
+        ):
+            score = auto_cycle._run_and_score_attack(
+                "deepfool",
+                {"attack.params.steps": 50},
+                "tune_atk_deepfool_case",
+                "outputs/framework_runs/test",
+                0.9,
+                100,
+            )
+
+        self.assertGreaterEqual(score, 0.0)
+        self.assertEqual(
+            run_calls[0]["reporting_context"],
+            {
+                "run_role": "tune",
+                "dataset_scope": "tune",
+                "authority": "diagnostic",
+                "source_phase": "phase3",
+            },
+        )
+
+    def test_run_and_score_defense_stamps_tune_reporting_context(self) -> None:
+        run_calls: list[dict[str, object]] = []
+
+        def capture_run_single(**kwargs: object) -> bool:
+            run_calls.append(dict(kwargs))
+            return True
+
+        with mock.patch("scripts.auto_cycle.run_single", side_effect=capture_run_single), mock.patch(
+            "scripts.auto_cycle.read_metrics",
+            return_value={"predictions": {"confidence": {"mean": 0.7}, "total_detections": 75}},
+        ):
+            score = auto_cycle._run_and_score_defense(
+                "deepfool",
+                "bit_depth",
+                {"defense.params.bits": 6},
+                "tune_def_bit_depth_case",
+                "outputs/framework_runs/test",
+                0.9,
+                100,
+                0.4,
+            )
+
+        self.assertGreaterEqual(score, 0.0)
+        self.assertEqual(
+            run_calls[0]["reporting_context"],
+            {
+                "run_role": "tune",
+                "dataset_scope": "tune",
+                "authority": "diagnostic",
+                "source_phase": "phase3",
+            },
+        )
 
     def test_catalogues_exclude_temporarily_disabled_plugins(self) -> None:
         self.assertNotIn("jpeg_attack", auto_cycle.ALL_ATTACKS)

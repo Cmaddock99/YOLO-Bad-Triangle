@@ -57,6 +57,35 @@ def resolve_python_bin(project_root: Path) -> str:
     return sys.executable
 
 
+def build_repo_python_command(
+    project_root: Path,
+    script_relative_path: str,
+    args: list[str],
+    *,
+    python_bin: str | None = None,
+) -> list[str]:
+    interpreter = python_bin or resolve_python_bin(project_root)
+    return [interpreter, str(project_root / script_relative_path), *args]
+
+
+def build_run_experiment_command(
+    project_root: Path,
+    config: Path | str,
+    overrides: list[str],
+    *,
+    python_bin: str | None = None,
+) -> list[str]:
+    command = build_repo_python_command(
+        project_root,
+        "src/lab/runners/run_experiment.py",
+        ["--config", str(config)],
+        python_bin=python_bin,
+    )
+    for override in overrides:
+        command.extend(["--set", override])
+    return command
+
+
 def with_src_pythonpath(project_root: Path, env: dict[str, str] | None = None) -> dict[str, str]:
     runtime_env = dict(env or os.environ)
     existing = runtime_env.get("PYTHONPATH", "")
@@ -72,7 +101,7 @@ def run_repo_python_script(
     *,
     include_src_pythonpath: bool = True,
 ) -> int:
-    command = [resolve_python_bin(project_root), str(project_root / script_relative_path), *args]
+    command = build_repo_python_command(project_root, script_relative_path, args)
     env = with_src_pythonpath(project_root) if include_src_pythonpath else None
     return subprocess.call(command, env=env)
 
