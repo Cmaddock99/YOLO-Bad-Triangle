@@ -1,0 +1,17 @@
+{
+  "checkpoint_a": {
+    "path": "/home/lurch/YOLO-Bad-Triangle/dpc_unet_final_golden.pt",
+    "mAP50": 0.361581,
+    "detections": 88
+  },
+  "checkpoint_b": {
+    "path": "/home/lurch/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned.pt",
+    "mAP50": 0.388969,
+    "detections": 93
+  },
+  "delta_mAP50": 0.027388,
+  "verdict": "B is better \u2014 deploy",
+  "attack": "square",
+  "defense": "c_dog",
+  "images_evaluated": 50
+}

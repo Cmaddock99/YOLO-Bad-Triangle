@@ -1,28 +1,34 @@
 {
   "attack_params": {
+    "square": {
+      "attack.params.eps": 0.3,
+      "attack.params.n_queries": 450
+    },
     "deepfool": {
       "attack.params.epsilon": 0.1,
       "attack.params.steps": 50
     },
-    "eot_pgd": {
-      "attack.params.epsilon": 0.25,
-      "attack.params.eot_samples": 8
-    },
-    "blur": {
-      "attack.params.kernel_size": 29
+    "dispersion_reduction": {
+      "attack.params.epsilon": 0.15,
+      "attack.params.steps": 20
     }
   },
   "defense_params": {
     "jpeg_preprocess": {
-      "defense.params.quality": 60
+      "defense.params.quality": 40
     },
     "bit_depth": {
       "defense.params.bits": 5
     },
-    "median_preprocess": {
-      "defense.params.kernel_size": 5
+    "c_dog": {
+      "defense.params.timestep": 25.0,
+      "defense.params.sharpen_alpha": 0.55
     }
   },
-  "saved_at": "2026-03-28T06:49:48.336861",
-  "cycle_id": "cycle_20260327_212809"
+  "demoted_defenses": [
+    "bit_depth",
+    "c_dog"
+  ],
+  "saved_at": "2026-04-04T00:36:50.574796",
+  "cycle_id": "cycle_20260402_133001"
 }
