@@ -395,6 +395,21 @@ def _env() -> dict:
     return env
 
 
+def _reporting_context(
+    *,
+    run_role: str,
+    dataset_scope: str,
+    authority: str,
+    source_phase: str,
+) -> dict[str, str]:
+    return {
+        "run_role": run_role,
+        "dataset_scope": dataset_scope,
+        "authority": authority,
+        "source_phase": source_phase,
+    }
+
+
 def run_sweep(
     *,
     attacks: list[str],
@@ -406,6 +421,9 @@ def run_sweep(
     max_images: int | None = None,
     validation: bool = False,
     workers: int = 1,
+    reporting_dataset_scope: str | None = None,
+    reporting_authority: str | None = None,
+    reporting_source_phase: str | None = None,
 ) -> bool:
     """Call sweep_and_report.py and return True on success."""
     cmd = [
@@ -424,6 +442,12 @@ def run_sweep(
         cmd += ["--max-images", str(max_images)]
     if validation:
         cmd.append("--validation-enabled")
+    if reporting_dataset_scope:
+        cmd += ["--reporting-dataset-scope", reporting_dataset_scope]
+    if reporting_authority:
+        cmd += ["--reporting-authority", reporting_authority]
+    if reporting_source_phase:
+        cmd += ["--reporting-source-phase", reporting_source_phase]
     log(f"sweep phases={sweep_phases} attacks={attacks} defenses={defenses} "
         f"preset={preset} validation={validation}")
     result = subprocess.run(cmd, cwd=str(REPO), env=_env())
@@ -441,6 +465,7 @@ def run_single(
     validation: bool = False,
     timeout_seconds: int | None = None,
     max_images_override: int | None = None,
+    reporting_context: dict[str, str] | None = None,
 ) -> bool:
     """Call run_unified.py for one experiment. Skip if metrics.json already exists."""
     run_dir = Path(runs_root) / run_name
@@ -465,6 +490,10 @@ def run_single(
     ]
     if validation:
         cmd += ["--set", "validation.enabled=true"]
+    for key in ("run_role", "dataset_scope", "authority", "source_phase"):
+        value = (reporting_context or {}).get(key)
+        if value:
+            cmd += ["--set", f"reporting_context.{key}={value}"]
     for key, val in (overrides or {}).items():
         cmd += ["--set", f"{key}={val}"]
 
@@ -503,6 +532,9 @@ def phase1(state: dict) -> bool:
         report_root=state["report_root"],
         sweep_phases="1,2",
         max_images=RANKING_SMOKE_MAX_IMAGES,
+        reporting_dataset_scope="smoke",
+        reporting_authority="diagnostic",
+        reporting_source_phase="phase1",
     )
     for attack in slow_attacks:
         cap = CHARACTERIZE_MAX_IMAGES_BY_ATTACK.get(attack, RANKING_SMOKE_MAX_IMAGES)
@@ -514,6 +546,9 @@ def phase1(state: dict) -> bool:
             report_root=state["report_root"],
             sweep_phases="1,2",
             max_images=cap,
+            reporting_dataset_scope="smoke",
+            reporting_authority="diagnostic",
+            reporting_source_phase="phase1",
         )
         ok = ok and ok_a
     if not ok:
@@ -570,6 +605,9 @@ def phase2(state: dict) -> bool:
         sweep_phases="1,2,3",
         preset="smoke",
         max_images=RANKING_SMOKE_MAX_IMAGES,
+        reporting_dataset_scope="smoke",
+        reporting_authority="diagnostic",
+        reporting_source_phase="phase2",
     )
     if not ok:
         log("Phase 2 had errors — continuing with available data")
@@ -811,7 +849,13 @@ def _run_and_score_attack(attack, params, run_name, runs_root,
                           baseline_conf, baseline_det):
     run_single(attack=attack, defense="none", run_name=run_name,
                runs_root=runs_root, overrides=params, preset="tune",
-               max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(attack))
+               max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(attack),
+               reporting_context=_reporting_context(
+                   run_role="tune",
+                   dataset_scope="tune",
+                   authority="diagnostic",
+                   source_phase="phase3",
+               ))
     m = read_metrics(Path(runs_root) / run_name)
     if not m:
         return -1.0
@@ -823,7 +867,13 @@ def _run_and_score_defense(attack, defense, params, run_name, runs_root,
                             baseline_conf, baseline_det, attack_composite):
     run_single(attack=attack, defense=defense, run_name=run_name,
                runs_root=runs_root, overrides=params, preset="tune",
-               max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(attack))
+               max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(attack),
+               reporting_context=_reporting_context(
+                   run_role="tune",
+                   dataset_scope="tune",
+                   authority="diagnostic",
+                   source_phase="phase3",
+               ))
     m = read_metrics(Path(runs_root) / run_name)
     if not m:
         return -1.0
@@ -1042,6 +1092,12 @@ def pre_tune_consistency_check(state: dict) -> list[str]:
         runs_root=runs_root,
         preset="smoke",
         max_images_override=CONSISTENCY_CHECK_MAX_IMAGES,
+        reporting_context=_reporting_context(
+            run_role="consistency",
+            dataset_scope="smoke",
+            authority="diagnostic",
+            source_phase="phase3",
+        ),
     ):
         return defenses
     atk_metrics = read_metrics(Path(runs_root) / atk_run)
@@ -1062,6 +1118,12 @@ def pre_tune_consistency_check(state: dict) -> list[str]:
             runs_root=runs_root,
             preset="smoke",
             max_images_override=CONSISTENCY_CHECK_MAX_IMAGES,
+            reporting_context=_reporting_context(
+                run_role="consistency",
+                dataset_scope="smoke",
+                authority="diagnostic",
+                source_phase="phase3",
+            ),
         )
         if not ok:
             continue
@@ -1143,7 +1205,13 @@ def phase3(state: dict) -> bool:
         run_single(attack=atk, defense="none",
                    run_name=tuned_atk_run, runs_root=runs_root,
                    overrides=best_atk_params, preset="tune",
-                   max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(atk))
+                   max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(atk),
+                   reporting_context=_reporting_context(
+                       run_role="tune",
+                       dataset_scope="tune",
+                       authority="diagnostic",
+                       source_phase="phase3",
+                   ))
         tuned_m = read_metrics(Path(runs_root) / tuned_atk_run)
         ac = _composite_score(tuned_m, baseline_conf, baseline_det) if tuned_m else 1.0
         attack_composites.append(ac)
@@ -1214,6 +1282,12 @@ def phase4(state: dict) -> bool:
         preset="full",
         validation=True,
         timeout_seconds=_timeout_for_attack("none"),
+        reporting_context=_reporting_context(
+            run_role="baseline",
+            dataset_scope="full",
+            authority="authoritative",
+            source_phase="phase4",
+        ),
     ):
         failed_runs.append("validate_baseline")
 
@@ -1230,6 +1304,12 @@ def phase4(state: dict) -> bool:
             preset="full", validation=True,
             timeout_seconds=_timeout_for_attack(attack),
             max_images_override=img_cap,
+            reporting_context=_reporting_context(
+                run_role="attack_only",
+                dataset_scope="full",
+                authority="authoritative",
+                source_phase="phase4",
+            ),
         ):
             failed_runs.append(f"validate_atk_{attack}")
 
@@ -1246,6 +1326,12 @@ def phase4(state: dict) -> bool:
                 preset="full", validation=True,
                 timeout_seconds=_timeout_for_attack(attack),
                 max_images_override=img_cap,
+                reporting_context=_reporting_context(
+                    run_role="defended",
+                    dataset_scope="full",
+                    authority="authoritative",
+                    source_phase="phase4",
+                ),
             ):
                 failed_runs.append(f"validate_{attack}_{defense}")
 

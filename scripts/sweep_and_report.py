@@ -28,6 +28,12 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+from lab.runners.cli_utils import (
+    build_repo_python_command,
+    build_run_experiment_command,
+    with_src_pythonpath,
+)
+
 
 DEFAULT_ATTACKS = ("bim", "blur", "deepfool", "fgsm", "gaussian_blur", "ifgsm", "pgd")
 DEFAULT_DEFENSES = ("median_preprocess",)
@@ -97,16 +103,14 @@ def _run_command(
     dry_run: bool,
     bar: tqdm | None = None,
     skip_errors: bool = False,
+    include_src_pythonpath: bool = True,
 ) -> bool:
     """Run a command. Returns True on success, False on failure (when skip_errors=True)."""
     rendered = " ".join(shlex.quote(part) for part in command)
     _write(f"$ {rendered}", bar=bar)
     if dry_run:
         return True
-    runtime_env = os.environ.copy()
-    src_path = str((REPO_ROOT / "src").resolve())
-    existing = runtime_env.get("PYTHONPATH", "")
-    runtime_env["PYTHONPATH"] = f"{src_path}:{existing}" if existing else src_path
+    runtime_env = with_src_pythonpath(REPO_ROOT) if include_src_pythonpath else os.environ.copy()
     result = subprocess.run(command, capture_output=True, text=True, env=runtime_env)
     if result.returncode != 0:
         if result.stdout:
@@ -169,36 +173,41 @@ def _experiment_command(
     objective_mode: str | None = None,
     target_class: int | None = None,
     attack_roi: str | None = None,
+    reporting_run_role: str | None = None,
+    reporting_dataset_scope: str | None = None,
+    reporting_authority: str | None = None,
+    reporting_source_phase: str | None = None,
 ) -> list[str]:
-    command = [
-        python_bin,
-        str(REPO_ROOT / "src/lab/runners/run_experiment.py"),
-        "--config",
-        str(config),
-        "--set",
+    overrides = [
         f"runner.output_root={output_root}",
-        "--set",
         f"runner.run_name={run_name}",
-        "--set",
         f"runner.seed={seed}",
-        "--set",
         f"runner.max_images={max_images}",
-        "--set",
         f"attack.name={attack_name}",
-        "--set",
         f"defense.name={defense_name}",
-        "--set",
         f"validation.enabled={str(validation_enabled).lower()}",
-        "--set",
         "summary.enabled=false",
     ]
     if objective_mode:
-        command.extend(["--set", f"attack.params.objective_mode={objective_mode}"])
+        overrides.append(f"attack.params.objective_mode={objective_mode}")
     if target_class is not None:
-        command.extend(["--set", f"attack.params.target_class={int(target_class)}"])
+        overrides.append(f"attack.params.target_class={int(target_class)}")
     if attack_roi:
-        command.extend(["--set", f"attack.params.attack_roi={attack_roi}"])
-    return command
+        overrides.append(f"attack.params.attack_roi={attack_roi}")
+    if reporting_run_role:
+        overrides.append(f"reporting_context.run_role={reporting_run_role}")
+    if reporting_dataset_scope:
+        overrides.append(f"reporting_context.dataset_scope={reporting_dataset_scope}")
+    if reporting_authority:
+        overrides.append(f"reporting_context.authority={reporting_authority}")
+    if reporting_source_phase:
+        overrides.append(f"reporting_context.source_phase={reporting_source_phase}")
+    return build_run_experiment_command(
+        REPO_ROOT,
+        config,
+        overrides,
+        python_bin=python_bin,
+    )
 
 
 def _print_summary_command(
@@ -207,14 +216,12 @@ def _print_summary_command(
     baseline_dir: Path,
     attack_dir: Path,
 ) -> list[str]:
-    return [
-        python_bin,
-        str(REPO_ROOT / "scripts/print_summary.py"),
-        "--baseline",
-        str(baseline_dir),
-        "--attack",
-        str(attack_dir),
-    ]
+    return build_repo_python_command(
+        REPO_ROOT,
+        "scripts/print_summary.py",
+        ["--baseline", str(baseline_dir), "--attack", str(attack_dir)],
+        python_bin=python_bin,
+    )
 
 
 def _generate_framework_report_command(
@@ -223,14 +230,12 @@ def _generate_framework_report_command(
     runs_root: Path,
     output_dir: Path,
 ) -> list[str]:
-    return [
-        python_bin,
-        str(REPO_ROOT / "scripts/generate_framework_report.py"),
-        "--runs-root",
-        str(runs_root),
-        "--output-dir",
-        str(output_dir),
-    ]
+    return build_repo_python_command(
+        REPO_ROOT,
+        "scripts/generate_framework_report.py",
+        ["--runs-root", str(runs_root), "--output-dir", str(output_dir)],
+        python_bin=python_bin,
+    )
 
 
 def _generate_team_summary_command(
@@ -238,12 +243,12 @@ def _generate_team_summary_command(
     python_bin: str,
     report_root: Path,
 ) -> list[str]:
-    return [
-        python_bin,
-        str(REPO_ROOT / "scripts/generate_team_summary.py"),
-        "--report-root",
-        str(report_root),
-    ]
+    return build_repo_python_command(
+        REPO_ROOT,
+        "scripts/generate_team_summary.py",
+        ["--report-root", str(report_root)],
+        python_bin=python_bin,
+    )
 
 
 def _default_max_images(preset: str) -> int:
@@ -281,6 +286,21 @@ def main() -> None:
         help="smoke=fast sanity defaults (8 images), full=all images.",
     )
     parser.add_argument("--validation-enabled", action="store_true")
+    parser.add_argument(
+        "--reporting-dataset-scope",
+        choices=("smoke", "tune", "full"),
+        help="Optional reporting metadata stamped onto each launched run.",
+    )
+    parser.add_argument(
+        "--reporting-authority",
+        choices=("diagnostic", "authoritative"),
+        help="Optional reporting metadata stamped onto each launched run.",
+    )
+    parser.add_argument(
+        "--reporting-source-phase",
+        choices=("phase1", "phase2", "phase3", "phase4", "manual"),
+        help="Optional reporting metadata stamped onto each launched run.",
+    )
     parser.add_argument(
         "--objective-mode",
         choices=(
@@ -433,6 +453,10 @@ def main() -> None:
                         objective_mode=args.objective_mode,
                         target_class=args.target_class,
                         attack_roi=args.attack_roi,
+                        reporting_run_role="baseline",
+                        reporting_dataset_scope=args.reporting_dataset_scope,
+                        reporting_authority=args.reporting_authority,
+                        reporting_source_phase=args.reporting_source_phase,
                     ),
                     dry_run=args.dry_run,
                     skip_errors=args.skip_errors,
@@ -469,6 +493,10 @@ def main() -> None:
                     objective_mode=args.objective_mode,
                     target_class=args.target_class,
                     attack_roi=args.attack_roi,
+                    reporting_run_role="attack_only",
+                    reporting_dataset_scope=args.reporting_dataset_scope,
+                    reporting_authority=args.reporting_authority,
+                    reporting_source_phase=args.reporting_source_phase,
                 ),
                 dry_run=args.dry_run,
                 bar=bar,
@@ -532,6 +560,10 @@ def main() -> None:
                     objective_mode=args.objective_mode,
                     target_class=args.target_class,
                     attack_roi=args.attack_roi,
+                    reporting_run_role="defended",
+                    reporting_dataset_scope=args.reporting_dataset_scope,
+                    reporting_authority=args.reporting_authority,
+                    reporting_source_phase=args.reporting_source_phase,
                 ),
                 dry_run=args.dry_run,
                 bar=bar,
@@ -597,12 +629,12 @@ def main() -> None:
             # Generate dashboard
             dashboard_out = Path("outputs/dashboard.html").resolve()
             _run_command(
-                [
-                    args.python_bin,
-                    str(REPO_ROOT / "scripts/generate_dashboard.py"),
-                    "--reports-root", str(report_root.parent),
-                    "--output", str(dashboard_out),
-                ],
+                build_repo_python_command(
+                    REPO_ROOT,
+                    "scripts/generate_dashboard.py",
+                    ["--reports-root", str(report_root.parent), "--output", str(dashboard_out)],
+                    python_bin=args.python_bin,
+                ),
                 dry_run=args.dry_run,
                 bar=bar4,
             )
