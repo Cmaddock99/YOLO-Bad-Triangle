@@ -1,0 +1,22 @@
+{
+  "cycle_id": "cycle_20260402_133001",
+  "runs_root": "/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260402_133001",
+  "generated_at": "2026-04-04T00:36:41.327668",
+  "ranking_source": "phase4_map50",
+  "worst_attack": "deepfool",
+  "worst_attack_params": {
+    "attack.params.epsilon": 0.1,
+    "attack.params.steps": 50
+  },
+  "baseline_mAP50": 0.600159,
+  "attacked_mAP50": 0.218414,
+  "worst_attack_damage_pct": 63.61,
+  "weakest_defense": "c_dog",
+  "weakest_defense_recovery": -0.0312,
+  "all_attack_avg_recovery": {
+    "deepfool": 0.0853,
+    "dispersion_reduction": -0.045,
+    "square": -0.0731
+  },
+  "checkpoint_path": ""
+}

@@ -1,11 +1,11 @@
 # Auto-cycle status
 
-cycle_id   : cycle_20260402_133001
+cycle_id   : cycle_20260404_003651
 phase      : 2/4 complete
-updated_at : 2026-04-02T20:03:48.813297
+updated_at : 2026-04-04T06:44:09.311860
 
 top_attacks  : ['square', 'deepfool', 'dispersion_reduction']
-top_defenses : ['jpeg_preprocess', 'bit_depth', 'c_dog']
+top_defenses : ['jpeg_preprocess', 'median_preprocess', 'c_dog']
 
 best_attack_params:
 best_defense_params:

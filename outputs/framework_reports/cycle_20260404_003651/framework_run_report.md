@@ -4,28 +4,28 @@ Total discovered framework runs: **20**
 
 ## Run Inventory
 
-| Run | Model | Attack | Defense | Validation | mAP50 | Avg conf |
-|---|---|---|---|---|---:|---:|
-| `attack_blur` | `yolo` | `blur` | `none` | `missing` |  | 0.7566 |
-| `attack_deepfool` | `yolo` | `deepfool` | `none` | `missing` |  | 0.7271 |
-| `attack_dispersion_reduction` | `yolo` | `dispersion_reduction` | `none` | `missing` |  | 0.7951 |
-| `attack_eot_pgd` | `yolo` | `eot_pgd` | `none` | `missing` |  | 0.7928 |
-| `attack_fgsm` | `yolo` | `fgsm` | `none` | `missing` |  | 0.7764 |
-| `attack_pgd` | `yolo` | `pgd` | `none` | `missing` |  | 0.7503 |
-| `attack_square` | `yolo` | `square` | `none` | `missing` |  | 0.7183 |
-| `baseline_none` | `yolo` | `none` | `none` | `missing` |  | 0.7623 |
-| `defended_deepfool_bit_depth` | `yolo` | `deepfool` | `bit_depth` | `missing` |  | 0.7219 |
-| `defended_deepfool_c_dog` | `yolo` | `deepfool` | `c_dog` | `missing` |  | 0.7710 |
-| `defended_deepfool_jpeg_preprocess` | `yolo` | `deepfool` | `jpeg_preprocess` | `missing` |  | 0.7870 |
-| `defended_deepfool_median_preprocess` | `yolo` | `deepfool` | `median_preprocess` | `missing` |  | 0.7746 |
-| `defended_dispersion_reduction_bit_depth` | `yolo` | `dispersion_reduction` | `bit_depth` | `missing` |  | 0.7595 |
-| `defended_dispersion_reduction_c_dog` | `yolo` | `dispersion_reduction` | `c_dog` | `missing` |  | 0.7444 |
-| `defended_dispersion_reduction_jpeg_preprocess` | `yolo` | `dispersion_reduction` | `jpeg_preprocess` | `missing` |  | 0.7423 |
-| `defended_dispersion_reduction_median_preprocess` | `yolo` | `dispersion_reduction` | `median_preprocess` | `missing` |  | 0.7469 |
-| `defended_square_bit_depth` | `yolo` | `square` | `bit_depth` | `missing` |  | 0.7400 |
-| `defended_square_c_dog` | `yolo` | `square` | `c_dog` | `missing` |  | 0.7468 |
-| `defended_square_jpeg_preprocess` | `yolo` | `square` | `jpeg_preprocess` | `missing` |  | 0.7403 |
-| `defended_square_median_preprocess` | `yolo` | `square` | `median_preprocess` | `missing` |  | 0.7397 |
+| Run | Model | Attack | Defense | Semantics | Validation | mAP50 | Avg conf |
+|---|---|---|---|---|---|---:|---:|
+| `attack_blur` | `yolo` | `blur` | `none` | `attack_then_defense` | `missing` |  | 0.7566 |
+| `attack_deepfool` | `yolo` | `deepfool` | `none` | `attack_then_defense` | `missing` |  | 0.7271 |
+| `attack_dispersion_reduction` | `yolo` | `dispersion_reduction` | `none` | `attack_then_defense` | `missing` |  | 0.7951 |
+| `attack_eot_pgd` | `yolo` | `eot_pgd` | `none` | `attack_then_defense` | `missing` |  | 0.7928 |
+| `attack_fgsm` | `yolo` | `fgsm` | `none` | `attack_then_defense` | `missing` |  | 0.7764 |
+| `attack_pgd` | `yolo` | `pgd` | `none` | `attack_then_defense` | `missing` |  | 0.7503 |
+| `attack_square` | `yolo` | `square` | `none` | `attack_then_defense` | `missing` |  | 0.7183 |
+| `baseline_none` | `yolo` | `none` | `none` | `attack_then_defense` | `missing` |  | 0.7623 |
+| `defended_deepfool_bit_depth` | `yolo` | `deepfool` | `bit_depth` | `attack_then_defense` | `missing` |  | 0.7392 |
+| `defended_deepfool_c_dog` | `yolo` | `deepfool` | `c_dog` | `attack_then_defense` | `missing` |  | 0.7788 |
+| `defended_deepfool_jpeg_preprocess` | `yolo` | `deepfool` | `jpeg_preprocess` | `attack_then_defense` | `missing` |  | 0.7575 |
+| `defended_deepfool_median_preprocess` | `yolo` | `deepfool` | `median_preprocess` | `attack_then_defense` | `missing` |  | 0.7457 |
+| `defended_dispersion_reduction_bit_depth` | `yolo` | `dispersion_reduction` | `bit_depth` | `attack_then_defense` | `missing` |  | 0.7511 |
+| `defended_dispersion_reduction_c_dog` | `yolo` | `dispersion_reduction` | `c_dog` | `attack_then_defense` | `missing` |  | 0.7473 |
+| `defended_dispersion_reduction_jpeg_preprocess` | `yolo` | `dispersion_reduction` | `jpeg_preprocess` | `attack_then_defense` | `missing` |  | 0.7525 |
+| `defended_dispersion_reduction_median_preprocess` | `yolo` | `dispersion_reduction` | `median_preprocess` | `attack_then_defense` | `missing` |  | 0.7515 |
+| `defended_square_bit_depth` | `yolo` | `square` | `bit_depth` | `attack_then_defense` | `missing` |  | 0.7374 |
+| `defended_square_c_dog` | `yolo` | `square` | `c_dog` | `attack_then_defense` | `missing` |  | 0.7276 |
+| `defended_square_jpeg_preprocess` | `yolo` | `square` | `jpeg_preprocess` | `attack_then_defense` | `missing` |  | 0.7460 |
+| `defended_square_median_preprocess` | `yolo` | `square` | `median_preprocess` | `attack_then_defense` | `missing` |  | 0.7371 |
 
 ## Attack Effectiveness
 
