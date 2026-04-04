@@ -54,6 +54,7 @@ Thumbs.db
 
 # Local scratch files (do not commit)
 outputs/audi_tracker.md
+MESSAGES_FOR_*.md
 
 # Local handoff artifacts (do not commit)
 outputs/*.zip
