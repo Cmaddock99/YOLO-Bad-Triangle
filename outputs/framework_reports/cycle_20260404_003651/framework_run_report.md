@@ -1,6 +1,6 @@
 # Framework Run Comparison Report
 
-Total discovered framework runs: **8**
+Total discovered framework runs: **20**
 
 ## Run Inventory
 
@@ -14,6 +14,18 @@ Total discovered framework runs: **8**
 | `attack_pgd` | `yolo` | `pgd` | `none` | `attack_then_defense` | `missing` |  | 0.7503 |
 | `attack_square` | `yolo` | `square` | `none` | `attack_then_defense` | `missing` |  | 0.7183 |
 | `baseline_none` | `yolo` | `none` | `none` | `attack_then_defense` | `missing` |  | 0.7623 |
+| `defended_deepfool_bit_depth` | `yolo` | `deepfool` | `bit_depth` | `attack_then_defense` | `missing` |  | 0.7392 |
+| `defended_deepfool_c_dog` | `yolo` | `deepfool` | `c_dog` | `attack_then_defense` | `missing` |  | 0.7788 |
+| `defended_deepfool_jpeg_preprocess` | `yolo` | `deepfool` | `jpeg_preprocess` | `attack_then_defense` | `missing` |  | 0.7575 |
+| `defended_deepfool_median_preprocess` | `yolo` | `deepfool` | `median_preprocess` | `attack_then_defense` | `missing` |  | 0.7457 |
+| `defended_dispersion_reduction_bit_depth` | `yolo` | `dispersion_reduction` | `bit_depth` | `attack_then_defense` | `missing` |  | 0.7511 |
+| `defended_dispersion_reduction_c_dog` | `yolo` | `dispersion_reduction` | `c_dog` | `attack_then_defense` | `missing` |  | 0.7473 |
+| `defended_dispersion_reduction_jpeg_preprocess` | `yolo` | `dispersion_reduction` | `jpeg_preprocess` | `attack_then_defense` | `missing` |  | 0.7525 |
+| `defended_dispersion_reduction_median_preprocess` | `yolo` | `dispersion_reduction` | `median_preprocess` | `attack_then_defense` | `missing` |  | 0.7515 |
+| `defended_square_bit_depth` | `yolo` | `square` | `bit_depth` | `attack_then_defense` | `missing` |  | 0.7374 |
+| `defended_square_c_dog` | `yolo` | `square` | `c_dog` | `attack_then_defense` | `missing` |  | 0.7276 |
+| `defended_square_jpeg_preprocess` | `yolo` | `square` | `jpeg_preprocess` | `attack_then_defense` | `missing` |  | 0.7460 |
+| `defended_square_median_preprocess` | `yolo` | `square` | `median_preprocess` | `attack_then_defense` | `missing` |  | 0.7371 |
 
 ## Attack Effectiveness
 
@@ -29,7 +41,20 @@ Total discovered framework runs: **8**
 
 ## Defense Recovery
 
-No defended runs found. Run with `--defenses` to enable defense sweep.
+| Model | Attack | Defense | Objective | Target class | ROI | mAP50 attacked | mAP50 defended | Recovery |
+|---|---|---|---|---:|---|---:|---:|---:|
+| `yolo` | `deepfool` | `bit_depth` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `c_dog` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `jpeg_preprocess` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `deepfool` | `median_preprocess` | `untargeted_conf_suppression` |  | `` |  |  |  |
+| `yolo` | `dispersion_reduction` | `bit_depth` | `` |  | `` |  |  |  |
+| `yolo` | `dispersion_reduction` | `c_dog` | `` |  | `` |  |  |  |
+| `yolo` | `dispersion_reduction` | `jpeg_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `dispersion_reduction` | `median_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `bit_depth` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `c_dog` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `jpeg_preprocess` | `` |  | `` |  |  |  |
+| `yolo` | `square` | `median_preprocess` | `` |  | `` |  |  |  |
 
 ## Per-Class Detection Drop
 
