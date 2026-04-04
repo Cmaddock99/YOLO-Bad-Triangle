@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+import sys
 import tempfile
 import unittest
-from pathlib import Path
+from unittest.mock import patch
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from scripts import sweep_and_report
 
@@ -37,6 +44,58 @@ class SweepAndReportScriptTest(unittest.TestCase):
         self.assertIn("runner.run_name=attack_fgsm", rendered)
         self.assertIn("attack.name=fgsm", rendered)
         self.assertIn("summary.enabled=false", rendered)
+
+    def test_repo_script_commands_use_shared_builder_paths(self) -> None:
+        report_command = sweep_and_report._generate_framework_report_command(
+            python_bin="python",
+            runs_root=Path("outputs/framework_runs/sweep_x"),
+            output_dir=Path("outputs/framework_reports/sweep_x"),
+        )
+        team_command = sweep_and_report._generate_team_summary_command(
+            python_bin="python",
+            report_root=Path("outputs/framework_reports/sweep_x"),
+        )
+        summary_command = sweep_and_report._print_summary_command(
+            python_bin="python",
+            baseline_dir=Path("outputs/framework_runs/sweep_x/baseline_none"),
+            attack_dir=Path("outputs/framework_runs/sweep_x/attack_fgsm"),
+        )
+
+        self.assertEqual(report_command[:2], ["python", str(sweep_and_report.REPO_ROOT / "scripts/generate_framework_report.py")])
+        self.assertEqual(team_command[:2], ["python", str(sweep_and_report.REPO_ROOT / "scripts/generate_team_summary.py")])
+        self.assertEqual(summary_command[:2], ["python", str(sweep_and_report.REPO_ROOT / "scripts/print_summary.py")])
+        self.assertIn("--runs-root", report_command)
+        self.assertIn("--report-root", team_command)
+        self.assertIn("--baseline", summary_command)
+
+    def test_run_command_adds_src_pythonpath(self) -> None:
+        with patch("scripts.sweep_and_report.subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = ""
+            mock_run.return_value.stderr = ""
+
+            ok = sweep_and_report._run_command(["python", "script.py"], dry_run=False)
+
+        self.assertTrue(ok)
+        env = mock_run.call_args.kwargs["env"]
+        self.assertIn(str(sweep_and_report.REPO_ROOT / "src"), env["PYTHONPATH"])
+
+    def test_run_command_can_skip_src_pythonpath(self) -> None:
+        with patch.dict(os.environ, {"PYTHONPATH": "existing"}, clear=True):
+            with patch("scripts.sweep_and_report.subprocess.run") as mock_run:
+                mock_run.return_value.returncode = 0
+                mock_run.return_value.stdout = ""
+                mock_run.return_value.stderr = ""
+
+                ok = sweep_and_report._run_command(
+                    ["python", "script.py"],
+                    dry_run=False,
+                    include_src_pythonpath=False,
+                )
+
+        self.assertTrue(ok)
+        env = mock_run.call_args.kwargs["env"]
+        self.assertEqual(env["PYTHONPATH"], "existing")
 
     def test_metrics_exists_helper(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

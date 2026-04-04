@@ -1,12 +1,59 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+import sys
 from unittest.mock import patch
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
 from scripts import run_unified
+from lab.runners import cli_utils
 
 
 class RunUnifiedTest(unittest.TestCase):
+    def test_build_run_experiment_command_appends_set_overrides(self) -> None:
+        command = cli_utils.build_run_experiment_command(
+            Path("/repo"),
+            "configs/default.yaml",
+            ["attack.name=fgsm", "runner.seed=7"],
+            python_bin="python",
+        )
+
+        self.assertEqual(
+            command,
+            [
+                "python",
+                "/repo/src/lab/runners/run_experiment.py",
+                "--config",
+                "configs/default.yaml",
+                "--set",
+                "attack.name=fgsm",
+                "--set",
+                "runner.seed=7",
+            ],
+        )
+
+    def test_build_repo_python_command_targets_requested_script(self) -> None:
+        command = cli_utils.build_repo_python_command(
+            Path("/repo"),
+            "scripts/sweep_and_report.py",
+            ["--config", "configs/default.yaml"],
+            python_bin="python3",
+        )
+
+        self.assertEqual(
+            command,
+            [
+                "python3",
+                "/repo/scripts/sweep_and_report.py",
+                "--config",
+                "configs/default.yaml",
+            ],
+        )
+
     def test_sweep_forwards_extended_flags(self) -> None:
         captured: list[list[str]] = []
 
