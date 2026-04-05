@@ -1,0 +1,9 @@
+run_name,run_dir,model,attack,defense,seed,semantic_order,objective_mode,target_class,attack_roi,prediction_count,images_with_detections,total_detections,avg_confidence,validation_status,precision,recall,mAP50,mAP50-95
+attack_blur,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260405_073545/attack_blur,yolo,blur,none,42,attack_then_defense,,,,32,30,73,0.7566432789580463,missing,,,,
+attack_deepfool,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260405_073545/attack_deepfool,yolo,deepfool,none,42,attack_then_defense,untargeted_conf_suppression,,,32,18,23,0.7270611757817476,missing,,,,
+attack_dispersion_reduction,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260405_073545/attack_dispersion_reduction,yolo,dispersion_reduction,none,42,attack_then_defense,,,,12,10,24,0.7951196084419886,missing,,,,
+attack_eot_pgd,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260405_073545/attack_eot_pgd,yolo,eot_pgd,none,42,attack_then_defense,untargeted_conf_suppression,,,12,12,36,0.7927756839328342,missing,,,,
+attack_fgsm,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260405_073545/attack_fgsm,yolo,fgsm,none,42,attack_then_defense,untargeted_conf_suppression,,,32,28,81,0.7764275662692977,missing,,,,
+attack_pgd,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260405_073545/attack_pgd,yolo,pgd,none,42,attack_then_defense,untargeted_conf_suppression,,,32,31,92,0.7503096875937089,missing,,,,
+attack_square,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260405_073545/attack_square,yolo,square,none,42,attack_then_defense,,,,8,8,18,0.7183249162303077,missing,,,,
+baseline_none,/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260405_073545/baseline_none,yolo,none,none,42,attack_then_defense,,,,32,32,100,0.7622534918785095,missing,,,,
