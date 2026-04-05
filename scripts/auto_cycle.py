@@ -168,7 +168,7 @@ TUNE_MAX_IMAGES_BY_ATTACK: dict[str, int] = {
 
 # Attacks too slow for NUC Phase 4 at full-dataset scale (~126s/img, ~48s/img, ~60s/img on NUC CPU).
 # These run locally with a capped image count instead of being delegated to Mac.
-SLOW_ATTACKS: set[str] = {"square", "eot_pgd", "dispersion_reduction"}
+SLOW_ATTACKS: set[str] = {"square", "eot_pgd", "dispersion_reduction", "deepfool"}
 
 # Phase 4 image cap for slow attacks. Keeps wall-clock time tractable on NUC CPU:
 #   square ~126s/img × 50 imgs ≈ 1.75h   eot_pgd ~48s × 50 ≈ 40min   disp_red ~60s × 50 ≈ 50min
