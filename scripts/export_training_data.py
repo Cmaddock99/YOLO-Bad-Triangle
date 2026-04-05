@@ -7,6 +7,9 @@ Usage (explicit attacks):
 Usage (auto, from training signal):
     PYTHONPATH=src ./.venv/bin/python scripts/export_training_data.py --from-signal
 
+Usage (square-inclusive retention mix):
+    PYTHONPATH=src ./.venv/bin/python scripts/export_training_data.py --preset square_retention
+
 Output:
     outputs/training_exports/<cycle_id>_training_data.zip  (when --from-signal or called by auto_cycle)
     outputs/training_exports/training_data.zip             (manual fallback)
@@ -30,6 +33,9 @@ SIGNAL_PATH_DEFAULT = "outputs/cycle_training_signal.json"
 
 # Fallback attacks when no signal and no --attacks flag given
 DEFAULT_ATTACKS = ["fgsm", "pgd", "deepfool", "blur"]
+PRESET_ATTACKS: dict[str, list[str]] = {
+    "square_retention": ["deepfool", "blur", "square"],
+}
 
 
 def _load_signal(signal_path: Path) -> dict:
@@ -93,7 +99,16 @@ def main() -> None:
         default="",
         help=(
             "Comma-separated list of attacks to include (e.g. fgsm,pgd). "
-            f"Defaults to {DEFAULT_ATTACKS} if neither --from-signal nor --attacks is given."
+            f"Defaults to {DEFAULT_ATTACKS} if neither --from-signal, --preset, nor --attacks is given."
+        ),
+    )
+    parser.add_argument(
+        "--preset",
+        default="",
+        choices=sorted(PRESET_ATTACKS),
+        help=(
+            "Named attack mix to export. "
+            "square_retention keeps deepfool + blur for retention and adds square."
         ),
     )
     parser.add_argument(
@@ -108,13 +123,16 @@ def main() -> None:
                         help="Directory of clean COCO validation images.")
     parser.add_argument("--checkpoint", default=CHECKPOINT_DEFAULT,
                         help="Pre-trained DPC-UNet checkpoint to include.")
-    parser.add_argument("--output-zip", default=OUTPUT_ZIP_DEFAULT,
+    parser.add_argument("--output-zip", default=None,
                         help="Output zip file path.")
     parser.add_argument("--signal-path", default=SIGNAL_PATH_DEFAULT,
                         help="Path to cycle_training_signal.json (used with --from-signal).")
     args = parser.parse_args()
 
     # ── Resolve attack list ───────────────────────────────────────────────────
+    if sum((bool(args.from_signal), bool(args.preset), bool(args.attacks))) > 1:
+        raise ValueError("Choose only one of --from-signal, --preset, or --attacks.")
+
     signal_cycle_id: str | None = None
     if args.from_signal:
         signal_path = REPO / args.signal_path
@@ -126,23 +144,39 @@ def main() -> None:
               f"(cycle {signal_cycle_id or '?'}, "
               f"recovery={signal.get('weakest_defense_recovery', '?')})")
         print(f"  Exporting adversarial pairs for: {attacks_to_export}")
+    elif args.preset:
+        attacks_to_export = list(PRESET_ATTACKS[args.preset])
+        print(f"Training preset: {args.preset} -> {attacks_to_export}")
     elif args.attacks:
         attacks_to_export = [a.strip() for a in args.attacks.split(",") if a.strip()]
     else:
         attacks_to_export = list(DEFAULT_ATTACKS)
 
+    attacks_to_export = list(dict.fromkeys(attacks_to_export))
+
     if not attacks_to_export:
-        raise ValueError("No attacks selected for export. Use --attacks or --from-signal.")
+        raise ValueError("No attacks selected for export. Use --attacks, --preset, or --from-signal.")
 
     runs_root = _resolve_runs_root(args.sweep_root, signal_cycle_id)
     clean_dir = REPO / args.clean_dir
     checkpoint = REPO / args.checkpoint
 
     # ── Resolve output zip path ───────────────────────────────────────────────
-    # If caller did not override --output-zip and we have a cycle_id from signal,
-    # use a cycle-specific path instead of the generic default.
-    if args.output_zip == OUTPUT_ZIP_DEFAULT and signal_cycle_id:
+    # Guard: reject explicit use of the generic path when a preset is active.
+    if args.preset and args.output_zip == OUTPUT_ZIP_DEFAULT:
+        raise ValueError(
+            f"Preset '{args.preset}' must not write to the generic zip path; "
+            "omit --output-zip to use the preset-named path."
+        )
+
+    # If caller did not set --output-zip (None), prefer a distinct preset- or cycle-specific
+    # path instead of the generic manual fallback so concurrent work is less likely to collide.
+    if args.output_zip is None and signal_cycle_id:
         output_zip = REPO / "outputs" / "training_exports" / f"{signal_cycle_id}_training_data.zip"
+    elif args.output_zip is None and args.preset:
+        output_zip = REPO / "outputs" / "training_exports" / f"{args.preset}_training_data.zip"
+    elif args.output_zip is None:
+        output_zip = REPO / OUTPUT_ZIP_DEFAULT
     else:
         output_zip = REPO / args.output_zip
 

@@ -149,6 +149,32 @@ class ExportTrainingDataTest(unittest.TestCase):
         self.assertIn("adversarial/fgsm/preferred_validate.jpg", names)
         self.assertNotIn("adversarial/fgsm/legacy_attack.jpg", names)
 
+    def test_preset_square_retention_uses_isolated_default_zip_name(self) -> None:
+        run_root = self.framework_runs / "cycle_20260330_115004"
+        run_root.mkdir()
+        self._make_attack_images(run_root, attack="deepfool", validate_names=("deepfool.jpg",))
+        self._make_attack_images(run_root, attack="blur", validate_names=("blur.jpg",))
+        self._make_attack_images(run_root, attack="square", validate_names=("square.jpg",))
+
+        output = self._run_main(
+            "--preset",
+            "square_retention",
+            "--sweep-root",
+            "outputs/framework_runs/cycle_20260330_115004",
+        )
+        output_zip = self.repo / "outputs" / "training_exports" / "square_retention_training_data.zip"
+
+        self.assertIn("Training preset: square_retention -> ['deepfool', 'blur', 'square']", output)
+        self.assertTrue(output_zip.is_file())
+        names = self._zip_names(output_zip)
+        self.assertIn("adversarial/deepfool/deepfool.jpg", names)
+        self.assertIn("adversarial/blur/blur.jpg", names)
+        self.assertIn("adversarial/square/square.jpg", names)
+
+    def test_rejects_multiple_attack_selection_modes(self) -> None:
+        with self.assertRaises(ValueError):
+            self._run_main("--preset", "square_retention", "--attacks", "square")
+
     def test_no_usable_attacks_exits_zero_without_writing_zip(self) -> None:
         run_root = self.framework_runs / "cycle_20260330_115004"
         run_root.mkdir()
@@ -174,6 +200,80 @@ class ExportTrainingDataTest(unittest.TestCase):
         self.assertEqual(exit_ctx.exception.code, 0)
         self.assertIn("No usable attacked image pairs found", stdout.getvalue())
         self.assertFalse(output_zip.exists())
+
+    def test_preset_rejects_generic_training_zip_path(self) -> None:
+        run_root = self.framework_runs / "cycle_20260330_115004"
+        run_root.mkdir()
+        self._make_attack_images(run_root, attack="square", validate_names=("square.jpg",))
+
+        with self.assertRaises(ValueError):
+            self._run_main(
+                "--preset",
+                "square_retention",
+                "--sweep-root",
+                "outputs/framework_runs/cycle_20260330_115004",
+                "--output-zip",
+                export_training_data.OUTPUT_ZIP_DEFAULT,
+            )
+
+    def test_manual_attack_list_deduplicates_entries(self) -> None:
+        run_root = self.framework_runs / "cycle_20260330_115004"
+        run_root.mkdir()
+        self._make_attack_images(run_root, attack="square", validate_names=("square.jpg",))
+
+        output_zip = self.repo / "outputs" / "training_exports" / "manual.zip"
+        output = self._run_main(
+            "--attacks",
+            "square,square",
+            "--sweep-root",
+            "outputs/framework_runs/cycle_20260330_115004",
+            "--output-zip",
+            "outputs/training_exports/manual.zip",
+        )
+
+        self.assertIn("square: using validate_atk_square/images/ (1 images)", output)
+        names = self._zip_names(output_zip)
+        self.assertEqual(names.count("adversarial/square/square.jpg"), 1)
+        self.assertIn("adversarial/square/square.jpg", names)
+
+    def test_preset_can_export_subset_when_some_attacks_missing(self) -> None:
+        run_root = self.framework_runs / "cycle_20260330_115004"
+        run_root.mkdir()
+        self._make_attack_images(run_root, attack="deepfool", validate_names=("deepfool.jpg",))
+        self._make_attack_images(run_root, attack="square", validate_names=("square.jpg",))
+
+        output = self._run_main(
+            "--preset",
+            "square_retention",
+            "--sweep-root",
+            "outputs/framework_runs/cycle_20260330_115004",
+        )
+
+        self.assertIn("[warn] No attacked images found for 'blur'", output)
+        self.assertIn("adversarial: 1", output)
+        output_zip = self.repo / "outputs" / "training_exports" / "square_retention_training_data.zip"
+        names = self._zip_names(output_zip)
+        self.assertIn("adversarial/deepfool/deepfool.jpg", names)
+        self.assertIn("adversarial/square/square.jpg", names)
+        self.assertNotIn("adversarial/blur/blur.jpg", names)
+
+    def test_from_signal_and_preset_can_share_named_output_scheme(self) -> None:
+        signal_cycle = self.framework_runs / "cycle_20260330_115004"
+        signal_cycle.mkdir()
+        self._make_attack_images(signal_cycle, validate_names=("signal_choice.jpg",))
+        self._write_signal(cycle_id=signal_cycle.name)
+
+        self._run_main("--from-signal")
+        self.assertTrue(
+            (self.repo / "outputs" / "training_exports" / f"{signal_cycle.name}_training_data.zip").is_file()
+        )
+        self._make_attack_images(signal_cycle, attack="deepfool", validate_names=("deepfool.jpg",))
+        self._make_attack_images(signal_cycle, attack="blur", validate_names=("blur.jpg",))
+        self._make_attack_images(signal_cycle, attack="square", validate_names=("square.jpg",))
+        self._run_main("--preset", "square_retention", "--sweep-root", f"outputs/framework_runs/{signal_cycle.name}")
+        self.assertTrue(
+            (self.repo / "outputs" / "training_exports" / "square_retention_training_data.zip").is_file()
+        )
 
 
 if __name__ == "__main__":

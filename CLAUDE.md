@@ -44,13 +44,12 @@ Shared project guidance for YOLO-Bad-Triangle skills and code changes.
 
 ## Skills & analysis conventions
 
-### Checkpoint facts (current as of 2026-04-01)
+### Checkpoint facts (current as of 2026-04-04)
 
 - `dpc_unet_final_golden.pt` — production baseline. Active via `DPC_UNET_CHECKPOINT_PATH` in `.env`.
-- `dpc_unet_adversarial_finetuned.pt` — adversarially finetuned checkpoint. Status: **FULL PASS — cleared for deployment**.
-  - A/B eval (deepfool eps=0.1): finetuned +0.006 mAP50 (marginal)
-  - A/B eval (square eps=0.3): finetuned +0.027 mAP50 (meaningful)
-  - Clean (no-attack) A/B (2026-04-01, 500 images, c_dog): finetuned +0.003 mAP50 vs golden — no clean accuracy regression.
+- `dpc_unet_adversarial_finetuned.pt` — adversarially finetuned checkpoint. Status: **FULL PASS — deployed 2026-04-04**.
+  - Trained on: `cycle_20260402_133001` — 500 deepfool pairs (Phase 4) + 32 blur pairs
+  - Clean (no-attack) A/B (2026-04-04, 500 images, c_dog): new +0.0035 mAP50 vs prior — no clean regression.
   - Evidence artifact: `outputs/eval_ab_clean.json`
 
 ### Canonical paths for skills
