@@ -8,11 +8,23 @@ Usage:
     export PYTHONPATH=src
     ./.venv/bin/python scripts/train_dpc_unet_local.py
 
+    # Square-inclusive retention mix:
+    ./.venv/bin/python scripts/train_dpc_unet_local.py \
+        --training-zip outputs/training_exports/square_retention_training_data.zip \
+        --output dpc_unet_square_retention.pt \
+        --resume outputs/dpc_unet_training_resume_square_retention.pt
+
     # Override defaults:
     ./.venv/bin/python scripts/train_dpc_unet_local.py \
         --epochs 40 --batch-size 8 --training-zip outputs/training_exports/training_data.zip
 
 After training:
+    ./.venv/bin/python scripts/evaluate_checkpoint.py \
+        --checkpoint-a dpc_unet_final_golden.pt \
+        --checkpoint-b dpc_unet_square_retention.pt \
+        --images 50
+
+    # or compare any custom output checkpoint explicitly
     ./.venv/bin/python scripts/evaluate_checkpoint.py \
         --checkpoint-a dpc_unet_final_golden.pt \
         --checkpoint-b dpc_unet_adversarial_finetuned.pt \
@@ -36,6 +48,16 @@ from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 
 ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_TRAINING_ZIP = "outputs/training_exports/training_data.zip"
+DEFAULT_OUTPUT = "dpc_unet_adversarial_finetuned.pt"
+DEFAULT_RESUME = "outputs/dpc_unet_training_resume.pt"
+PRESET_CONFIGS: dict[str, dict[str, object]] = {
+    "square_retention": {
+        "training_zip": "outputs/training_exports/square_retention_training_data.zip",
+        "output": "dpc_unet_square_retention.pt",
+        "resume": "outputs/dpc_unet_training_resume_square_retention.pt",
+    },
+}
 
 
 # ── Device selection ─────────────────────────────────────────────────────────
@@ -234,9 +256,41 @@ def denoising_loss(output: torch.Tensor, target: torch.Tensor, edge_weight: floa
 
 # ── Training ─────────────────────────────────────────────────────────────────
 
+def _resolve_training_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
+    preset = PRESET_CONFIGS.get(args.preset, {})
+    training_zip_raw = args.training_zip or str(preset.get("training_zip", DEFAULT_TRAINING_ZIP))
+    output_raw = args.output or str(preset.get("output", DEFAULT_OUTPUT))
+    resume_raw = args.resume or str(preset.get("resume", DEFAULT_RESUME))
+    return ROOT / training_zip_raw, ROOT / output_raw, ROOT / resume_raw
+
+
 def train(args: argparse.Namespace) -> None:
     device = _get_device()
     print(f"Device: {device}")
+
+    zip_path, save_path, resume_path = _resolve_training_paths(args)
+    if args.preset:
+        print(f"Preset: {args.preset}")
+    print(f"Training zip: {zip_path}")
+    print(f"Output checkpoint: {save_path}")
+    print(f"Resume checkpoint: {resume_path}")
+
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    resume_path.parent.mkdir(parents=True, exist_ok=True)
+
+    deployed_checkpoint = (ROOT / DEFAULT_OUTPUT).resolve()
+    if save_path.resolve() == deployed_checkpoint and args.preset:
+        raise ValueError(
+            f"Preset '{args.preset}' must not overwrite the deployed checkpoint; "
+            f"choose --output explicitly if you really want a different path."
+        )
+
+    if not zip_path.exists():
+        print(f"ERROR: Training zip not found: {zip_path}")
+        print("Run: export PYTHONPATH=src && ./.venv/bin/python scripts/export_training_data.py")
+        sys.exit(1)
+
+    extract_dir = ROOT / "outputs" / "training_data" / zip_path.stem
 
     # Seed
     torch.manual_seed(args.seed)
@@ -244,13 +298,6 @@ def train(args: argparse.Namespace) -> None:
     np.random.seed(args.seed)
 
     # Extract training data
-    zip_path = Path(args.training_zip)
-    if not zip_path.exists():
-        print(f"ERROR: Training zip not found: {zip_path}")
-        print("Run: export PYTHONPATH=src && ./.venv/bin/python scripts/export_training_data.py")
-        sys.exit(1)
-
-    extract_dir = ROOT / "outputs" / "training_data"
     if not extract_dir.exists():
         print(f"Extracting {zip_path.name}...")
         extract_dir.mkdir(parents=True, exist_ok=True)
@@ -259,6 +306,17 @@ def train(args: argparse.Namespace) -> None:
         print("  Done.")
     else:
         print(f"Training data already extracted at {extract_dir}")
+
+    if not extract_dir.is_dir():
+        print(f"ERROR: Training extraction directory missing: {extract_dir}")
+        sys.exit(1)
+
+    print(f"Extract dir: {extract_dir}")
+
+    attack_listing = extract_dir / "adversarial"
+    if attack_listing.is_dir():
+        available_attack_dirs = sorted(d.name for d in attack_listing.iterdir() if d.is_dir())
+        print(f"Available extracted attack dirs: {available_attack_dirs}")
 
     clean_dir = extract_dir / "clean"
     checkpoint_path = extract_dir / "checkpoint" / "dpc_unet_final_golden.pt"
@@ -359,9 +417,6 @@ def train(args: argparse.Namespace) -> None:
     # AMP — only for CUDA; MPS and CPU train in float32
     use_amp = device.type == "cuda"
     scaler = torch.amp.GradScaler("cuda") if use_amp else None
-
-    save_path = ROOT / args.output
-    resume_path = ROOT / "outputs" / "dpc_unet_training_resume.pt"
 
     start_epoch = 1
     best_val_loss = float("inf")
@@ -529,10 +584,21 @@ def train(args: argparse.Namespace) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Local DPC-UNet fine-tuning (MPS/CPU)")
-    parser.add_argument("--training-zip", default="outputs/training_exports/training_data.zip",
-                        help="Path to training data zip")
-    parser.add_argument("--output", default="dpc_unet_adversarial_finetuned.pt",
-                        help="Output checkpoint filename (relative to repo root)")
+    parser.add_argument(
+        "--preset",
+        default="",
+        choices=sorted(PRESET_CONFIGS),
+        help=(
+            "Named training preset. "
+            "square_retention uses isolated zip/output/resume paths so it won't clobber the deployed checkpoint path."
+        ),
+    )
+    parser.add_argument("--training-zip", default="",
+                        help="Path to training data zip (overrides preset/default when set)")
+    parser.add_argument("--output", default="",
+                        help="Output checkpoint filename relative to repo root (overrides preset/default when set)")
+    parser.add_argument("--resume", default="",
+                        help="Resume checkpoint path relative to repo root (overrides preset/default when set)")
     parser.add_argument("--epochs", type=int, default=80)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=5e-5)
