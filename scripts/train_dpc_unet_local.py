@@ -324,6 +324,9 @@ def train(args: argparse.Namespace) -> None:
     # Find attack directories
     adv_root = extract_dir / "adversarial"
     adv_dirs = {}
+    if not adv_root.is_dir():
+        print(f"ERROR: No adversarial/ directory found in extracted zip: {extract_dir}")
+        sys.exit(1)
     for d in sorted(adv_root.iterdir()):
         if d.is_dir() and list(d.glob("*.jpg")):
             adv_dirs[d.name] = d

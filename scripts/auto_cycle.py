@@ -905,9 +905,13 @@ def _run_and_score_defense_multi(
 
 
 def _coordinate_descent(label, param_space, score_fn, run_prefix,
-                         existing_history=None, max_iters: int | None = None):
+                         existing_history=None, max_iters: int | None = None,
+                         initial_params: dict | None = None):
     """Coordinate descent with adaptive steps, momentum, diagonal probes,
     param-fingerprint caching, and diminishing-returns early termination.
+
+    *initial_params* overrides spec["init"] for the starting point without
+    mutating the param space — used to hot-start from 3-point scan results.
 
     Returns (best_params, best_score, history).
     """
@@ -923,6 +927,8 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
         return score_fn(params, name)
 
     current = {k: spec["init"] for k, spec in param_space.items()}
+    if initial_params:
+        current.update(initial_params)
     current_score = _score(current)
     log(f"  [{label}] init  score={current_score:.4f}  "
         f"params={_fmt(current)}")
@@ -1181,15 +1187,13 @@ def phase3(state: dict) -> bool:
             return _run_and_score_attack(_a, params, name, runs_root, _bc, _bd)
 
         scan_overrides = _three_point_scan(space, warm_atk, _atk_score, f"tune_atk_{attack}")
-        if scan_overrides:
-            for k, v in scan_overrides.items():
-                space[k]["init"] = v
 
         best_params, best_score, history = _coordinate_descent(
             label=attack, param_space=space,
             score_fn=_atk_score,
             run_prefix=f"tune_atk_{attack}",
             existing_history=existing,
+            initial_params=scan_overrides or None,
         )
         tune_history[f"attack_{attack}"] = history
         state.setdefault("best_attack_params", {})[attack] = best_params
@@ -1235,9 +1239,6 @@ def phase3(state: dict) -> bool:
 
         warm_def = set((warm.get("defense_params") or {}).get(defense, {}).keys())
         scan_overrides = _three_point_scan(space, warm_def, _def_score, f"tune_def_{defense}")
-        if scan_overrides:
-            for k, v in scan_overrides.items():
-                space[k]["init"] = v
 
         best_params, best_score, history = _coordinate_descent(
             label=defense, param_space=space,
@@ -1245,6 +1246,7 @@ def phase3(state: dict) -> bool:
             run_prefix=f"tune_def_{defense}",
             existing_history=existing,
             max_iters=TUNE_MAX_ITERS_BY_DEFENSE.get(defense, TUNE_MAX_ITERS),
+            initial_params=scan_overrides or None,
         )
         tune_history[f"defense_{defense}"] = history
         state.setdefault("best_defense_params", {})[defense] = best_params

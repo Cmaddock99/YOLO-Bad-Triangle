@@ -1,5 +1,6 @@
 [tool.pytest.ini_options]
 addopts = "-m 'not integration'"
+pythonpath = ["src"]
 markers = [
     "integration: end-to-end tests that require the full environment (dataset, model weights, GPU/CPU)",
 ]
