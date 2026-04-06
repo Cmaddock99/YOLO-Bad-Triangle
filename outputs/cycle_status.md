@@ -1,8 +1,8 @@
 # Auto-cycle status
 
 cycle_id   : cycle_20260405_073545
-phase      : 3/4 complete
-updated_at : 2026-04-05T19:29:07.528147
+phase      : 4/4 complete
+updated_at : 2026-04-06T05:49:42.690909
 
 top_attacks  : ['square', 'deepfool', 'dispersion_reduction']
 top_defenses : ['jpeg_preprocess', 'median_preprocess', 'c_dog']
@@ -16,6 +16,6 @@ best_defense_params:
   median_preprocess: {'defense.params.kernel_size': 5}
   c_dog: {'defense.params.timestep': 25.0, 'defense.params.sharpen_alpha': 0.55}
 
-P1=True  P2=True  P3=True  P4=False
+P1=True  P2=True  P3=True  P4=True
 
-*** PARTIAL — phases 4–4 still pending ***
+*** CYCLE COMPLETE ***
