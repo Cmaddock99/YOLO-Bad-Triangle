@@ -1,0 +1,26 @@
+{
+  "checkpoint_a": {
+    "path": "dpc_unet_adversarial_finetuned.pt.prev",
+    "label": "round 2",
+    "run_name": "ab_r2_square_cdog",
+    "mAP50": 0.33905,
+    "detections": 75
+  },
+  "checkpoint_b": {
+    "path": "dpc_unet_adversarial_finetuned.pt",
+    "label": "round 3",
+    "run_name": "ab_r3_square_cdog",
+    "mAP50": 0.337454,
+    "detections": 79
+  },
+  "delta_mAP50": -0.001596,
+  "verdict": "round 3 is within noise vs round 2",
+  "attack": "square",
+  "defense": "c_dog",
+  "seed": 137,
+  "images_evaluated": 50,
+  "identity_evidence": {
+    "checkpoint_a": "/Users/lurch/Downloads/run_summary.json",
+    "checkpoint_b": "outputs/framework_runs/ab_r3_square_cdog/run_summary.json"
+  }
+}
