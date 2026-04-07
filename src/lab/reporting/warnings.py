@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from lab.config.contracts import REPORTING_AUTHORITY_AUTHORITATIVE
+from lab.config.contracts import (
+    REPORTING_AUTHORITY_AUTHORITATIVE,
+    REPORTING_AUTHORITY_DIAGNOSTIC,
+)
 from lab.eval.framework_metrics import is_validation_success
 
 # Warning codes
@@ -42,6 +45,13 @@ def _prefer_authoritative_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any
     return authoritative if authoritative else rows
 
 
+def _has_only_diagnostic_rows(rows: list[dict[str, Any]]) -> bool:
+    return bool(rows) and all(
+        _normalize_text(row.get("authority")) == REPORTING_AUTHORITY_DIAGNOSTIC
+        for row in rows
+    )
+
+
 def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """Inspect a summary payload and return a list of warning dicts.
 
@@ -70,11 +80,12 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
     attack_rows: list[dict[str, Any]] = _prefer_authoritative_rows(
         list(payload.get("attack_effectiveness_rows") or [])
     )
+    attack_rows_are_diagnostic_only = _has_only_diagnostic_rows(attack_rows)
     has_validation = any(
         is_validation_success(r.get("validation_status"))
         for r in attack_rows
     )
-    if not has_validation:
+    if not has_validation and not attack_rows_are_diagnostic_only:
         warnings.append(
             _warn(
                 WARN_NO_VALIDATION,
@@ -138,41 +149,43 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
     defense_rows: list[dict[str, Any]] = _prefer_authoritative_rows(
         list(payload.get("defense_recovery_rows") or [])
     )
+    defense_rows_are_diagnostic_only = _has_only_diagnostic_rows(defense_rows)
     recovery_undef_seen: set[tuple[str, str]] = set()
     recovery_degrades_seen: set[tuple[str, str]] = set()
-    for row in defense_rows:
-        key = (str(row.get("attack") or ""), str(row.get("defense") or ""))
-        if key not in recovery_undef_seen:
-            if row.get("mAP50_recovery_normalized") is None and row.get("avg_conf_recovery_normalized") is None:
-                recovery_undef_seen.add(key)
-                warnings.append(
-                    _warn(
-                        WARN_DEFENSE_RECOVERY_UNDEFINED,
-                        f"Defense recovery undefined for attack='{row.get('attack')}' "
-                        f"defense='{row.get('defense')}' — "
-                        "attack may have had no measurable effect or metrics are missing.",
-                        attack=row.get("attack"),
-                        defense=row.get("defense"),
+    if not defense_rows_are_diagnostic_only:
+        for row in defense_rows:
+            key = (str(row.get("attack") or ""), str(row.get("defense") or ""))
+            if key not in recovery_undef_seen:
+                if row.get("mAP50_recovery_normalized") is None and row.get("avg_conf_recovery_normalized") is None:
+                    recovery_undef_seen.add(key)
+                    warnings.append(
+                        _warn(
+                            WARN_DEFENSE_RECOVERY_UNDEFINED,
+                            f"Defense recovery undefined for attack='{row.get('attack')}' "
+                            f"defense='{row.get('defense')}' — "
+                            "attack may have had no measurable effect or metrics are missing.",
+                            attack=row.get("attack"),
+                            defense=row.get("defense"),
+                        )
                     )
-                )
-        if key not in recovery_degrades_seen:
-            # Use detection recovery if available, else mAP50 recovery
-            recovery = row.get("detection_recovery_normalized")
-            if recovery is None:
-                recovery = row.get("mAP50_recovery_normalized")
-            if recovery is not None and float(recovery) < -0.1:
-                recovery_degrades_seen.add(key)
-                warnings.append(
-                    _warn(
-                        WARN_DEFENSE_DEGRADES_PERFORMANCE,
-                        f"Defense '{row.get('defense')}' against attack '{row.get('attack')}' "
-                        f"degrades performance beyond the attack alone (recovery={float(recovery):.3f}). "
-                        "Defense may be misconfigured or incompatible with this attack.",
-                        attack=row.get("attack"),
-                        defense=row.get("defense"),
-                        recovery=recovery,
+            if key not in recovery_degrades_seen:
+                # Use detection recovery if available, else mAP50 recovery
+                recovery = row.get("detection_recovery_normalized")
+                if recovery is None:
+                    recovery = row.get("mAP50_recovery_normalized")
+                if recovery is not None and float(recovery) < -0.1:
+                    recovery_degrades_seen.add(key)
+                    warnings.append(
+                        _warn(
+                            WARN_DEFENSE_DEGRADES_PERFORMANCE,
+                            f"Defense '{row.get('defense')}' against attack '{row.get('attack')}' "
+                            f"degrades performance beyond the attack alone (recovery={float(recovery):.3f}). "
+                            "Defense may be misconfigured or incompatible with this attack.",
+                            attack=row.get("attack"),
+                            defense=row.get("defense"),
+                            recovery=recovery,
+                        )
                     )
-                )
 
     raw_per_class_rows: list[dict[str, Any]] = list(payload.get("per_class_vulnerability_rows") or [])
     per_class_rows: list[dict[str, Any]]

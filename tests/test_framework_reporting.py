@@ -18,9 +18,11 @@ from lab.reporting import (
 from lab.reporting.warnings import (
     WARN_ATTACK_BELOW_NOISE,
     WARN_DEFENSE_DEGRADES_PERFORMANCE,
+    WARN_DEFENSE_RECOVERY_UNDEFINED,
     WARN_LOW_ATTACK_COUNT,
     WARN_MISSING_PER_CLASS,
     WARN_MULTIPLE_BASELINES,
+    WARN_NO_VALIDATION,
     evaluate_warnings,
 )
 from scripts import print_summary as print_summary_cli
@@ -261,6 +263,127 @@ class FrameworkReportingTest(unittest.TestCase):
             self.assertNotIn(WARN_ATTACK_BELOW_NOISE, codes)
             self.assertNotIn(WARN_DEFENSE_DEGRADES_PERFORMANCE, codes)
             self.assertIn(WARN_MISSING_PER_CLASS, codes)
+
+    def test_diagnostic_only_rows_suppress_phase4_dependent_warnings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            diagnostic_baseline = {
+                "run_role": "baseline",
+                "dataset_scope": "smoke",
+                "authority": "diagnostic",
+                "source_phase": "phase1",
+            }
+            diagnostic_attack = {
+                "run_role": "attack_only",
+                "dataset_scope": "smoke",
+                "authority": "diagnostic",
+                "source_phase": "phase1",
+            }
+            diagnostic_defense = {
+                "run_role": "defended",
+                "dataset_scope": "smoke",
+                "authority": "diagnostic",
+                "source_phase": "phase2",
+            }
+
+            self._write_run(
+                root,
+                "baseline_none",
+                attack="none",
+                map50=None,
+                validation_status="missing",
+                total_detections=100,
+                reporting_context=diagnostic_baseline,
+            )
+            self._write_run(
+                root,
+                "attack_fgsm",
+                attack="fgsm",
+                map50=None,
+                validation_status="missing",
+                total_detections=95,
+                reporting_context=diagnostic_attack,
+            )
+            self._write_run(
+                root,
+                "defended_fgsm_bit_depth",
+                attack="fgsm",
+                defense="bit_depth",
+                map50=None,
+                validation_status="missing",
+                total_detections=90,
+                reporting_context=diagnostic_defense,
+            )
+
+            payload = build_auto_summary_payload(root, bootstrap=False)
+            warnings = evaluate_warnings(payload)
+            codes = {warning["code"] for warning in warnings}
+
+            self.assertNotIn(WARN_NO_VALIDATION, codes)
+            self.assertNotIn(WARN_DEFENSE_RECOVERY_UNDEFINED, codes)
+            self.assertNotIn(WARN_DEFENSE_DEGRADES_PERFORMANCE, codes)
+            self.assertIn(WARN_LOW_ATTACK_COUNT, codes)
+            self.assertIn(WARN_ATTACK_BELOW_NOISE, codes)
+            self.assertIn(WARN_MISSING_PER_CLASS, codes)
+
+    def test_authoritative_rows_still_emit_phase4_dependent_warnings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            authoritative_baseline = {
+                "run_role": "baseline",
+                "dataset_scope": "full",
+                "authority": "authoritative",
+                "source_phase": "phase4",
+            }
+            authoritative_attack = {
+                "run_role": "attack_only",
+                "dataset_scope": "full",
+                "authority": "authoritative",
+                "source_phase": "phase4",
+            }
+            authoritative_defense = {
+                "run_role": "defended",
+                "dataset_scope": "full",
+                "authority": "authoritative",
+                "source_phase": "phase4",
+            }
+
+            self._write_run(
+                root,
+                "validate_baseline",
+                attack="none",
+                map50=None,
+                validation_status="missing",
+                total_detections=100,
+                reporting_context=authoritative_baseline,
+            )
+            self._write_run(
+                root,
+                "validate_atk_fgsm",
+                attack="fgsm",
+                map50=None,
+                validation_status="missing",
+                total_detections=95,
+                reporting_context=authoritative_attack,
+            )
+            self._write_run(
+                root,
+                "validate_fgsm_bit_depth",
+                attack="fgsm",
+                defense="bit_depth",
+                map50=None,
+                validation_status="missing",
+                total_detections=90,
+                reporting_context=authoritative_defense,
+            )
+
+            payload = build_auto_summary_payload(root, bootstrap=False)
+            warnings = evaluate_warnings(payload)
+            codes = {warning["code"] for warning in warnings}
+
+            self.assertIn(WARN_NO_VALIDATION, codes)
+            self.assertIn(WARN_DEFENSE_RECOVERY_UNDEFINED, codes)
+            self.assertIn(WARN_DEFENSE_DEGRADES_PERFORMANCE, codes)
 
     def test_defense_recovery_pairs_by_attack_signature_not_name_only(self) -> None:
         from lab.reporting.framework_comparison import build_defense_recovery_rows
