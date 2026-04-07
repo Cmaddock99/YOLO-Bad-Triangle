@@ -10,17 +10,17 @@
     "path": "dpc_unet_adversarial_finetuned.pt",
     "label": "round 3",
     "run_name": "ab_r3_deepfool_cdog",
-    "mAP50": 0.258391,
-    "detections": 53
+    "mAP50": 0.268492,
+    "detections": 59
   },
-  "delta_mAP50": -0.012307,
-  "verdict": "round 3 regressed vs round 2 - STOP before round 4 planning",
+  "delta_mAP50": -0.002206,
+  "verdict": "round 3 is within noise vs round 2",
   "attack": "deepfool",
   "defense": "c_dog",
   "seed": 137,
   "images_evaluated": 100,
   "identity_evidence": {
     "checkpoint_a": "/Users/lurch/Downloads/run_summary (1).json",
-    "checkpoint_b": "outputs/framework_runs/ab_r3_deepfool_cdog/run_summary.json"
+    "checkpoint_b": "/Users/lurch/Downloads/run_summary (2).json"
   }
 }
