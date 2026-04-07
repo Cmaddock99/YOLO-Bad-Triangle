@@ -82,6 +82,43 @@ Compute `delta_mAP50 = candidate_mAP50 - current_mAP50`.
 
 ---
 
+## Step 3b — Attacked A/B (required for attack-targeted training)
+
+**Only run this step if the Colab run used an attack-targeted preset** (e.g. `square_retention` or any future attack preset). If the run was clean fine-tuning only, skip to Step 4.
+
+For each target attack, compare the candidate vs the current active checkpoint under that attack with **no defense** (defense=none). Using no defense gives the cleanest checkpoint-vs-checkpoint signal — defense choice can confound results if the defense parameters have drifted.
+
+```bash
+cd /Users/lurch/ml-labs/YOLO-Bad-Triangle
+
+# Example: square attack, no defense
+PYTHONPATH=src DPC_UNET_CHECKPOINT_PATH=dpc_unet_candidate.pt \
+  .venv/bin/python scripts/run_unified.py run-one \
+  --config configs/default.yaml \
+  --set attack.name=square --set defense.name=none \
+  --set runner.max_images=50 --set validation.enabled=true \
+  --set runner.run_name=attacked_ab_square_candidate
+
+PYTHONPATH=src DPC_UNET_CHECKPOINT_PATH=dpc_unet_adversarial_finetuned.pt \
+  .venv/bin/python scripts/run_unified.py run-one \
+  --config configs/default.yaml \
+  --set attack.name=square --set defense.name=none \
+  --set runner.max_images=50 --set validation.enabled=true \
+  --set runner.run_name=attacked_ab_square_current
+```
+
+Read `mAP50` from each run's `metrics.json`. Compute `delta_mAP50 = candidate - current`.
+
+**Threshold:** The appropriate threshold depends on the noise floor for this attack/infrastructure. As a starting point: `delta_mAP50 >= -0.005` (same band as the clean gate). Do not use -0.01 as a default — measure the noise floor from a repeated baseline run if uncertain.
+
+**Gate:**
+- `delta_mAP50 >= threshold` → PASS — no regression on attack resistance
+- `delta_mAP50 < threshold` → FAIL — do not deploy; report the delta to the user and ask how to proceed
+
+Repeat for each attack the training run targeted.
+
+---
+
 ## Step 4 — Deploy if PASS
 
 ```bash
@@ -120,4 +157,6 @@ After a successful deployment, update the checkpoint facts block in `CLAUDE.md`:
 
 - Do not run a manual sweep after deployment — the NUC's `auto_cycle.py --loop` will pick up the new checkpoint automatically on the next cycle and evaluate it end-to-end.
 - Do not deploy without the clean A/B check — the clean validation gate is mandatory per `CLAUDE.md`.
+- Do not deploy attack-targeted checkpoints on clean evidence alone. Step 3b is a required gate for any run using an attack preset.
+- Do not use c_dog as the defense for attacked A/B — its params drift between cycles, which confounds checkpoint comparisons. Use defense=none for a clean checkpoint-vs-checkpoint signal.
 - Do not compare to the golden checkpoint for the deployment decision — compare to the currently active `dpc_unet_adversarial_finetuned.pt`.
