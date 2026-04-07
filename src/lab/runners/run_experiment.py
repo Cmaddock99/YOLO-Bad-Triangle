@@ -75,6 +75,10 @@ def _resolved_reporting_context(config: dict[str, Any]) -> dict[str, str]:
     return payload
 
 
+def _without_none_values(mapping: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in mapping.items() if value is not None}
+
+
 def _collect_images(source_dir: Path, max_images: int) -> list[Path]:
     images = sorted(iter_images(source_dir))
     if max_images > 0:
@@ -591,7 +595,7 @@ class UnifiedExperimentRunner:
         model.load()
 
         attack_name = str(attack_cfg.get("name", "none")).strip().lower()
-        attack_params = dict(as_mapping(attack_cfg, "params"))
+        attack_params = _without_none_values(dict(as_mapping(attack_cfg, "params")))
         attack = None
         if attack_name not in {"", "none", "identity"}:
             attack = build_attack_plugin(attack_name, **attack_params)
@@ -600,14 +604,16 @@ class UnifiedExperimentRunner:
             # smoke runs that pass no explicit hyperparams).
             if dataclasses.is_dataclass(attack):
                 _objective_fields = {"name", "objective_mode", "target_class", "preserve_weight", "attack_roi"}
-                attack_params = {
-                    f.name: getattr(attack, f.name)
-                    for f in dataclasses.fields(attack)
-                    if not f.name.startswith("_") and f.name not in _objective_fields
-                }
+                attack_params = _without_none_values(
+                    {
+                        f.name: getattr(attack, f.name)
+                        for f in dataclasses.fields(attack)
+                        if not f.name.startswith("_") and f.name not in _objective_fields
+                    }
+                )
 
         defense_name = str(defense_cfg.get("name", "none")).strip().lower()
-        defense_params = dict(as_mapping(defense_cfg, "params"))
+        defense_params = _without_none_values(dict(as_mapping(defense_cfg, "params")))
         defense = build_defense_plugin(defense_name or "none", **defense_params)
 
         prepared_paths, skipped_unreadable, failed_writes, attack_metadata = self._prepare_images(
