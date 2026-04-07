@@ -682,26 +682,24 @@ class UnifiedExperimentRunner:
             encoding="utf-8",
         )
         config_fingerprint = _sha256_file(resolved_config_file)
-        checkpoint_candidates: list[str] = []
-        model_path_candidate = str(model_params.get("model", "")).strip()
-        if model_path_candidate:
-            checkpoint_candidates.append(model_path_candidate)
-        defense_checkpoint = str(defense_params.get("checkpoint_path", "")).strip()
-        if defense_checkpoint:
-            checkpoint_candidates.append(defense_checkpoint)
-        env_checkpoint = str(os.environ.get("DPC_UNET_CHECKPOINT_PATH", "")).strip()
-        if env_checkpoint:
-            checkpoint_candidates.append(env_checkpoint)
+
+        # YOLO model fingerprint — unchanged semantics, YOLO path only
         checkpoint_fingerprint: str | None = None
         checkpoint_source: str | None = None
-        for candidate in checkpoint_candidates:
-            path = Path(candidate).expanduser()
-            if not path.is_absolute():
-                path = (Path.cwd() / path).resolve()
-            if path.is_file():
-                checkpoint_fingerprint = _sha256_file(path)
-                checkpoint_source = str(path)
-                break
+        model_path_candidate = str(model_params.get("model", "")).strip()
+        if model_path_candidate:
+            yolo_path = Path(model_path_candidate).expanduser()
+            if not yolo_path.is_absolute():
+                yolo_path = (Path.cwd() / yolo_path).resolve()
+            if yolo_path.is_file():
+                checkpoint_fingerprint = _sha256_file(yolo_path)
+                checkpoint_source = str(yolo_path)
+
+        # Defense checkpoint provenance — additive channel, guarded for stub compatibility
+        defense_checkpoint_provenance: list[dict[str, str]] = []
+        checkpoint_fn = getattr(defense, "checkpoint_provenance", None)
+        if callable(checkpoint_fn):
+            defense_checkpoint_provenance = checkpoint_fn()
 
         run_summary = {
             "schema_version": FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
@@ -757,6 +755,7 @@ class UnifiedExperimentRunner:
                 "config_fingerprint_source": str(resolved_config_file),
                 "checkpoint_fingerprint_sha256": checkpoint_fingerprint,
                 "checkpoint_fingerprint_source": checkpoint_source,
+                "defense_checkpoints": defense_checkpoint_provenance,
             },
         }
         if reporting_context:
