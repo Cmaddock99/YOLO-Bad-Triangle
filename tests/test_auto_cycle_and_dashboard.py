@@ -87,6 +87,12 @@ class AutoCycleTrainingSignalTest(unittest.TestCase):
 
 
 class DashboardSelectionTest(unittest.TestCase):
+    def test_sweep_label_supports_cycle_timestamp(self) -> None:
+        self.assertEqual(
+            generate_dashboard._sweep_label("cycle_20260407_193440"),
+            "Apr 7 19:34",
+        )
+
     def test_load_sweep_prefers_validate_baseline_row(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report_dir = Path(tmp)
@@ -138,6 +144,96 @@ class DashboardSelectionTest(unittest.TestCase):
             sweep = generate_dashboard._load_sweep(report_dir)
             self.assertIsNotNone(sweep)
             self.assertEqual(int(sweep["baseline_detections"]), 1437)
+
+    def test_load_sweep_dedupes_to_authoritative_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_dir = Path(tmp) / "cycle_20260407_193440"
+            report_dir.mkdir(parents=True, exist_ok=True)
+            csv_path = report_dir / "framework_run_summary.csv"
+            with csv_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "run_name",
+                        "model",
+                        "seed",
+                        "attack",
+                        "defense",
+                        "total_detections",
+                        "avg_confidence",
+                        "mAP50",
+                        "validation_status",
+                        "authority",
+                        "source_phase",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "run_name": "baseline_none",
+                        "model": "yolo",
+                        "seed": "42",
+                        "attack": "none",
+                        "defense": "none",
+                        "total_detections": "21",
+                        "avg_confidence": "0.75",
+                        "mAP50": "",
+                        "validation_status": "missing",
+                        "authority": "diagnostic",
+                        "source_phase": "phase1",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "run_name": "validate_baseline",
+                        "model": "yolo",
+                        "seed": "42",
+                        "attack": "none",
+                        "defense": "none",
+                        "total_detections": "1400",
+                        "avg_confidence": "0.74",
+                        "mAP50": "0.60",
+                        "validation_status": "complete",
+                        "authority": "authoritative",
+                        "source_phase": "phase4",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "run_name": "attack_blur",
+                        "model": "yolo",
+                        "seed": "42",
+                        "attack": "blur",
+                        "defense": "none",
+                        "total_detections": "900",
+                        "avg_confidence": "0.73",
+                        "mAP50": "",
+                        "validation_status": "missing",
+                        "authority": "diagnostic",
+                        "source_phase": "phase1",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "run_name": "validate_atk_blur",
+                        "model": "yolo",
+                        "seed": "42",
+                        "attack": "blur",
+                        "defense": "none",
+                        "total_detections": "800",
+                        "avg_confidence": "0.71",
+                        "mAP50": "0.30",
+                        "validation_status": "complete",
+                        "authority": "authoritative",
+                        "source_phase": "phase4",
+                    }
+                )
+
+            sweep = generate_dashboard._load_sweep(report_dir)
+            self.assertIsNotNone(sweep)
+            self.assertEqual(int(sweep["baseline_detections"]), 1400)
+            blur_row = next(row for row in sweep["runs"] if row["attack"] == "blur" and row["defense"] == "none")
+            self.assertEqual(int(blur_row["total_detections"]), 800)
 
     def test_summary_cards_ignore_zero_drop_attacks(self) -> None:
         sweeps = [

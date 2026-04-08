@@ -293,6 +293,7 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
     fieldnames = [
         "run_name", "run_dir", "model", "attack", "defense", "seed",
         "semantic_order",
+        "run_role", "dataset_scope", "authority", "source_phase",
         "objective_mode", "target_class", "attack_roi",
         "prediction_count", "images_with_detections", "total_detections",
         "avg_confidence", "validation_status", "precision", "recall",
@@ -310,6 +311,10 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
                 "defense": record.defense,
                 "seed": record.seed,
                 "semantic_order": record.semantic_order,
+                "run_role": record.run_role,
+                "dataset_scope": record.dataset_scope,
+                "authority": record.authority,
+                "source_phase": record.source_phase,
                 "objective_mode": record.objective_mode,
                 "target_class": record.target_class,
                 "attack_roi": record.attack_roi,
