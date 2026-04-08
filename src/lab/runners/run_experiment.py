@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import platform as _platform
 import random
 import sys
@@ -73,6 +72,10 @@ def _resolved_reporting_context(config: dict[str, Any]) -> dict[str, str]:
         if text:
             payload[key] = text
     return payload
+
+
+def _without_none_values(mapping: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in mapping.items() if value is not None}
 
 
 def _collect_images(source_dir: Path, max_images: int) -> list[Path]:
@@ -591,7 +594,7 @@ class UnifiedExperimentRunner:
         model.load()
 
         attack_name = str(attack_cfg.get("name", "none")).strip().lower()
-        attack_params = dict(as_mapping(attack_cfg, "params"))
+        attack_params = _without_none_values(dict(as_mapping(attack_cfg, "params")))
         attack = None
         if attack_name not in {"", "none", "identity"}:
             attack = build_attack_plugin(attack_name, **attack_params)
@@ -600,14 +603,16 @@ class UnifiedExperimentRunner:
             # smoke runs that pass no explicit hyperparams).
             if dataclasses.is_dataclass(attack):
                 _objective_fields = {"name", "objective_mode", "target_class", "preserve_weight", "attack_roi"}
-                attack_params = {
-                    f.name: getattr(attack, f.name)
-                    for f in dataclasses.fields(attack)
-                    if not f.name.startswith("_") and f.name not in _objective_fields
-                }
+                attack_params = _without_none_values(
+                    {
+                        f.name: getattr(attack, f.name)
+                        for f in dataclasses.fields(attack)
+                        if not f.name.startswith("_") and f.name not in _objective_fields
+                    }
+                )
 
         defense_name = str(defense_cfg.get("name", "none")).strip().lower()
-        defense_params = dict(as_mapping(defense_cfg, "params"))
+        defense_params = _without_none_values(dict(as_mapping(defense_cfg, "params")))
         defense = build_defense_plugin(defense_name or "none", **defense_params)
 
         prepared_paths, skipped_unreadable, failed_writes, attack_metadata = self._prepare_images(
@@ -676,26 +681,24 @@ class UnifiedExperimentRunner:
             encoding="utf-8",
         )
         config_fingerprint = _sha256_file(resolved_config_file)
-        checkpoint_candidates: list[str] = []
-        model_path_candidate = str(model_params.get("model", "")).strip()
-        if model_path_candidate:
-            checkpoint_candidates.append(model_path_candidate)
-        defense_checkpoint = str(defense_params.get("checkpoint_path", "")).strip()
-        if defense_checkpoint:
-            checkpoint_candidates.append(defense_checkpoint)
-        env_checkpoint = str(os.environ.get("DPC_UNET_CHECKPOINT_PATH", "")).strip()
-        if env_checkpoint:
-            checkpoint_candidates.append(env_checkpoint)
+
+        # YOLO model fingerprint — unchanged semantics, YOLO path only
         checkpoint_fingerprint: str | None = None
         checkpoint_source: str | None = None
-        for candidate in checkpoint_candidates:
-            path = Path(candidate).expanduser()
-            if not path.is_absolute():
-                path = (Path.cwd() / path).resolve()
-            if path.is_file():
-                checkpoint_fingerprint = _sha256_file(path)
-                checkpoint_source = str(path)
-                break
+        model_path_candidate = str(model_params.get("model", "")).strip()
+        if model_path_candidate:
+            yolo_path = Path(model_path_candidate).expanduser()
+            if not yolo_path.is_absolute():
+                yolo_path = (Path.cwd() / yolo_path).resolve()
+            if yolo_path.is_file():
+                checkpoint_fingerprint = _sha256_file(yolo_path)
+                checkpoint_source = str(yolo_path)
+
+        # Defense checkpoint provenance — additive channel, guarded for stub compatibility
+        defense_checkpoint_provenance: list[dict[str, str]] = []
+        checkpoint_fn = getattr(defense, "checkpoint_provenance", None)
+        if callable(checkpoint_fn):
+            defense_checkpoint_provenance = checkpoint_fn()
 
         run_summary = {
             "schema_version": FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
@@ -751,6 +754,7 @@ class UnifiedExperimentRunner:
                 "config_fingerprint_source": str(resolved_config_file),
                 "checkpoint_fingerprint_sha256": checkpoint_fingerprint,
                 "checkpoint_fingerprint_source": checkpoint_source,
+                "defense_checkpoints": defense_checkpoint_provenance,
             },
         }
         if reporting_context:

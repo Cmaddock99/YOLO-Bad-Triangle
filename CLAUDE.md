@@ -25,6 +25,8 @@ Shared project guidance for YOLO-Bad-Triangle skills and code changes.
   - `src/lab/config/contracts.py`
   - `scripts/ci/validate_outputs.py`
 - Preserve run naming as `<model>__<attack>__<defense>` for matrix-style comparisons.
+- In `run_summary.json`, `provenance.checkpoint_fingerprint_*` identifies the primary model artifact only.
+- For checkpointed defenses such as `c_dog`, read defense model identity from `provenance.defense_checkpoints`, not from `defense.params` or the primary model fingerprint fields.
 - If a provenance field or optional artifact is missing, report uncertainty explicitly; do not guess.
 
 ## Comparability and parity rules
@@ -44,13 +46,16 @@ Shared project guidance for YOLO-Bad-Triangle skills and code changes.
 
 ## Skills & analysis conventions
 
-### Checkpoint facts (current as of 2026-04-05)
+### Checkpoint facts (current as of 2026-04-07)
 
 - `dpc_unet_final_golden.pt` — production baseline. Active via `DPC_UNET_CHECKPOINT_PATH` in `.env`.
-- `dpc_unet_adversarial_finetuned.pt` — adversarially finetuned checkpoint. Status: **FULL PASS — deployed 2026-04-05**.
+- `dpc_unet_adversarial_finetuned.pt` — adversarially finetuned checkpoint. Status: **DEPLOYED 2026-04-05 VIA CLEAN GATE; attacked A/B follow-up found no measurable attack-resistance change vs round 2**.
   - Trained on: square_retention round 3 — square x5 oversample + deepfool + blur pairs; resumed from round 2
   - Clean (no-attack) A/B (2026-04-05, 500 images, c_dog): new +0.0025 mAP50 vs prior — no clean regression.
-  - Evidence artifact: `outputs/eval_ab_clean.json`
+  - Attacked A/B round 3 vs round 2 (2026-04-07, seed 137, defense=c_dog):
+    - square (50 img): delta=-0.0032 — within noise
+    - deepfool (100 img): delta=-0.0022 — within noise
+  - Evidence: `outputs/eval_ab_clean.json`, `outputs/eval_ab_square_round3.json`, `outputs/eval_ab_deepfool_round3.json`
 
 ### Canonical paths for skills
 

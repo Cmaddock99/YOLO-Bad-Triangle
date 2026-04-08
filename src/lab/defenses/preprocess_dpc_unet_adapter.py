@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -21,6 +22,17 @@ from .dpc_unet_wrapper import (
 )
 from .framework_registry import register_defense_plugin
 from .routing import RoutingThresholds, choose_route, detect_attack_signal
+
+
+def _sha256_file(path: Path) -> str | None:
+    try:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError:
+        return None
 
 
 @dataclass
@@ -80,6 +92,18 @@ class _BaseCDogAdapter(BaseDefense):
             strong_hf=float(self.strong_hf),
             strong_laplacian=float(self.strong_laplacian),
         )
+
+    def checkpoint_provenance(self) -> list[dict[str, str]]:
+        raw = (self.checkpoint_path or "").strip()
+        if not raw:
+            return []
+        resolved = Path(raw).expanduser().resolve()
+        if not resolved.is_file():
+            return []
+        digest = _sha256_file(resolved)
+        if digest is None:
+            return []
+        return [{"path": str(resolved), "sha256": digest}]
 
     def postprocess(
         self,

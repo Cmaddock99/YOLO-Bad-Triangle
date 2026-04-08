@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import dataclass
+import hashlib
 import json
 import math
 import tempfile
@@ -89,6 +91,40 @@ class _RecordingDefense:
         self.preprocess_inputs.append((int(image.mean()), attack_hint))
         defended = np.clip(image.astype(np.int16) + 10, 0, 255).astype(np.uint8)
         return defended, {}
+
+    def postprocess(self, records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        return list(records), {}
+
+
+@dataclass
+class _ResolvedAttackWithOptionalParam:
+    epsilon: float = 0.016
+    steps: int = 20
+    optional_scale: float | None = None
+    objective_mode: str = "untargeted_conf_suppression"
+    target_class: int | None = None
+    preserve_weight: float = 0.25
+    attack_roi: str | None = None
+
+    def apply(self, image: np.ndarray, *, model: Any, seed: int) -> tuple[np.ndarray, dict[str, Any]]:
+        del model, seed
+        return image, {
+            "objective_mode": self.objective_mode,
+            "target_class": self.target_class,
+            "preserve_weight": self.preserve_weight,
+            "attack_roi": self.attack_roi,
+        }
+
+
+class _PassthroughDefense:
+    def preprocess(
+        self,
+        image: np.ndarray,
+        *,
+        attack_hint: str | None = None,
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        del attack_hint
+        return image, {}
 
     def postprocess(self, records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         return list(records), {}
@@ -416,6 +452,59 @@ class FrameworkOutputContractTests(unittest.TestCase):
             )
             self.assertEqual(run_summary["pipeline"]["semantic_order"], "attack_then_defense")
 
+    def test_runner_filters_none_params_before_plugin_build_and_persistence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            attack_build_kwargs: dict[str, Any] = {}
+            defense_build_kwargs: dict[str, Any] = {}
+
+            def _build_attack(name: str, **kwargs: Any) -> _ResolvedAttackWithOptionalParam:
+                self.assertEqual(name, "pgd")
+                attack_build_kwargs.update(kwargs)
+                self.assertNotIn("epsilon", kwargs)
+                return _ResolvedAttackWithOptionalParam(
+                    epsilon=0.016,
+                    steps=int(kwargs.get("steps", 20)),
+                    optional_scale=None,
+                )
+
+            def _build_defense(name: str, **kwargs: Any) -> _PassthroughDefense:
+                self.assertEqual(name, "median_preprocess")
+                defense_build_kwargs.update(kwargs)
+                self.assertEqual(kwargs, {})
+                return _PassthroughDefense()
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "pgd", "params": {"epsilon": None, "steps": 4}},
+                "defense": {"name": "median_preprocess", "params": {"kernel_size": None}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 21, "output_root": str(root / "outputs"), "run_name": "contract_null_params"},
+            }
+
+            with (
+                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
+                patch("lab.runners.run_experiment.build_attack_plugin", side_effect=_build_attack),
+                patch("lab.runners.run_experiment.build_defense_plugin", side_effect=_build_defense),
+            ):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            self.assertEqual(attack_build_kwargs, {"steps": 4})
+            self.assertEqual(defense_build_kwargs, {})
+
+            run_summary = json.loads(
+                Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(run_summary["attack"]["params"], {"epsilon": 0.016, "steps": 4})
+            self.assertNotIn("optional_scale", run_summary["attack"]["params"])
+            self.assertEqual(run_summary["defense"]["params"], {})
+
     def test_metrics_payload_contract_accepts_valid_payload(self) -> None:
         payload = {
             "schema_version": "framework_metrics/v1",
@@ -495,6 +584,145 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 summary = UnifiedExperimentRunner(config=config).run()
             run_dir = Path(summary["run_dir"])
             self.assertFalse((run_dir / "experiment_summary.json").exists())
+
+    def test_run_summary_captures_defense_checkpoint_provenance_for_checkpointed_defense(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            fake_record = [{"path": "/tmp/fake.pt", "sha256": "abc123def456"}]
+
+            class _CheckpointedDefense(_PassthroughDefense):
+                def checkpoint_provenance(self) -> list[dict[str, str]]:
+                    return fake_record
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "provenance_checkpointed"},
+            }
+
+            with (
+                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
+                patch("lab.runners.run_experiment.build_defense_plugin", return_value=_CheckpointedDefense()),
+            ):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(run_summary["provenance"]["defense_checkpoints"], fake_record)
+            # YOLO model "dummy.pt" does not exist on disk — fingerprint stays None
+            self.assertIsNone(run_summary["provenance"]["checkpoint_fingerprint_sha256"])
+
+    def test_run_summary_keeps_yolo_and_defense_checkpoint_provenance_distinct(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            yolo_path = root / "weights" / "yolo.pt"
+            yolo_path.parent.mkdir(parents=True, exist_ok=True)
+            yolo_bytes = b"fake-yolo-weights"
+            yolo_path.write_bytes(yolo_bytes)
+            yolo_sha = hashlib.sha256(yolo_bytes).hexdigest()
+
+            defense_path = root / "weights" / "dpc.pt"
+            defense_bytes = b"fake-defense-checkpoint"
+            defense_path.write_bytes(defense_bytes)
+            defense_sha = hashlib.sha256(defense_bytes).hexdigest()
+
+            class _CheckpointedDefense(_PassthroughDefense):
+                def checkpoint_provenance(self) -> list[dict[str, str]]:
+                    return [{"path": str(defense_path.resolve()), "sha256": defense_sha}]
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": str(yolo_path)}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "provenance_distinct"},
+            }
+
+            with (
+                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
+                patch("lab.runners.run_experiment.build_defense_plugin", return_value=_CheckpointedDefense()),
+            ):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(run_summary["provenance"]["checkpoint_fingerprint_sha256"], yolo_sha)
+            self.assertTrue(Path(run_summary["provenance"]["checkpoint_fingerprint_source"]).samefile(yolo_path))
+            self.assertEqual(
+                run_summary["provenance"]["defense_checkpoints"],
+                [{"path": str(defense_path.resolve()), "sha256": defense_sha}],
+            )
+
+    def test_run_summary_defense_checkpoint_provenance_empty_for_non_checkpoint_defense(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            class _ExplicitEmptyDefense(_PassthroughDefense):
+                def checkpoint_provenance(self) -> list[dict[str, str]]:
+                    return []
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "provenance_empty"},
+            }
+
+            with (
+                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
+                patch("lab.runners.run_experiment.build_defense_plugin", return_value=_ExplicitEmptyDefense()),
+            ):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            self.assertIn("defense_checkpoints", run_summary["provenance"])
+            self.assertEqual(run_summary["provenance"]["defense_checkpoints"], [])
+
+    def test_run_summary_defense_checkpoint_provenance_gracefully_empty_when_stub_has_no_method(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "provenance_no_method"},
+            }
+
+            # _PassthroughDefense has no checkpoint_provenance method
+            with (
+                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
+                patch("lab.runners.run_experiment.build_defense_plugin", return_value=_PassthroughDefense()),
+            ):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            self.assertIn("defense_checkpoints", run_summary["provenance"])
+            self.assertEqual(run_summary["provenance"]["defense_checkpoints"], [])
 
     def test_summary_enabled_with_baseline_and_attack_writes_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

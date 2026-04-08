@@ -17,7 +17,7 @@ structured enough for reliable comparison and reporting.
 |---|---|---|
 | Single config-driven run | Implemented | `scripts/run_unified.py run-one` |
 | Multi-attack and multi-defense sweep | Implemented | `scripts/sweep_and_report.py` |
-| Structured run outputs | Implemented | `metrics.json`, `predictions.jsonl`, `run_summary.json`, `resolved_config.yaml` |
+| Structured run outputs | Implemented | `metrics.json`, `predictions.jsonl`, `run_summary.json`, `resolved_config.yaml`; checkpointed defenses also record defense-model provenance in `run_summary.json` under `provenance.defense_checkpoints` |
 | Structured report outputs | Implemented | markdown, CSV, team summary |
 | Plugin-based attacks and defenses | Implemented | registries under `src/lab/attacks/` and `src/lab/defenses/` |
 | Output contract validation | Implemented | `scripts/ci/validate_outputs.py`, `schemas/v1/` |

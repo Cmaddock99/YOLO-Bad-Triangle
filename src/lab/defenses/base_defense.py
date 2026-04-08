@@ -26,3 +26,11 @@ class BaseDefense(ABC):
         **kwargs: Any,
     ) -> tuple[Sequence[PredictionRecord], dict[str, Any]]:
         """Return `(processed_predictions, metadata)` after model inference."""
+
+    def checkpoint_provenance(self) -> list[dict[str, str]]:
+        """Return checkpoint records loaded by this defense.
+
+        Each record: {"path": "<absolute path>", "sha256": "<hex digest>"}.
+        Default returns empty list for defenses that load no checkpoints.
+        """
+        return []
