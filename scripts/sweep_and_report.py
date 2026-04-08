@@ -115,8 +115,11 @@ def _list_plugins() -> None:
         print(f"  {d}")
 
 
-def _resolve_all_plugins(value: str, kind: str) -> list[str]:
-    """Expand 'all' to every registered plugin of the given kind."""
+def _resolve_all_plugins(value: str, kind: str) -> list[str] | None:
+    """Expand 'all' to every registered plugin of the given kind.
+
+    Returns None when value is not 'all', signalling the caller to parse normally.
+    """
     if value.strip().lower() != "all":
         return None  # signal: not 'all', parse normally
     sys.path.insert(0, str((REPO_ROOT / "src").resolve()))
@@ -258,9 +261,13 @@ def _check_resume(run_dir: Path, intended_intent: dict[str, object]) -> tuple[st
     if existing is None:
         return "reran_partial", "run_summary.json missing or malformed"
     intended = _normalize_intended_fingerprint(intended_intent)
+    # Only compare fields where the intended value is known (non-None).
+    # When the sweep cannot compute a field (e.g. checkpoint SHA when the
+    # file is absent on this machine), skip it rather than forcing a spurious
+    # reran_mismatch on every --resume invocation.
     mismatches = [
         key for key in sorted(intended)
-        if existing.get(key) != intended.get(key)
+        if intended.get(key) is not None and existing.get(key) != intended.get(key)
     ]
     if mismatches:
         return "reran_mismatch", f"run intent changed: {', '.join(mismatches)}"
@@ -671,6 +678,8 @@ def main() -> None:
                 reporting_authority=args.reporting_authority,
                 reporting_source_phase=args.reporting_source_phase,
             )
+            resume_action = "run"
+            resume_reason = ""
             if args.resume:
                 resume_action, resume_reason = _check_resume(
                     baseline_dir,

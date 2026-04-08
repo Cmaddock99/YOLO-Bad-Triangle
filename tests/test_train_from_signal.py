@@ -182,6 +182,110 @@ class TrainFromSignalTest(unittest.TestCase):
         self.assertEqual(manifest["attack_gate"]["verdict"], "failed")
         self.assertNotIn("PROMOTION READY", stdout)
 
+    def _subprocess_side_effect_with_delta(
+        self,
+        *,
+        train_returncode: int = 0,
+        clean_delta: float = 0.02,
+        clean_returncode: int = 0,
+        attack_delta: float = 0.01,
+        attack_returncode: int = 0,
+    ):
+        """Like _subprocess_side_effect but allows controlling delta values independently."""
+        def _handler(command: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
+            script_name = Path(command[1]).name
+            if script_name == "export_training_data.py":
+                self.training_zip.parent.mkdir(parents=True, exist_ok=True)
+                self.training_zip.write_bytes(b"zip")
+                return self._completed(command, 0)
+            if script_name == "train_dpc_unet_local.py":
+                if train_returncode == 0:
+                    self.candidate_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+                    self.candidate_checkpoint.write_bytes(b"candidate")
+                return self._completed(command, train_returncode)
+            if script_name == "evaluate_checkpoint.py":
+                output_json = Path(command[command.index("--output-json") + 1])
+                attack = command[command.index("--attack") + 1]
+                output_json.parent.mkdir(parents=True, exist_ok=True)
+                is_clean = attack == "none"
+                delta = clean_delta if is_clean else attack_delta
+                rc = clean_returncode if is_clean else attack_returncode
+                output_json.write_text(
+                    json.dumps({"attack": attack, "delta_mAP50": delta}),
+                    encoding="utf-8",
+                )
+                return self._completed(command, rc)
+            raise AssertionError(f"Unexpected subprocess command: {command}")
+
+        return _handler
+
+    def test_clean_gate_fails_when_delta_below_threshold_despite_exit_zero(self) -> None:
+        """delta_mAP50 = -0.01 must fail the clean gate even if evaluate_checkpoint exits 0.
+
+        evaluate_checkpoint.py exits 0 when B >= A; our spec requires delta >= -0.005.
+        A candidate with delta = -0.01 is outside the noise-floor tolerance and must
+        not receive a promotion recommendation regardless of exit code.
+        """
+        exit_code, stdout, _, _ = self._run_cli(
+            "--signal-path",
+            str(self.signal_path),
+            "--checkpoint-a",
+            str(self.baseline_checkpoint),
+            side_effect=self._subprocess_side_effect_with_delta(
+                clean_delta=-0.01,
+                clean_returncode=0,  # exit 0 — gate must still fail on delta alone
+            ),
+        )
+
+        self.assertEqual(exit_code, 1)
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["final_verdict"], "failed_clean")
+        self.assertEqual(manifest["clean_gate"]["verdict"], "failed")
+        self.assertAlmostEqual(manifest["clean_gate"]["delta_mAP50"], -0.01)
+        self.assertNotIn("PROMOTION READY", stdout)
+
+    def test_clean_gate_passes_when_delta_within_tolerance(self) -> None:
+        """delta_mAP50 = -0.003 is within the -0.005 tolerance band and must pass."""
+        exit_code, stdout, _, _ = self._run_cli(
+            "--signal-path",
+            str(self.signal_path),
+            "--checkpoint-a",
+            str(self.baseline_checkpoint),
+            side_effect=self._subprocess_side_effect_with_delta(
+                clean_delta=-0.003,
+                clean_returncode=0,
+                attack_delta=0.005,
+                attack_returncode=0,
+            ),
+        )
+
+        self.assertEqual(exit_code, 0)
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["clean_gate"]["verdict"], "passed")
+        self.assertEqual(manifest["final_verdict"], "passed_both_manual_promotion_required")
+        self.assertIn("PROMOTION READY", stdout)
+
+    def test_attack_gate_fails_when_delta_below_threshold_despite_exit_zero(self) -> None:
+        """delta_mAP50 = -0.01 on the attack gate must block promotion even with exit 0."""
+        exit_code, stdout, _, _ = self._run_cli(
+            "--signal-path",
+            str(self.signal_path),
+            "--checkpoint-a",
+            str(self.baseline_checkpoint),
+            side_effect=self._subprocess_side_effect_with_delta(
+                clean_delta=0.02,
+                clean_returncode=0,
+                attack_delta=-0.01,
+                attack_returncode=0,  # exit 0 — gate must still fail on delta
+            ),
+        )
+
+        self.assertEqual(exit_code, 1)
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["final_verdict"], "passed_clean_failed_attack")
+        self.assertEqual(manifest["attack_gate"]["verdict"], "failed")
+        self.assertNotIn("PROMOTION READY", stdout)
+
     def test_dry_run_prints_commands_without_executing(self) -> None:
         exit_code, stdout, _, run_mock = self._run_cli(
             "--signal-path",
