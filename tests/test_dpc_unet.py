@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -98,6 +99,28 @@ class DPCUNetAdapterTests(unittest.TestCase):
             self.assertEqual(output.shape, image.shape)
             self.assertEqual(meta["defense"], "preprocess_dpc_unet")
             self.assertTrue(meta["finite"])
+
+    def test_cdog_checkpoint_provenance_reports_resolved_path_and_sha256(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ckpt = Path(tmp) / "dpc.pt"
+            self._write_checkpoint(ckpt)
+            defense = build_defense_plugin("c_dog", checkpoint_path=str(ckpt))
+            result = defense.checkpoint_provenance()
+            self.assertEqual(len(result), 1)
+            self.assertTrue(Path(result[0]["path"]).is_absolute())
+            self.assertEqual(result[0]["path"], str(ckpt.resolve()))
+            # Verify sha256 matches independently computed digest
+            digest = hashlib.sha256()
+            with ckpt.open("rb") as fh:
+                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            self.assertEqual(result[0]["sha256"], digest.hexdigest())
+
+    def test_cdog_checkpoint_provenance_empty_when_checkpoint_path_missing(self) -> None:
+        with patch.dict("os.environ", {}, clear=False) as env:
+            env.pop("DPC_UNET_CHECKPOINT_PATH", None)
+            defense = build_defense_plugin("c_dog", checkpoint_path="")
+            self.assertEqual(defense.checkpoint_provenance(), [])
 
     def test_preprocess_rejects_non_finite_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
