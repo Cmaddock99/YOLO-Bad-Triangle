@@ -4,6 +4,7 @@ import csv
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 from lab.eval.framework_metrics import is_validation_success
@@ -266,6 +267,11 @@ def build_team_summary_payload(report_root: Path) -> dict[str, Any]:
 def _build_markdown_provenance(report_root: Path, baseline_row: dict[str, Any]) -> dict[str, str]:
     run_dir_raw = str(baseline_row.get("run_dir") or "").strip()
     summary = _read_json_mapping(Path(run_dir_raw).expanduser().resolve() / "run_summary.json") if run_dir_raw else {}
+    if run_dir_raw and not summary:
+        print(
+            f"WARNING: provenance: run_summary.json not found or unreadable at {run_dir_raw}",
+            file=sys.stderr,
+        )
     provenance = summary.get("provenance")
     if not isinstance(provenance, dict):
         provenance = {}
