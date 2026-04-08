@@ -48,7 +48,11 @@ can distinguish this canonical era from older legacy outputs.
 ### Models
 
 - Location: `src/lab/models/`
-- Current primary model adapter: `yolo`
+- Current adapters:
+  - `yolo`
+  - `faster_rcnn` (alias: `torchvision_frcnn`)
+- `yolo` supports prediction and validation.
+- `faster_rcnn` supports prediction and returns a `not_supported` validation stub.
 
 List live plugin names with:
 
@@ -95,6 +99,7 @@ Framework run outputs:
 - `outputs/framework_runs/<run_name>/predictions.jsonl`
 - `outputs/framework_runs/<run_name>/run_summary.json`
 - `outputs/framework_runs/<run_name>/resolved_config.yaml`
+- `outputs/framework_runs/<run_name>/experiment_summary.json` when `summary.enabled=true`
 
 Report outputs:
 
@@ -112,3 +117,10 @@ Cycle outputs:
 
 Schema files live in `schemas/v1/`. Runtime constants live in
 `src/lab/config/contracts.py`.
+
+## Reporting selection rules
+
+Warnings and concise summaries prefer `reporting_context.authority=authoritative`
+rows when both authoritative and diagnostic rows exist for the same comparison.
+Diagnostic-only smoke reports are still valid diagnostic artifacts; they should
+not be interpreted as proof that Phase 4 validation is missing.

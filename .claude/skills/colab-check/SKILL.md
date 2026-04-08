@@ -57,6 +57,10 @@ Verify the file is ~1.9 MB (expected DPC-UNet size). If it's much smaller or lar
 
 This is the deployment gate. Run both checkpoints through c_dog defense with no attack on 500 images:
 
+These commands set `DPC_UNET_CHECKPOINT_PATH` per invocation on purpose. In
+normal repo usage, the active checkpoint is whatever `DPC_UNET_CHECKPOINT_PATH`
+in the shell or `.env` points to.
+
 ```bash
 cd /Users/lurch/ml-labs/YOLO-Bad-Triangle
 
@@ -64,17 +68,21 @@ cd /Users/lurch/ml-labs/YOLO-Bad-Triangle
 PYTHONPATH=src DPC_UNET_CHECKPOINT_PATH=dpc_unet_candidate.pt \
   .venv/bin/python scripts/run_unified.py run-one \
   --config configs/default.yaml \
-  --set attack.name=none defense.name=c_dog \
-  --set runner.max_images=500 validation.enabled=true \
-  --run-name clean_ab_candidate
+  --set attack.name=none \
+  --set defense.name=c_dog \
+  --set runner.max_images=500 \
+  --set validation.enabled=true \
+  --set runner.run_name=clean_ab_candidate
 
 # Current active checkpoint (baseline for comparison)
 PYTHONPATH=src DPC_UNET_CHECKPOINT_PATH=dpc_unet_adversarial_finetuned.pt \
   .venv/bin/python scripts/run_unified.py run-one \
   --config configs/default.yaml \
-  --set attack.name=none defense.name=c_dog \
-  --set runner.max_images=500 validation.enabled=true \
-  --run-name clean_ab_current
+  --set attack.name=none \
+  --set defense.name=c_dog \
+  --set runner.max_images=500 \
+  --set validation.enabled=true \
+  --set runner.run_name=clean_ab_current
 ```
 
 Read `outputs/framework_runs/clean_ab_candidate/metrics.json` and `clean_ab_current/metrics.json`.
@@ -131,6 +139,10 @@ cp /Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned.pt \
 mv /Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_candidate.pt \
    /Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned.pt
 ```
+
+If `.env` or the shell points `DPC_UNET_CHECKPOINT_PATH` somewhere else, deploy
+to that path instead. The env var is the source of truth for the active
+checkpoint.
 
 Write `outputs/eval_ab_clean.json` with the result (same schema as the existing file — see current `outputs/eval_ab_clean.json` for reference).
 

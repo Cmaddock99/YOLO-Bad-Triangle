@@ -573,6 +573,171 @@ class FrameworkReportingTest(unittest.TestCase):
             self.assertTrue(json_path.exists())
             self.assertTrue(md_path.exists())
 
+    def test_team_summary_prefers_authoritative_attack_only_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runs_root = root / "runs"
+            report_root = root / "report"
+            runs_root.mkdir(parents=True, exist_ok=True)
+            report_root.mkdir(parents=True, exist_ok=True)
+
+            self._write_run(
+                runs_root,
+                "baseline_none",
+                attack="none",
+                defense="none",
+                map50=0.59,
+                validation_status="missing",
+                total_detections=900,
+                reporting_context={
+                    "run_role": "baseline",
+                    "dataset_scope": "smoke",
+                    "authority": "diagnostic",
+                    "source_phase": "phase1",
+                },
+            )
+            self._write_run(
+                runs_root,
+                "validate_baseline",
+                attack="none",
+                defense="none",
+                map50=0.61,
+                total_detections=1000,
+                reporting_context={
+                    "run_role": "baseline",
+                    "dataset_scope": "full",
+                    "authority": "authoritative",
+                    "source_phase": "phase4",
+                },
+            )
+            self._write_run(
+                runs_root,
+                "attack_square",
+                attack="square",
+                defense="none",
+                map50=0.30,
+                validation_status="missing",
+                total_detections=150,
+                reporting_context={
+                    "run_role": "attack_only",
+                    "dataset_scope": "smoke",
+                    "authority": "diagnostic",
+                    "source_phase": "phase1",
+                },
+            )
+            self._write_run(
+                runs_root,
+                "validate_atk_square",
+                attack="square",
+                defense="none",
+                map50=0.28,
+                total_detections=120,
+                reporting_context={
+                    "run_role": "attack_only",
+                    "dataset_scope": "full",
+                    "authority": "authoritative",
+                    "source_phase": "phase4",
+                },
+            )
+            self._write_run(
+                runs_root,
+                "attack_deepfool",
+                attack="deepfool",
+                defense="none",
+                map50=0.22,
+                validation_status="missing",
+                total_detections=200,
+                reporting_context={
+                    "run_role": "attack_only",
+                    "dataset_scope": "smoke",
+                    "authority": "diagnostic",
+                    "source_phase": "phase1",
+                },
+            )
+            self._write_run(
+                runs_root,
+                "tune_atk_square_best",
+                attack="square",
+                defense="none",
+                map50=0.27,
+                validation_status="missing",
+                total_detections=90,
+                reporting_context={
+                    "run_role": "tune",
+                    "dataset_scope": "tune",
+                    "authority": "diagnostic",
+                    "source_phase": "phase3",
+                },
+            )
+            self._write_run(
+                runs_root,
+                "consistency_atk_square",
+                attack="square",
+                defense="none",
+                map50=0.26,
+                validation_status="missing",
+                total_detections=80,
+                reporting_context={
+                    "run_role": "consistency",
+                    "dataset_scope": "smoke",
+                    "authority": "diagnostic",
+                    "source_phase": "phase3",
+                },
+            )
+            self._write_run(
+                runs_root,
+                "validate_square_c_dog",
+                attack="square",
+                defense="c_dog",
+                map50=0.35,
+                total_detections=180,
+                reporting_context={
+                    "run_role": "defended",
+                    "dataset_scope": "full",
+                    "authority": "authoritative",
+                    "source_phase": "phase4",
+                },
+            )
+
+            csv_path = report_root / "framework_run_summary.csv"
+            csv_path.write_text(
+                "\n".join(
+                    [
+                        "run_name,run_dir,model,attack,defense,seed,prediction_count,images_with_detections,total_detections,avg_confidence,validation_status,precision,recall,mAP50,mAP50-95",
+                        f"baseline_none,{runs_root / 'baseline_none'},yolo,none,none,42,8,8,900,0.76,missing,,,,",
+                        f"validate_baseline,{runs_root / 'validate_baseline'},yolo,none,none,42,8,8,1000,0.77,complete,0.7,0.6,0.61,0.4",
+                        f"attack_square,{runs_root / 'attack_square'},yolo,square,none,42,8,8,150,0.72,missing,,,,",
+                        f"validate_atk_square,{runs_root / 'validate_atk_square'},yolo,square,none,42,8,8,120,0.71,complete,0.7,0.6,0.28,0.4",
+                        f"attack_deepfool,{runs_root / 'attack_deepfool'},yolo,deepfool,none,42,8,8,200,0.70,missing,,,,",
+                        f"tune_atk_square_best,{runs_root / 'tune_atk_square_best'},yolo,square,none,42,8,8,90,0.69,missing,,,,",
+                        f"consistency_atk_square,{runs_root / 'consistency_atk_square'},yolo,square,none,42,8,8,80,0.68,missing,,,,",
+                        f"validate_square_c_dog,{runs_root / 'validate_square_c_dog'},yolo,square,c_dog,42,8,8,180,0.74,complete,0.7,0.6,0.35,0.4",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            (report_root / "summary_square.txt").write_text(
+                "Conclusion:\nStrong attack effect\n",
+                encoding="utf-8",
+            )
+            (report_root / "summary_deepfool.txt").write_text(
+                "Conclusion:\nStrong attack effect\n",
+                encoding="utf-8",
+            )
+
+            payload = build_team_summary_payload(report_root)
+
+            self.assertEqual(payload["baseline"]["run_name"], "validate_baseline")
+            self.assertEqual(payload["total_attack_runs"], 2)
+            self.assertEqual(
+                [row["run_name"] for row in payload["attacks_ranked"]],
+                ["validate_atk_square", "attack_deepfool"],
+            )
+            self.assertEqual(
+                payload["strongest_attack_by_detection_drop"]["run_name"],
+                "validate_atk_square",
+            )
+
     def test_team_summary_baseline_requires_none_like_attack_and_defense(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report_root = Path(tmp)

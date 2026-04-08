@@ -7,21 +7,25 @@ Four phases run sequentially. State is persisted so the cycle is fully
 resumable — re-invoke the script at any point to continue from where it
 left off.
 
-  Phase 1  Characterize   All attacks vs no defense (smoke, 8 images).
+  Phase 1  Characterize   All attacks vs no defense (smoke, 32 images by
+                           default; slower attacks use lower caps).
                            Ranks attacks by composite suppression
                            (avg-confidence + detection-count health).
 
-  Phase 2  Matrix         Top-N attacks × all defenses (smoke, 8 images).
+  Phase 2  Matrix         Top-N attacks × all defenses (smoke, 32 images by
+                           default).
                            Ranks defenses by composite recovery
                            (relative to composite suppression in Phase 1).
                            (smoke is enough for ranking — full runs in Phase 4)
 
   Phase 3  Tune           Adaptive coordinate descent for top attacks × top
-                           defenses (8 images).  After each run, assesses the
-                           result and probes the most promising direction until
-                           gains fall below a tolerance threshold.
+                           defenses (16 images by default; slower attacks use
+                           lower caps). After each run, assesses the result and
+                           probes the most promising direction until gains fall
+                           below a tolerance threshold.
 
-  Phase 4  Validate       Best configs re-run: full dataset + mAP50.
+  Phase 4  Validate       Best configs re-run: 500-image validation + mAP50.
+                           Selected slow attacks are capped at 50 images.
 
 State:   outputs/cycle_state.json
 Lock:    outputs/.cycle.lock   (prevents concurrent execution)
@@ -473,7 +477,8 @@ def run_single(
         log(f"  skip (exists): {run_name}")
         return True
 
-    # "tune" preset: more images than smoke for reliable signal, less than full
+    # Generic preset defaults used by manual callers. auto_cycle overrides
+    # Phase 1/2 smoke runs to 32 images and tune runs to TUNE_MAX_IMAGES.
     max_images = (
         str(max_images_override)
         if max_images_override is not None
@@ -595,8 +600,7 @@ def _rank_attacks(state: dict) -> list[str]:
 
 def phase2(state: dict) -> bool:
     log(f"=== Phase 2: Matrix ({state['top_attacks']} × all defenses, smoke) ===")
-    # Use smoke preset (8 images) — just enough to rank defenses reliably.
-    # Full validated runs happen in Phase 4; no need to spend hours here.
+    # Use 32-image ranking smoke runs here. Full validated runs happen in Phase 4.
     ok = run_sweep(
         attacks=state["top_attacks"],
         defenses=ALL_DEFENSES,

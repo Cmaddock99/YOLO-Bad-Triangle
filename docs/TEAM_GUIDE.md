@@ -39,7 +39,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
 PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
   --config configs/default.yaml \
   --set attack.name=blur \
-  --set runner.max_images=8 \
+  --set runner.max_images=32 \
   --set runner.run_name=smoke_blur
 ```
 
@@ -49,7 +49,8 @@ PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
 PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
   --attacks fgsm,pgd,deepfool \
   --defenses c_dog,median_preprocess \
-  --preset smoke
+  --preset smoke \
+  --workers 1
 ```
 
 ### Run quality checks
@@ -100,6 +101,30 @@ That order is written into run artifacts together with
 `semantic_order=attack_then_defense`. If you are interpreting "defense
 recovery" numbers, this is now the canonical behavior to compare against.
 
+## Current auto-cycle sizing
+
+The current `auto_cycle.py` settings are:
+
+- Phase 1 characterize: 32-image ranking smoke runs by default
+- Phase 2 matrix: 32-image ranking smoke runs by default
+- Phase 3 tune: 16-image tuning runs by default
+- Phase 4 validate: 500-image validation runs by default
+
+Selected slow attacks use tighter caps inside the cycle:
+
+- Phase 1 caps: `square=8`, `eot_pgd=12`, `dispersion_reduction=12`
+- Phase 3 caps: `square=8`, `eot_pgd=12`, `dispersion_reduction=12`
+- Phase 4 caps: `square=50`, `eot_pgd=50`, `dispersion_reduction=50`
+
+These are cycle defaults, not a restriction on manual one-off runs.
+
+## How to read summaries
+
+When both authoritative Phase 4 rows and diagnostic smoke rows exist for the
+same comparison, warnings and concise summaries prefer the authoritative rows.
+Smoke-only reports remain useful for ranking and tuning, but they are not
+deployment evidence.
+
 ## Plugin locations
 
 - Attacks: `src/lab/attacks/`
@@ -120,6 +145,9 @@ PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py --list-plugins
 `c_dog_ensemble` is still registered, but the current auto-cycle catalog does
 not include it. Do not assume "registered" and "used by auto_cycle" mean the
 same thing.
+
+If you use `c_dog` or `c_dog_ensemble`, treat `DPC_UNET_CHECKPOINT_PATH` as the
+source of truth for which checkpoint is active.
 
 ## When you extend the repo
 

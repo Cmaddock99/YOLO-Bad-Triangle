@@ -9,6 +9,19 @@ from lab.eval.framework_metrics import is_validation_success
 from .framework_comparison import is_none_like, normalize_name
 
 
+_AUTHORITY_AUTHORITATIVE = "authoritative"
+_AUTHORITY_DIAGNOSTIC = "diagnostic"
+_RUN_ROLE_ATTACK_ONLY = "attack_only"
+_RUN_ROLE_BASELINE = "baseline"
+_PHASE_PRIORITY = {
+    "phase4": 0,
+    "phase2": 1,
+    "phase1": 2,
+    "phase3": 3,
+    "manual": 4,
+}
+
+
 def _to_optional_float(value: Any) -> float | None:
     if value is None or value == "":
         return None
@@ -18,7 +31,118 @@ def _to_optional_float(value: Any) -> float | None:
         return None
 
 
+def _read_json_mapping(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return payload
 
+
+def _normalize_optional_text(value: object) -> str | None:
+    normalized = normalize_name(value)
+    return normalized or None
+
+
+def _infer_run_role(*, attack: str, defense: str) -> str | None:
+    if is_none_like(attack) and is_none_like(defense):
+        return _RUN_ROLE_BASELINE
+    if not is_none_like(attack) and is_none_like(defense):
+        return _RUN_ROLE_ATTACK_ONLY
+    if not is_none_like(attack) and not is_none_like(defense):
+        return "defended"
+    return None
+
+
+def _load_reporting_context(row: dict[str, str]) -> dict[str, str | None]:
+    attack_name = normalize_name(row.get("attack"))
+    defense_name = normalize_name(row.get("defense"))
+    inferred_run_role = _infer_run_role(attack=attack_name, defense=defense_name)
+
+    run_dir_raw = str(row.get("run_dir") or "").strip()
+    if not run_dir_raw:
+        return {
+            "run_role": inferred_run_role,
+            "authority": None,
+            "source_phase": None,
+        }
+
+    summary = _read_json_mapping(Path(run_dir_raw).expanduser().resolve() / "run_summary.json")
+    reporting_context = summary.get("reporting_context")
+    if not isinstance(reporting_context, dict):
+        reporting_context = {}
+
+    run_role = _normalize_optional_text(reporting_context.get("run_role")) or inferred_run_role
+    authority = _normalize_optional_text(reporting_context.get("authority"))
+    source_phase = _normalize_optional_text(reporting_context.get("source_phase"))
+    return {
+        "run_role": run_role,
+        "authority": authority,
+        "source_phase": source_phase,
+    }
+
+
+def _enrich_rows(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+    enriched: list[dict[str, Any]] = []
+    for row in rows:
+        attack_name = normalize_name(row.get("attack"))
+        defense_name = normalize_name(row.get("defense"))
+        reporting_context = _load_reporting_context(row)
+        enriched.append(
+            {
+                **row,
+                "attack": attack_name,
+                "defense": defense_name,
+                "seed": _to_optional_float(row.get("seed")),
+                "total_detections": _to_optional_float(row.get("total_detections")),
+                "avg_confidence": _to_optional_float(row.get("avg_confidence")),
+                "validation_status": str(row.get("validation_status") or ""),
+                "map50": _to_optional_float(row.get("mAP50")),
+                "_run_role": reporting_context["run_role"],
+                "_authority": reporting_context["authority"],
+                "_source_phase": reporting_context["source_phase"],
+            }
+        )
+    return enriched
+
+
+def _authority_priority(value: object) -> int:
+    normalized = normalize_name(value)
+    if normalized == _AUTHORITY_AUTHORITATIVE:
+        return 0
+    if normalized == _AUTHORITY_DIAGNOSTIC:
+        return 1
+    return 2
+
+
+def _phase_priority(value: object) -> int:
+    normalized = normalize_name(value)
+    return _PHASE_PRIORITY.get(normalized, len(_PHASE_PRIORITY))
+
+
+def _selection_key(row: dict[str, Any]) -> tuple[int, int, int, str]:
+    return (
+        _authority_priority(row.get("_authority")),
+        0 if is_validation_success(row.get("validation_status")) else 1,
+        _phase_priority(row.get("_source_phase")),
+        str(row.get("run_name") or ""),
+    )
+
+
+def _select_best_row(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    if not rows:
+        raise ValueError("Expected at least one candidate row for selection.")
+    authoritative = [row for row in rows if normalize_name(row.get("_authority")) == _AUTHORITY_AUTHORITATIVE]
+    if authoritative:
+        return min(authoritative, key=_selection_key)
+    diagnostic = [row for row in rows if normalize_name(row.get("_authority")) == _AUTHORITY_DIAGNOSTIC]
+    if diagnostic:
+        return min(diagnostic, key=_selection_key)
+    return min(rows, key=_selection_key)
 
 def _load_summary_csv(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
@@ -44,40 +168,47 @@ def _load_attack_interpretations(report_root: Path) -> dict[str, str]:
     return interpretations
 
 
-def _build_attack_rows(rows: list[dict[str, str]]) -> tuple[dict[str, str], list[dict[str, Any]]]:
-    baseline = next(
-        (
-            row
-            for row in rows
-            if is_none_like(row.get("attack")) and is_none_like(row.get("defense"))
-        ),
-        None,
-    )
-    if baseline is None:
+def _build_attack_rows(rows: list[dict[str, str]]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    enriched_rows = _enrich_rows(rows)
+    baseline_candidates = [
+        row
+        for row in enriched_rows
+        if is_none_like(row.get("attack")) and is_none_like(row.get("defense"))
+    ]
+    if not baseline_candidates:
         raise ValueError(
             "Baseline row is required in framework_run_summary.csv "
             "(attack and defense must be none-like values)."
         )
+    baseline = _select_best_row(baseline_candidates)
     baseline_detections = _to_optional_float(baseline.get("total_detections"))
-    attack_rows: list[dict[str, Any]] = []
-    for row in rows:
-        attack_name = normalize_name(row.get("attack"))
-        if is_none_like(attack_name):
+
+    grouped_attack_rows: dict[str, list[dict[str, Any]]] = {}
+    for row in enriched_rows:
+        attack_name = str(row.get("attack") or "")
+        if is_none_like(attack_name) or not is_none_like(row.get("defense")):
             continue
-        detections = _to_optional_float(row.get("total_detections"))
+        if normalize_name(row.get("_run_role")) != _RUN_ROLE_ATTACK_ONLY:
+            continue
+        grouped_attack_rows.setdefault(attack_name, []).append(row)
+
+    attack_rows: list[dict[str, Any]] = []
+    for attack_name, candidates in grouped_attack_rows.items():
+        selected = _select_best_row(candidates)
+        detections = _to_optional_float(selected.get("total_detections"))
         drop = None
         if baseline_detections is not None and baseline_detections != 0.0 and detections is not None:
             drop = (baseline_detections - detections) / baseline_detections
         attack_rows.append(
             {
-                "run_name": row.get("run_name"),
+                "run_name": selected.get("run_name"),
                 "attack": attack_name,
-                "seed": _to_optional_float(row.get("seed")),
+                "seed": _to_optional_float(selected.get("seed")),
                 "total_detections": detections,
-                "avg_confidence": _to_optional_float(row.get("avg_confidence")),
+                "avg_confidence": _to_optional_float(selected.get("avg_confidence")),
                 "detection_drop": drop,
-                "validation_status": row.get("validation_status", ""),
-                "map50": _to_optional_float(row.get("mAP50")),
+                "validation_status": selected.get("validation_status", ""),
+                "map50": _to_optional_float(selected.get("map50")),
             }
         )
     attack_rows.sort(
