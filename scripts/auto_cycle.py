@@ -1865,6 +1865,10 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
             ["git", "commit", "-m", "\n".join(msg_lines)],
             cwd=str(REPO), check=True,
         )
+        subprocess.run(
+            ["git", "pull", "--rebase", "origin", "main"],
+            cwd=str(REPO), check=True,
+        )
         subprocess.run(["git", "push"], cwd=str(REPO), check=True)
         log(f"git_commit_phase: pushed phase {phase_num} snapshot for {cycle_id}")
         _push_state_to_branch(state, phase_num)
@@ -1974,6 +1978,10 @@ def git_push_results(state: dict) -> None:
         ]
         msg = "\n".join(lines)
         subprocess.run(["git", "commit", "-m", msg], cwd=str(REPO), check=True)
+        subprocess.run(
+            ["git", "pull", "--rebase", "origin", "main"],
+            cwd=str(REPO), check=True,
+        )
         subprocess.run(["git", "push"], cwd=str(REPO), check=True)
         log(f"git_push: pushed results for {cycle_id}")
     except subprocess.CalledProcessError as exc:
