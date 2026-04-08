@@ -17,10 +17,13 @@ Use --list-plugins to see all registered attacks and defenses.
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
+import json
 import os
 import shlex
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -29,10 +32,13 @@ from pathlib import Path
 from tqdm import tqdm
 
 from lab.runners.cli_utils import (
+    apply_override,
     build_repo_python_command,
     build_run_experiment_command,
+    load_yaml_mapping,
     with_src_pythonpath,
 )
+from lab.runners.run_intent import build_run_intent
 
 
 CANONICAL_ATTACK_ALIASES = {
@@ -61,6 +67,7 @@ CANONICAL_ATTACKS_ALL = (
 DEFAULT_ATTACKS = ("blur", "deepfool", "fgsm", "pgd")
 DEFAULT_DEFENSES = ("median_preprocess",)
 REPO_ROOT = Path(__file__).resolve().parents[1]
+REQUIRED_RUN_ARTIFACTS = ("metrics.json", "run_summary.json", "predictions.jsonl")
 
 
 def _timestamp() -> str:
@@ -169,6 +176,97 @@ def _metrics_exists(run_dir: Path) -> bool:
     return (run_dir / "metrics.json").is_file()
 
 
+def _required_run_artifacts_status(run_dir: Path) -> tuple[bool, list[str]]:
+    missing = [name for name in REQUIRED_RUN_ARTIFACTS if not (run_dir / name).is_file()]
+    return not missing, missing
+
+
+def _load_resume_fingerprint(run_dir: Path) -> dict[str, object] | None:
+    summary_path = run_dir / "run_summary.json"
+    if not summary_path.is_file():
+        return None
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    provenance = payload.get("provenance")
+    if not isinstance(provenance, dict):
+        provenance = {}
+    validation = payload.get("validation")
+    if not isinstance(validation, dict):
+        validation = {}
+    reporting_context = payload.get("reporting_context")
+    if not isinstance(reporting_context, dict):
+        reporting_context = {}
+    defense_checkpoints = provenance.get("defense_checkpoints")
+    if not isinstance(defense_checkpoints, list):
+        defense_checkpoints = []
+    defense_shas = sorted(
+        str(item.get("sha256", "")).strip()
+        for item in defense_checkpoints
+        if isinstance(item, dict) and str(item.get("sha256", "")).strip()
+    )
+    return {
+        "config_fingerprint_sha256": provenance.get("config_fingerprint_sha256"),
+        "attack_signature": ((payload.get("attack") or {}).get("signature") if isinstance(payload.get("attack"), dict) else None),
+        "defense_signature": ((payload.get("defense") or {}).get("signature") if isinstance(payload.get("defense"), dict) else None),
+        "checkpoint_fingerprint_sha256": provenance.get("checkpoint_fingerprint_sha256"),
+        "defense_checkpoint_shas": defense_shas,
+        "seed": payload.get("seed"),
+        "validation_enabled": validation.get("enabled"),
+        "reporting_context": dict(reporting_context),
+    }
+
+
+def _normalize_intended_fingerprint(intent: dict[str, object]) -> dict[str, object]:
+    defense_checkpoints = intent.get("defense_checkpoints")
+    if not isinstance(defense_checkpoints, list):
+        defense_checkpoints = []
+    defense_shas = sorted(
+        str(item.get("sha256", "")).strip()
+        for item in defense_checkpoints
+        if isinstance(item, dict) and str(item.get("sha256", "")).strip()
+    )
+    reporting_context = intent.get("reporting_context")
+    if not isinstance(reporting_context, dict):
+        reporting_context = {}
+    return {
+        "config_fingerprint_sha256": intent.get("config_fingerprint_sha256"),
+        "attack_signature": intent.get("attack_signature"),
+        "defense_signature": intent.get("defense_signature"),
+        "checkpoint_fingerprint_sha256": intent.get("checkpoint_fingerprint_sha256"),
+        "defense_checkpoint_shas": defense_shas,
+        "seed": intent.get("seed"),
+        "validation_enabled": intent.get("validation_enabled"),
+        "reporting_context": dict(reporting_context),
+    }
+
+
+def _check_resume(run_dir: Path, intended_intent: dict[str, object]) -> tuple[str, str]:
+    artifacts_complete, missing = _required_run_artifacts_status(run_dir)
+    if not run_dir.exists() or (
+        not (run_dir / "metrics.json").exists()
+        and not (run_dir / "run_summary.json").exists()
+        and not (run_dir / "predictions.jsonl").exists()
+    ):
+        return "run", ""
+    if not artifacts_complete:
+        return "reran_partial", f"missing required artifacts: {', '.join(missing)}"
+    existing = _load_resume_fingerprint(run_dir)
+    if existing is None:
+        return "reran_partial", "run_summary.json missing or malformed"
+    intended = _normalize_intended_fingerprint(intended_intent)
+    mismatches = [
+        key for key in sorted(intended)
+        if existing.get(key) != intended.get(key)
+    ]
+    if mismatches:
+        return "reran_mismatch", f"run intent changed: {', '.join(mismatches)}"
+    return "skipped_exact", "exact run-intent match"
+
+
 def _parse_csv_list(raw: str, label: str) -> list[str]:
     items = [part.strip() for part in raw.split(",") if part.strip()]
     if not items:
@@ -204,10 +302,8 @@ def _parse_defenses(raw: str) -> list[str]:
     return resolved if resolved is not None else _parse_csv_list(raw, "defense")
 
 
-def _experiment_command(
+def _experiment_overrides(
     *,
-    python_bin: str,
-    config: Path,
     output_root: Path,
     run_name: str,
     attack_name: str,
@@ -247,6 +343,44 @@ def _experiment_command(
         overrides.append(f"reporting_context.authority={reporting_authority}")
     if reporting_source_phase:
         overrides.append(f"reporting_context.source_phase={reporting_source_phase}")
+    return overrides
+
+
+def _experiment_command(
+    *,
+    python_bin: str,
+    config: Path,
+    output_root: Path,
+    run_name: str,
+    attack_name: str,
+    defense_name: str,
+    seed: int,
+    max_images: int,
+    validation_enabled: bool,
+    objective_mode: str | None = None,
+    target_class: int | None = None,
+    attack_roi: str | None = None,
+    reporting_run_role: str | None = None,
+    reporting_dataset_scope: str | None = None,
+    reporting_authority: str | None = None,
+    reporting_source_phase: str | None = None,
+) -> list[str]:
+    overrides = _experiment_overrides(
+        output_root=output_root,
+        run_name=run_name,
+        attack_name=attack_name,
+        defense_name=defense_name,
+        seed=seed,
+        max_images=max_images,
+        validation_enabled=validation_enabled,
+        objective_mode=objective_mode,
+        target_class=target_class,
+        attack_roi=attack_roi,
+        reporting_run_role=reporting_run_role,
+        reporting_dataset_scope=reporting_dataset_scope,
+        reporting_authority=reporting_authority,
+        reporting_source_phase=reporting_source_phase,
+    )
     return build_run_experiment_command(
         REPO_ROOT,
         config,
@@ -292,6 +426,20 @@ def _generate_team_summary_command(
         REPO_ROOT,
         "scripts/generate_team_summary.py",
         ["--report-root", str(report_root)],
+        python_bin=python_bin,
+    )
+
+
+def _generate_failure_gallery_command(
+    *,
+    python_bin: str,
+    runs_root: Path,
+    output_path: Path,
+) -> list[str]:
+    return build_repo_python_command(
+        REPO_ROOT,
+        "scripts/generate_failure_gallery.py",
+        ["--runs-root", str(runs_root), "--output", str(output_path)],
         python_bin=python_bin,
     )
 
@@ -430,6 +578,7 @@ def main() -> None:
         config = Path(args.config).expanduser().resolve()
         if not config.is_file():
             raise FileNotFoundError(f"Config not found: {config}")
+        base_config = load_yaml_mapping(config)
         python_bin_path = Path(args.python_bin).expanduser()
         if not python_bin_path.is_file():
             raise FileNotFoundError(f"Python binary not found: {python_bin_path}")
@@ -475,33 +624,73 @@ def main() -> None:
         sweep_t0 = time.monotonic()
         failures: list[str] = []
         phase_times: dict[int, float] = {}
+        manifest_entries: dict[str, dict[str, object]] = {}
+        manifest_lock = threading.Lock()
+        intent_cache: dict[tuple[str, ...], dict[str, object]] = {}
+        intent_cache_lock = threading.Lock()
+
+        def _record_manifest(run_name: str, *, status: str, reason: str = "", elapsed_ms: float | None = None) -> None:
+            entry: dict[str, object] = {"status": status}
+            if reason:
+                entry["reason"] = reason
+            if elapsed_ms is not None:
+                entry["elapsed_ms"] = round(elapsed_ms, 1)
+            with manifest_lock:
+                manifest_entries[run_name] = entry
+
+        def _resolved_intent(overrides: list[str]) -> dict[str, object]:
+            key = tuple(overrides)
+            with intent_cache_lock:
+                cached = intent_cache.get(key)
+            if cached is not None:
+                return dict(cached)
+            resolved = deepcopy(base_config)
+            for assignment in overrides:
+                apply_override(resolved, assignment)
+            intent = build_run_intent(resolved, cwd=REPO_ROOT)
+            with intent_cache_lock:
+                intent_cache[key] = dict(intent)
+            return dict(intent)
 
         # --- Phase 1: Baseline ---
         baseline_dir = runs_root / args.baseline_run_name
         if 1 in phases:
-            if args.resume and _metrics_exists(baseline_dir):
-                print(f"[{_now()}] Phase 1/baseline: skipping (exists at {baseline_dir})")
-            else:
+            baseline_overrides = _experiment_overrides(
+                output_root=runs_root,
+                run_name=args.baseline_run_name,
+                attack_name="none",
+                defense_name="none",
+                seed=args.seed,
+                max_images=max_images,
+                validation_enabled=args.validation_enabled,
+                objective_mode=args.objective_mode,
+                target_class=args.target_class,
+                attack_roi=args.attack_roi,
+                reporting_run_role="baseline",
+                reporting_dataset_scope=args.reporting_dataset_scope,
+                reporting_authority=args.reporting_authority,
+                reporting_source_phase=args.reporting_source_phase,
+            )
+            if args.resume:
+                resume_action, resume_reason = _check_resume(
+                    baseline_dir,
+                    _resolved_intent(baseline_overrides),
+                )
+                if resume_action == "skipped_exact":
+                    _record_manifest(args.baseline_run_name, status=resume_action, reason=resume_reason, elapsed_ms=0.0)
+                    print(f"[{_now()}] Phase 1/baseline: skipping ({resume_reason})")
+                    phase_times[1] = 0.0
+                else:
+                    _record_manifest(args.baseline_run_name, status=resume_action, reason=resume_reason)
+            if not args.resume or resume_action != "skipped_exact":
                 print(f"[{_now()}] Phase 1/baseline: starting...")
                 t0 = time.monotonic()
                 ok = _run_command(
-                    _experiment_command(
+                    build_run_experiment_command(
+                        REPO_ROOT,
+                        config,
+                        baseline_overrides,
                         python_bin=args.python_bin,
-                        config=config,
-                        output_root=runs_root,
-                        run_name=args.baseline_run_name,
-                        attack_name="none",
-                        defense_name="none",
-                        seed=args.seed,
-                        max_images=max_images,
-                        validation_enabled=args.validation_enabled,
-                        objective_mode=args.objective_mode,
-                        target_class=args.target_class,
-                        attack_roi=args.attack_roi,
-                        reporting_run_role="baseline",
-                        reporting_dataset_scope=args.reporting_dataset_scope,
-                        reporting_authority=args.reporting_authority,
-                        reporting_source_phase=args.reporting_source_phase,
                     ),
                     dry_run=args.dry_run,
                     skip_errors=args.skip_errors,
@@ -509,9 +698,14 @@ def main() -> None:
                 elapsed = time.monotonic() - t0
                 phase_times[1] = elapsed
                 if ok:
+                    status = "ran"
+                    if args.resume and resume_action in {"reran_partial", "reran_mismatch"}:
+                        status = resume_action
+                    _record_manifest(args.baseline_run_name, status=status, reason=resume_reason if args.resume else "", elapsed_ms=elapsed * 1000)
                     print(f"[{_now()}] Phase 1/baseline: done ({_fmt_elapsed(elapsed)})")
                 else:
                     failures.append("baseline")
+                    _record_manifest(args.baseline_run_name, status="failed", reason=resume_reason if args.resume else "command failed", elapsed_ms=elapsed * 1000)
                     print(f"[{_now()}] Phase 1/baseline: FAILED ({_fmt_elapsed(elapsed)}) — continuing")
         else:
             print(f"[{_now()}] Phase 1/baseline: skipped (not in --phases)")
@@ -520,28 +714,40 @@ def main() -> None:
         def _run_attack_job(attack: str, bar: tqdm) -> tuple[str, bool]:
             attack_run_name = f"attack_{attack}"
             attack_dir = runs_root / attack_run_name
+            attack_overrides = _experiment_overrides(
+                output_root=runs_root,
+                run_name=attack_run_name,
+                attack_name=attack,
+                defense_name="none",
+                seed=args.seed,
+                max_images=max_images,
+                validation_enabled=args.validation_enabled,
+                objective_mode=args.objective_mode,
+                target_class=args.target_class,
+                attack_roi=args.attack_roi,
+                reporting_run_role="attack_only",
+                reporting_dataset_scope=args.reporting_dataset_scope,
+                reporting_authority=args.reporting_authority,
+                reporting_source_phase=args.reporting_source_phase,
+            )
             t0 = time.monotonic()
-            if args.resume and _metrics_exists(attack_dir):
-                _write(f"  [{_now()}] {attack_run_name}: skipped (resume)", bar=bar)
-                return attack, True
+            resume_action = "run"
+            resume_reason = ""
+            if args.resume:
+                resume_action, resume_reason = _check_resume(
+                    attack_dir,
+                    _resolved_intent(attack_overrides),
+                )
+                if resume_action == "skipped_exact":
+                    _record_manifest(attack_run_name, status=resume_action, reason=resume_reason, elapsed_ms=0.0)
+                    _write(f"  [{_now()}] {attack_run_name}: skipped ({resume_reason})", bar=bar)
+                    return attack, True
             ok = _run_command(
-                _experiment_command(
+                build_run_experiment_command(
+                    REPO_ROOT,
+                    config,
+                    attack_overrides,
                     python_bin=args.python_bin,
-                    config=config,
-                    output_root=runs_root,
-                    run_name=attack_run_name,
-                    attack_name=attack,
-                    defense_name="none",
-                    seed=args.seed,
-                    max_images=max_images,
-                    validation_enabled=args.validation_enabled,
-                    objective_mode=args.objective_mode,
-                    target_class=args.target_class,
-                    attack_roi=args.attack_roi,
-                    reporting_run_role="attack_only",
-                    reporting_dataset_scope=args.reporting_dataset_scope,
-                    reporting_authority=args.reporting_authority,
-                    reporting_source_phase=args.reporting_source_phase,
                 ),
                 dry_run=args.dry_run,
                 bar=bar,
@@ -549,6 +755,13 @@ def main() -> None:
             )
             elapsed = time.monotonic() - t0
             status = "done" if ok else "FAILED"
+            manifest_status = "ran"
+            if resume_action in {"reran_partial", "reran_mismatch"}:
+                manifest_status = resume_action
+            if ok:
+                _record_manifest(attack_run_name, status=manifest_status, reason=resume_reason, elapsed_ms=elapsed * 1000)
+            else:
+                _record_manifest(attack_run_name, status="failed", reason=resume_reason or "command failed", elapsed_ms=elapsed * 1000)
             _write(f"  [{_now()}] {attack_run_name}: {status} ({_fmt_elapsed(elapsed)})", bar=bar)
 
             if ok:
@@ -587,28 +800,40 @@ def main() -> None:
         def _run_defense_job(attack: str, defense: str, bar: tqdm) -> tuple[str, bool]:
             defended_run_name = f"defended_{attack}_{defense}"
             defended_dir = runs_root / defended_run_name
+            defense_overrides = _experiment_overrides(
+                output_root=runs_root,
+                run_name=defended_run_name,
+                attack_name=attack,
+                defense_name=defense,
+                seed=args.seed,
+                max_images=max_images,
+                validation_enabled=args.validation_enabled,
+                objective_mode=args.objective_mode,
+                target_class=args.target_class,
+                attack_roi=args.attack_roi,
+                reporting_run_role="defended",
+                reporting_dataset_scope=args.reporting_dataset_scope,
+                reporting_authority=args.reporting_authority,
+                reporting_source_phase=args.reporting_source_phase,
+            )
             t0 = time.monotonic()
-            if args.resume and _metrics_exists(defended_dir):
-                _write(f"  [{_now()}] {defended_run_name}: skipped (resume)", bar=bar)
-                return defended_run_name, True
+            resume_action = "run"
+            resume_reason = ""
+            if args.resume:
+                resume_action, resume_reason = _check_resume(
+                    defended_dir,
+                    _resolved_intent(defense_overrides),
+                )
+                if resume_action == "skipped_exact":
+                    _record_manifest(defended_run_name, status=resume_action, reason=resume_reason, elapsed_ms=0.0)
+                    _write(f"  [{_now()}] {defended_run_name}: skipped ({resume_reason})", bar=bar)
+                    return defended_run_name, True
             ok = _run_command(
-                _experiment_command(
+                build_run_experiment_command(
+                    REPO_ROOT,
+                    config,
+                    defense_overrides,
                     python_bin=args.python_bin,
-                    config=config,
-                    output_root=runs_root,
-                    run_name=defended_run_name,
-                    attack_name=attack,
-                    defense_name=defense,
-                    seed=args.seed,
-                    max_images=max_images,
-                    validation_enabled=args.validation_enabled,
-                    objective_mode=args.objective_mode,
-                    target_class=args.target_class,
-                    attack_roi=args.attack_roi,
-                    reporting_run_role="defended",
-                    reporting_dataset_scope=args.reporting_dataset_scope,
-                    reporting_authority=args.reporting_authority,
-                    reporting_source_phase=args.reporting_source_phase,
                 ),
                 dry_run=args.dry_run,
                 bar=bar,
@@ -616,6 +841,13 @@ def main() -> None:
             )
             elapsed = time.monotonic() - t0
             status = "done" if ok else "FAILED"
+            manifest_status = "ran"
+            if resume_action in {"reran_partial", "reran_mismatch"}:
+                manifest_status = resume_action
+            if ok:
+                _record_manifest(defended_run_name, status=manifest_status, reason=resume_reason, elapsed_ms=elapsed * 1000)
+            else:
+                _record_manifest(defended_run_name, status="failed", reason=resume_reason or "command failed", elapsed_ms=elapsed * 1000)
             _write(f"  [{_now()}] {defended_run_name}: {status} ({_fmt_elapsed(elapsed)})", bar=bar)
             return defended_run_name, ok
 
@@ -644,7 +876,7 @@ def main() -> None:
 
         # --- Phase 4: Reports ---
         if 4 in phases:
-            report_steps = 2 if args.team_summary else 1
+            report_steps = 3 if args.team_summary else 2
             print(f"[{_now()}] Phase 4/reports: generating ({report_steps} report(s))...")
             t0_p4 = time.monotonic()
             with tqdm(total=report_steps, desc="  reports", unit="report", dynamic_ncols=True) as bar4:
@@ -670,6 +902,18 @@ def main() -> None:
                     )
                     bar4.set_description("  reports | team summary done")
                     bar4.update(1)
+                _run_command(
+                    _generate_failure_gallery_command(
+                        python_bin=args.python_bin,
+                        runs_root=runs_root,
+                        output_path=report_root / "failure_gallery.html",
+                    ),
+                    dry_run=args.dry_run,
+                    bar=bar4,
+                    skip_errors=True,
+                )
+                bar4.set_description("  reports | failure gallery done")
+                bar4.update(1)
 
             # Generate dashboard
             dashboard_out = Path("outputs/dashboard.html").resolve()
@@ -690,6 +934,32 @@ def main() -> None:
         else:
             print(f"[{_now()}] Phase 4/reports: skipped (not in --phases)")
 
+        manifest = {
+            "sweep_id": runs_root.name,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "config_path": str(config),
+            "config_fingerprint_sha256": build_run_intent(base_config, cwd=REPO_ROOT)["config_fingerprint_sha256"],
+            "requested_attacks": attacks,
+            "requested_defenses": defenses,
+            "seed": args.seed,
+            "validation_enabled": args.validation_enabled,
+            "runs": dict(sorted(manifest_entries.items())),
+        }
+        aggregate_counts = {
+            "total": len(manifest_entries),
+            "ran": sum(1 for entry in manifest_entries.values() if entry.get("status") == "ran"),
+            "skipped_exact": sum(1 for entry in manifest_entries.values() if entry.get("status") == "skipped_exact"),
+            "reran_partial": sum(1 for entry in manifest_entries.values() if entry.get("status") == "reran_partial"),
+            "reran_mismatch": sum(1 for entry in manifest_entries.values() if entry.get("status") == "reran_mismatch"),
+            "failed": sum(1 for entry in manifest_entries.values() if entry.get("status") == "failed"),
+            "total_elapsed_ms": round((time.monotonic() - sweep_t0) * 1000, 1),
+        }
+        manifest["aggregate"] = aggregate_counts
+        (report_root / "sweep_manifest.json").write_text(
+            json.dumps(manifest, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+
         # --- Final summary ---
         total_elapsed = time.monotonic() - sweep_t0
         print()
@@ -706,6 +976,7 @@ def main() -> None:
             print(f"Per-attack summaries: {report_root}/summary_*.txt")
             print(f"Aggregate CSV:        {report_root}/framework_run_summary.csv")
             print(f"Aggregate Markdown:   {report_root}/framework_run_report.md")
+            print(f"Failure Gallery:      {report_root}/failure_gallery.html")
             if args.team_summary:
                 print(f"Team JSON summary:    {report_root}/team_summary.json")
                 print(f"Team MD summary:      {report_root}/team_summary.md")

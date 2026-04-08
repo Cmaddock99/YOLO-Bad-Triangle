@@ -25,7 +25,7 @@ from lab.reporting.warnings import (
     WARN_NO_VALIDATION,
     evaluate_warnings,
 )
-from scripts import print_summary as print_summary_cli
+from scripts import generate_failure_gallery, print_summary as print_summary_cli
 
 
 class FrameworkReportingTest(unittest.TestCase):
@@ -49,6 +49,9 @@ class FrameworkReportingTest(unittest.TestCase):
         avg_confidence: float = 0.5,
         per_class: dict[int, dict[str, object]] | None = None,
         reporting_context: dict[str, str] | None = None,
+        source_dir: str | None = None,
+        summary_provenance: dict[str, object] | None = None,
+        prediction_rows: list[dict[str, object]] | None = None,
     ) -> None:
         run_dir = root / run_name
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -84,6 +87,10 @@ class FrameworkReportingTest(unittest.TestCase):
         }
         if reporting_context is not None:
             run_summary["reporting_context"] = reporting_context
+        if source_dir is not None:
+            run_summary["source_dir"] = source_dir
+        if summary_provenance is not None:
+            run_summary["provenance"] = summary_provenance
         (run_dir / "run_summary.json").write_text(
             json.dumps(run_summary),
             encoding="utf-8",
@@ -116,6 +123,12 @@ class FrameworkReportingTest(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        if prediction_rows is not None:
+            lines = [json.dumps(row, sort_keys=True) for row in prediction_rows]
+            (run_dir / "predictions.jsonl").write_text(
+                "\n".join(lines) + ("\n" if lines else ""),
+                encoding="utf-8",
+            )
 
     def test_discover_and_compare(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -759,6 +772,178 @@ class FrameworkReportingTest(unittest.TestCase):
             strongest = payload["strongest_attack_by_detection_drop"]
             self.assertIsNotNone(strongest)
             self.assertEqual(strongest["attack"], "blur")
+
+    def test_team_summary_markdown_includes_provenance_block(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runs_root = root / "outputs" / "framework_runs" / "sweep_test"
+            report_root = root / "outputs" / "framework_reports" / "sweep_test"
+            runs_root.mkdir(parents=True, exist_ok=True)
+            report_root.mkdir(parents=True, exist_ok=True)
+            clean_gate_path = root / "outputs" / "eval_ab_clean.json"
+            clean_gate_path.parent.mkdir(parents=True, exist_ok=True)
+            clean_gate_path.write_text(json.dumps({"verdict": "B is better — deploy"}), encoding="utf-8")
+
+            self._write_run(
+                runs_root,
+                "validate_baseline",
+                attack="none",
+                defense="none",
+                map50=0.61,
+                total_detections=1000,
+                reporting_context={
+                    "run_role": "baseline",
+                    "dataset_scope": "full",
+                    "authority": "authoritative",
+                    "source_phase": "phase4",
+                },
+                summary_provenance={
+                    "checkpoint_fingerprint_sha256": "abc123def4567890",
+                    "checkpoint_fingerprint_source": "/models/yolo.pt",
+                    "defense_checkpoints": [
+                        {"sha256": "fedcba9876543210", "path": "/models/c_dog.pt"}
+                    ],
+                },
+            )
+            self._write_run(
+                runs_root,
+                "validate_atk_blur",
+                attack="blur",
+                defense="none",
+                map50=0.25,
+                total_detections=200,
+                reporting_context={
+                    "run_role": "attack_only",
+                    "dataset_scope": "full",
+                    "authority": "authoritative",
+                    "source_phase": "phase4",
+                },
+            )
+            (report_root / "summary_blur.txt").write_text("Conclusion:\nStrong attack effect\n", encoding="utf-8")
+            (report_root / "framework_run_summary.csv").write_text(
+                "\n".join(
+                    [
+                        "run_name,run_dir,model,attack,defense,seed,semantic_order,run_role,dataset_scope,authority,source_phase,objective_mode,target_class,attack_roi,prediction_count,images_with_detections,total_detections,avg_confidence,validation_status,precision,recall,mAP50,mAP50-95",
+                        f"validate_baseline,{runs_root / 'validate_baseline'},yolo,none,none,42,attack_then_defense,baseline,full,authoritative,phase4,,,,8,8,1000,0.77,complete,0.7,0.6,0.61,0.4",
+                        f"validate_atk_blur,{runs_root / 'validate_atk_blur'},yolo,blur,none,42,attack_then_defense,attack_only,full,authoritative,phase4,,,,8,8,200,0.70,complete,0.7,0.6,0.25,0.4",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            json_path, md_path = write_team_summary(report_root)
+            md_text = md_path.read_text(encoding="utf-8")
+            json_payload = json.loads(json_path.read_text(encoding="utf-8"))
+
+            self.assertIn("## Provenance", md_text)
+            self.assertIn("`abc123def456`", md_text)
+            self.assertIn("`fedcba987654`", md_text)
+            self.assertIn("B is better — deploy", md_text)
+            self.assertNotIn("provenance", json_payload)
+
+    def test_failure_gallery_handles_missing_image_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runs_root = root / "runs"
+            clean_dir = root / "clean"
+            clean_dir.mkdir(parents=True, exist_ok=True)
+            (clean_dir / "a.jpg").write_bytes(b"clean-a")
+            (clean_dir / "b.jpg").write_bytes(b"clean-b")
+
+            def _pred(image_id: str, count: int) -> dict[str, object]:
+                return {
+                    "image_id": image_id,
+                    "boxes": [[0, 0, 1, 1] for _ in range(count)],
+                    "scores": [0.9 for _ in range(count)],
+                    "class_ids": [0 for _ in range(count)],
+                    "metadata": {},
+                }
+
+            self._write_run(
+                runs_root,
+                "baseline_none",
+                attack="none",
+                defense="none",
+                map50=0.60,
+                total_detections=9,
+                source_dir=str(clean_dir),
+                prediction_rows=[_pred("a.jpg", 5), _pred("b.jpg", 4)],
+            )
+            self._write_run(
+                runs_root,
+                "attack_fgsm",
+                attack="fgsm",
+                defense="none",
+                map50=0.20,
+                total_detections=3,
+                prediction_rows=[_pred("a.jpg", 0), _pred("b.jpg", 3)],
+            )
+            attack_images = runs_root / "attack_fgsm" / "images"
+            attack_images.mkdir(parents=True, exist_ok=True)
+            (attack_images / "a.jpg").write_bytes(b"attack-a")
+
+            output_path = root / "report" / "failure_gallery.html"
+            generate_failure_gallery.generate_gallery(
+                runs_root=runs_root,
+                output_path=output_path,
+                max_images=5,
+            )
+
+            html_text = output_path.read_text(encoding="utf-8")
+            self.assertIn("Failure Gallery", html_text)
+            self.assertIn("missing", html_text)
+            self.assertIn("a.jpg", html_text)
+            self.assertIn("b.jpg", html_text)
+
+    def test_failure_gallery_falls_back_to_text_only_without_prepared_images(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runs_root = root / "runs"
+            clean_dir = root / "clean"
+            clean_dir.mkdir(parents=True, exist_ok=True)
+            (clean_dir / "drop_big.jpg").write_bytes(b"clean-big")
+            (clean_dir / "drop_small.jpg").write_bytes(b"clean-small")
+
+            def _pred(image_id: str, count: int) -> dict[str, object]:
+                return {
+                    "image_id": image_id,
+                    "boxes": [[0, 0, 1, 1] for _ in range(count)],
+                    "scores": [0.9 for _ in range(count)],
+                    "class_ids": [0 for _ in range(count)],
+                    "metadata": {},
+                }
+
+            self._write_run(
+                runs_root,
+                "baseline_none",
+                attack="none",
+                defense="none",
+                map50=0.60,
+                total_detections=10,
+                source_dir=str(clean_dir),
+                prediction_rows=[_pred("drop_big.jpg", 6), _pred("drop_small.jpg", 4)],
+            )
+            self._write_run(
+                runs_root,
+                "attack_blur",
+                attack="blur",
+                defense="none",
+                map50=0.30,
+                total_detections=5,
+                prediction_rows=[_pred("drop_big.jpg", 1), _pred("drop_small.jpg", 4)],
+            )
+
+            output_path = root / "report" / "failure_gallery.html"
+            generate_failure_gallery.generate_gallery(
+                runs_root=runs_root,
+                output_path=output_path,
+                max_images=5,
+            )
+
+            html_text = output_path.read_text(encoding="utf-8")
+            self.assertIn("Prepared images were not available", html_text)
+            self.assertNotIn("<img src=", html_text)
+            self.assertLess(html_text.index("drop_big.jpg"), html_text.index("drop_small.jpg"))
 
     def test_build_comparison_rows_treats_identity_as_none_like(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
