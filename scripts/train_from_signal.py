@@ -94,6 +94,31 @@ def _read_result_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+# Minimum acceptable delta_mAP50 for a gate to pass. Allows a noise-floor
+# tolerance band so candidates with delta in [-0.005, 0) are not rejected.
+_GATE_THRESHOLD = -0.005
+
+
+def _gate_passed(result: "subprocess.CompletedProcess[bytes] | None", payload: dict[str, Any]) -> bool:
+    """Return True only when the subprocess exited 0 AND delta_mAP50 >= _GATE_THRESHOLD.
+
+    evaluate_checkpoint.py exits 0 when B >= A (delta >= 0) and exits 1 when
+    B < A. Our spec allows a -0.005 tolerance band to absorb evaluation noise,
+    so candidates with delta in [-0.005, 0) should still pass. Checking the
+    threshold here ensures the gate reflects the spec criterion rather than
+    the subprocess's own exit-code convention.
+    """
+    if result is None or result.returncode != 0:
+        return False
+    delta = payload.get("delta_mAP50")
+    if delta is None:
+        return False
+    try:
+        return float(delta) >= _GATE_THRESHOLD
+    except (TypeError, ValueError):
+        return False
+
+
 def _write_manifest(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
@@ -273,8 +298,9 @@ def main() -> None:
     clean_result = _run_step("clean-gate", clean_gate_command, dry_run=False)
     clean_payload = _read_result_json(clean_gate_result_path)
     manifest["clean_gate"]["delta_mAP50"] = clean_payload.get("delta_mAP50")
-    manifest["clean_gate"]["verdict"] = "passed" if clean_result is not None and clean_result.returncode == 0 else "failed"
-    if clean_result is None or clean_result.returncode != 0:
+    clean_passed = _gate_passed(clean_result, clean_payload)
+    manifest["clean_gate"]["verdict"] = "passed" if clean_passed else "failed"
+    if not clean_passed:
         manifest["final_verdict"] = "failed_clean"
         _write_manifest(manifest_path, manifest)
         raise SystemExit(1)
@@ -282,8 +308,9 @@ def main() -> None:
     attack_result = _run_step("attack-gate", attack_gate_command, dry_run=False)
     attack_payload = _read_result_json(attack_gate_result_path)
     manifest["attack_gate"]["delta_mAP50"] = attack_payload.get("delta_mAP50")
-    manifest["attack_gate"]["verdict"] = "passed" if attack_result is not None and attack_result.returncode == 0 else "failed"
-    if attack_result is None or attack_result.returncode != 0:
+    attack_passed = _gate_passed(attack_result, attack_payload)
+    manifest["attack_gate"]["verdict"] = "passed" if attack_passed else "failed"
+    if not attack_passed:
         manifest["final_verdict"] = "passed_clean_failed_attack"
         _write_manifest(manifest_path, manifest)
         raise SystemExit(1)

@@ -736,8 +736,10 @@ class UnifiedExperimentRunner:
         )
 
         resolved_config_file.write_text(resolved_config_text, encoding="utf-8")
-        metrics_file.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
-        summary_file.write_text(json.dumps(run_summary, indent=2, sort_keys=True), encoding="utf-8")
+        # metrics.json and run_summary.json are written once below, after the
+        # runtime block is fully populated. A prior double-write left partial
+        # artifacts on disk (missing total_ms / finished_at_utc) if a crash
+        # occurred between the two writes; the single write eliminates that window.
 
         runtime_payload["artifact_write_ms"] = round((time.monotonic() - artifact_write_started) * 1000, 1)
         run_finished_at = datetime.now(timezone.utc)
