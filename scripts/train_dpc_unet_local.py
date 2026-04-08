@@ -57,6 +57,14 @@ PRESET_CONFIGS: dict[str, dict[str, object]] = {
         "output": "dpc_unet_square_retention.pt",
         "resume": "outputs/dpc_unet_training_resume_square_retention.pt",
     },
+    "signal_driven": {
+        "epochs": 60,
+        "batch_size": 8,
+        "lr": 2e-5,
+        "patch_size": 320,
+        "edge_weight": 0.15,
+        "fresh": True,
+    },
 }
 
 
@@ -262,6 +270,33 @@ def _resolve_training_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]
     output_raw = args.output or str(preset.get("output", DEFAULT_OUTPUT))
     resume_raw = args.resume or str(preset.get("resume", DEFAULT_RESUME))
     return ROOT / training_zip_raw, ROOT / output_raw, ROOT / resume_raw
+
+
+def _apply_preset_defaults(args: argparse.Namespace, argv: list[str]) -> None:
+    preset = PRESET_CONFIGS.get(args.preset, {})
+    if not preset:
+        return
+    provided_flags = {token for token in argv[1:] if token.startswith("--")}
+    flag_for_key = {
+        "training_zip": "--training-zip",
+        "output": "--output",
+        "resume": "--resume",
+        "batch_size": "--batch-size",
+        "patch_size": "--patch-size",
+        "edge_weight": "--edge-weight",
+        "lr": "--lr",
+        "epochs": "--epochs",
+        "fresh": "--fresh",
+    }
+    for key, value in preset.items():
+        flag = flag_for_key.get(key, f"--{key.replace('_', '-')}")
+        current = getattr(args, key, None)
+        if key in {"training_zip", "output", "resume"}:
+            if not current:
+                setattr(args, key, value)
+            continue
+        if flag not in provided_flags:
+            setattr(args, key, value)
 
 
 def train(args: argparse.Namespace) -> None:
@@ -627,6 +662,7 @@ def main():
     parser.add_argument("--det-images-per-epoch", type=int, default=20,
                         help="Number of full images sampled per epoch for detector alignment pass.")
     args = parser.parse_args()
+    _apply_preset_defaults(args, sys.argv)
     train(args)
 
 

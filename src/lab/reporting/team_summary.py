@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 from typing import Any
@@ -62,6 +63,16 @@ def _load_reporting_context(row: dict[str, str]) -> dict[str, str | None]:
     attack_name = normalize_name(row.get("attack"))
     defense_name = normalize_name(row.get("defense"))
     inferred_run_role = _infer_run_role(attack=attack_name, defense=defense_name)
+
+    csv_run_role = _normalize_optional_text(row.get("run_role"))
+    csv_authority = _normalize_optional_text(row.get("authority"))
+    csv_source_phase = _normalize_optional_text(row.get("source_phase"))
+    if csv_run_role is not None or csv_authority is not None or csv_source_phase is not None:
+        return {
+            "run_role": csv_run_role or inferred_run_role,
+            "authority": csv_authority,
+            "source_phase": csv_source_phase,
+        }
 
     run_dir_raw = str(row.get("run_dir") or "").strip()
     if not run_dir_raw:
@@ -143,6 +154,7 @@ def _select_best_row(rows: list[dict[str, Any]]) -> dict[str, Any]:
     if diagnostic:
         return min(diagnostic, key=_selection_key)
     return min(rows, key=_selection_key)
+
 
 def _load_summary_csv(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
@@ -251,7 +263,49 @@ def build_team_summary_payload(report_root: Path) -> dict[str, Any]:
     return payload
 
 
-def render_team_summary_markdown(payload: dict[str, Any]) -> str:
+def _build_markdown_provenance(report_root: Path, baseline_row: dict[str, Any]) -> dict[str, str]:
+    run_dir_raw = str(baseline_row.get("run_dir") or "").strip()
+    summary = _read_json_mapping(Path(run_dir_raw).expanduser().resolve() / "run_summary.json") if run_dir_raw else {}
+    provenance = summary.get("provenance")
+    if not isinstance(provenance, dict):
+        provenance = {}
+    checkpoint_sha = str(provenance.get("checkpoint_fingerprint_sha256") or "").strip()
+    checkpoint_source = str(provenance.get("checkpoint_fingerprint_source") or "").strip()
+    defense_checkpoints = provenance.get("defense_checkpoints")
+    if not isinstance(defense_checkpoints, list):
+        defense_checkpoints = []
+    defense_checkpoint = next((item for item in defense_checkpoints if isinstance(item, dict)), {})
+    defense_sha = str(defense_checkpoint.get("sha256") or "").strip()
+    defense_source = str(defense_checkpoint.get("path") or "").strip()
+
+    clean_gate_path = report_root.parents[1] / "eval_ab_clean.json"
+    clean_gate = _read_json_mapping(clean_gate_path)
+    clean_gate_verdict = str(clean_gate.get("verdict") or "").strip()
+    clean_gate_text = "not evaluated"
+    if clean_gate_verdict:
+        clean_gate_text = f"{clean_gate_verdict} ({clean_gate_path})"
+
+    return {
+        "model_checkpoint": (
+            f"`{checkpoint_sha[:12]}` (`{checkpoint_source}`)"
+            if checkpoint_sha and checkpoint_source
+            else "unknown"
+        ),
+        "defense_checkpoint": (
+            f"`{defense_sha[:12]}` (`{defense_source}`)"
+            if defense_sha and defense_source
+            else "none loaded"
+        ),
+        "clean_gate": clean_gate_text,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def render_team_summary_markdown(
+    payload: dict[str, Any],
+    *,
+    provenance: dict[str, str] | None = None,
+) -> str:
     baseline = payload.get("baseline", {})
     strongest = payload.get("strongest_attack_by_detection_drop") or {}
     attack_rows: list[dict[str, Any]] = list(payload.get("attacks_ranked") or [])
@@ -298,14 +352,29 @@ def render_team_summary_markdown(payload: dict[str, Any]) -> str:
             f"{drop_text} | {conf_text} | {map50_text} | {source} | "
             f"{row.get('interpretation') or 'n/a'} |"
         )
+    if provenance:
+        lines.extend(
+            [
+                "",
+                "## Provenance",
+                "",
+                f"- YOLO checkpoint: {provenance.get('model_checkpoint', 'unknown')}",
+                f"- Defense checkpoint: {provenance.get('defense_checkpoint', 'none loaded')}",
+                f"- Clean gate: {provenance.get('clean_gate', 'not evaluated')}",
+                f"- Generated: {provenance.get('generated_at', 'unknown')}",
+            ]
+        )
     return "\n".join(lines)
 
 
 def write_team_summary(report_root: Path) -> tuple[Path, Path]:
     payload = build_team_summary_payload(report_root)
     report_root = report_root.expanduser().resolve()
+    rows = _load_summary_csv(report_root / "framework_run_summary.csv")
+    baseline_row, _ = _build_attack_rows(rows)
+    provenance = _build_markdown_provenance(report_root, baseline_row)
     json_path = report_root / "team_summary.json"
     md_path = report_root / "team_summary.md"
     json_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    md_path.write_text(render_team_summary_markdown(payload), encoding="utf-8")
+    md_path.write_text(render_team_summary_markdown(payload, provenance=provenance), encoding="utf-8")
     return json_path, md_path
