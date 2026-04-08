@@ -759,5 +759,158 @@ class TuningEngineTest(unittest.TestCase):
         self.assertEqual(len(calls), 3)
 
 
+class WS1ArtifactIntegrityTest(unittest.TestCase):
+    """Tests for the WS1 artifact-integrity fixes."""
+
+    # ── run_single completion check ──────────────────────────────────────────
+
+    def test_run_single_skips_when_all_three_artifacts_exist(self) -> None:
+        """run_single must skip (return True without subprocess) when all three
+        required artifacts are present."""
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "validate_atk_deepfool"
+            run_dir.mkdir()
+            (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+            (run_dir / "run_summary.json").write_text("{}", encoding="utf-8")
+            (run_dir / "predictions.jsonl").write_text("", encoding="utf-8")
+
+            with mock.patch("scripts.auto_cycle.subprocess.run") as run_mock:
+                result = auto_cycle.run_single(
+                    attack="deepfool",
+                    defense="none",
+                    run_name="validate_atk_deepfool",
+                    runs_root=tmp,
+                )
+
+            self.assertTrue(result)
+            run_mock.assert_not_called()
+
+    def test_run_single_does_not_skip_on_metrics_json_alone(self) -> None:
+        """A directory with only metrics.json (partial run) must NOT be treated
+        as complete — subprocess must be called to re-run."""
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "partial_run"
+            run_dir.mkdir()
+            # Only write metrics.json — the old (broken) sentinel
+            (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+
+            with mock.patch("scripts.auto_cycle.subprocess.run") as run_mock:
+                run_mock.return_value.returncode = 0
+                auto_cycle.run_single(
+                    attack="deepfool",
+                    defense="none",
+                    run_name="partial_run",
+                    runs_root=tmp,
+                )
+
+            run_mock.assert_called_once()
+
+    def test_run_single_does_not_skip_on_two_of_three_artifacts(self) -> None:
+        """metrics.json + run_summary.json but no predictions.jsonl is still partial."""
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "two_of_three"
+            run_dir.mkdir()
+            (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+            (run_dir / "run_summary.json").write_text("{}", encoding="utf-8")
+            # predictions.jsonl intentionally absent
+
+            with mock.patch("scripts.auto_cycle.subprocess.run") as run_mock:
+                run_mock.return_value.returncode = 0
+                auto_cycle.run_single(
+                    attack="deepfool",
+                    defense="none",
+                    run_name="two_of_three",
+                    runs_root=tmp,
+                )
+
+            run_mock.assert_called_once()
+
+    # ── save_cycle_history warning ────────────────────────────────────────────
+
+    def test_save_cycle_history_warns_on_bad_json(self) -> None:
+        """save_cycle_history must log a warning (not silently pass) when a
+        validate run's metrics.json is unparseable."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_outputs = Path(tmp)
+            original_outputs = auto_cycle.OUTPUTS
+            original_history = auto_cycle.HISTORY_DIR
+            auto_cycle.OUTPUTS = tmp_outputs
+            auto_cycle.HISTORY_DIR = tmp_outputs / "cycle_history"
+            try:
+                runs_root = tmp_outputs / "runs"
+                bad_run = runs_root / "validate_atk_deepfool"
+                bad_run.mkdir(parents=True)
+                # Write intentionally broken JSON
+                (bad_run / "metrics.json").write_text("NOT_JSON", encoding="utf-8")
+
+                state = {
+                    "cycle_id": "cycle_warn_test",
+                    "runs_root": str(runs_root),
+                    "started_at": "2026-04-08T00:00:00",
+                    "finished_at": "2026-04-08T01:00:00",
+                    "top_attacks": [],
+                    "top_defenses": [],
+                    "best_attack_params": {},
+                    "best_defense_params": {},
+                    "total_phases_completed": 0,
+                }
+
+                warnings_logged: list[str] = []
+                original_log = auto_cycle.log
+
+                def capturing_log(msg: str) -> None:
+                    warnings_logged.append(msg)
+
+                with mock.patch("scripts.auto_cycle.log", side_effect=capturing_log):
+                    auto_cycle.save_cycle_history(state)
+
+                self.assertTrue(
+                    any("validate_atk_deepfool" in w for w in warnings_logged),
+                    f"Expected a warning mentioning the bad run. Logged: {warnings_logged}",
+                )
+                self.assertTrue(
+                    any("[warn]" in w for w in warnings_logged),
+                    f"Expected [warn] prefix in logged output. Logged: {warnings_logged}",
+                )
+            finally:
+                auto_cycle.OUTPUTS = original_outputs
+                auto_cycle.HISTORY_DIR = original_history
+
+    # ── _compute_phase4_demotions continue-not-break ──────────────────────────
+
+    def test_phase4_demotions_continues_past_missing_map50(self) -> None:
+        """When one attack-defense pair is missing mAP50, _compute_phase4_demotions
+        must continue to evaluate other defenses rather than breaking out."""
+        # Defense A: missing atk_map50 for attack_x — would previously break the loop
+        # Defense B: has all mAP50 values and recovers poorly → should be demoted
+        validation_results = {
+            "validate_baseline": {"attack": None, "defense": "none", "mAP50": 0.60},
+            "validate_atk_deepfool": {"attack": "deepfool", "defense": "none", "mAP50": None},  # missing
+            "validate_atk_blur": {"attack": "blur", "defense": "none", "mAP50": 0.40},
+            # bit_depth vs deepfool: missing atk mAP50 — should be skipped but not break
+            "validate_deepfool_bit_depth": {"attack": "deepfool", "defense": "bit_depth", "mAP50": 0.50},
+            # jpeg_preprocess vs blur: valid pair, poor recovery → should be demoted
+            "validate_blur_jpeg_preprocess": {"attack": "blur", "defense": "jpeg_preprocess", "mAP50": 0.30},
+        }
+
+        demoted = auto_cycle._compute_phase4_demotions(validation_results)
+        # jpeg_preprocess recovery = (0.30 - 0.40) / (0.60 - 0.40) = -0.5 → demoted
+        self.assertIn("jpeg_preprocess", demoted, "jpeg_preprocess should be demoted (negative recovery)")
+        # bit_depth is skipped because atk mAP50 is missing — must NOT crash
+        # If the old break fired, jpeg_preprocess would never be evaluated
+
+    def test_phase4_demotions_does_not_include_defense_with_missing_data(self) -> None:
+        """A defense whose only pair is missing mAP50 should not appear in demoted list."""
+        validation_results = {
+            "validate_baseline": {"attack": None, "defense": "none", "mAP50": 0.60},
+            "validate_atk_deepfool": {"attack": "deepfool", "defense": "none", "mAP50": None},
+            "validate_deepfool_bit_depth": {"attack": "deepfool", "defense": "bit_depth", "mAP50": 0.50},
+        }
+        demoted = auto_cycle._compute_phase4_demotions(validation_results)
+        # bit_depth has no valid recovery data — should not appear either way
+        # (no entry in recovery_by_defense, so not demoted)
+        self.assertNotIn("bit_depth", demoted)
+
+
 if __name__ == "__main__":
     unittest.main()

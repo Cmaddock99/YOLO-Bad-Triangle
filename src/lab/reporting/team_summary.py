@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -381,6 +382,10 @@ def write_team_summary(report_root: Path) -> tuple[Path, Path]:
     provenance = _build_markdown_provenance(report_root, baseline_row)
     json_path = report_root / "team_summary.json"
     md_path = report_root / "team_summary.md"
-    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    md_path.write_text(render_team_summary_markdown(payload, provenance=provenance), encoding="utf-8")
+    json_tmp = json_path.with_suffix(".json.tmp")
+    json_tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(json_tmp, json_path)
+    md_tmp = md_path.with_suffix(".md.tmp")
+    md_tmp.write_text(render_team_summary_markdown(payload, provenance=provenance), encoding="utf-8")
+    os.replace(md_tmp, md_path)
     return json_path, md_path

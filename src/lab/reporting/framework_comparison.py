@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -299,7 +300,8 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
         "avg_confidence", "validation_status", "precision", "recall",
         "mAP50", "mAP50-95",
     ]
-    with output_csv.open("w", newline="", encoding="utf-8") as handle:
+    tmp_csv = output_csv.with_suffix(".csv.tmp")
+    with tmp_csv.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         for record in records:
@@ -328,6 +330,7 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
                 "mAP50": record.map50,
                 "mAP50-95": record.map50_95,
             })
+    os.replace(tmp_csv, output_csv)
 
 
 def build_comparison_rows(records: list[FrameworkRunRecord]) -> list[dict[str, Any]]:

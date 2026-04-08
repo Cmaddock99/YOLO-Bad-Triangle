@@ -458,6 +458,9 @@ def run_sweep(
     return result.returncode == 0
 
 
+_REQUIRED_RUN_ARTIFACTS = ("predictions.jsonl", "run_summary.json", "metrics.json")
+
+
 def run_single(
     *,
     attack: str,
@@ -471,9 +474,9 @@ def run_single(
     max_images_override: int | None = None,
     reporting_context: dict[str, str] | None = None,
 ) -> bool:
-    """Call run_unified.py for one experiment. Skip if metrics.json already exists."""
+    """Call run_unified.py for one experiment. Skip if all required artifacts exist."""
     run_dir = Path(runs_root) / run_name
-    if (run_dir / "metrics.json").exists():
+    if all((run_dir / f).exists() for f in _REQUIRED_RUN_ARTIFACTS):
         log(f"  skip (exists): {run_name}")
         return True
 
@@ -653,7 +656,8 @@ def _compute_phase4_demotions(validation_results: dict) -> list[str]:
                 atk_map50 = validation_results.get(attack_key, {}).get("mAP50")
                 def_map50 = val.get("mAP50")
                 if atk_map50 is None or def_map50 is None:
-                    break
+                    log(f"  [phase4-demotion] missing mAP50 for {key} — skipping recovery entry")
+                    continue
                 denom = baseline_map50 - atk_map50
                 if abs(denom) < 1e-6:
                     break
@@ -1379,8 +1383,8 @@ def save_cycle_history(state: dict) -> None:
                 "detections": m["predictions"].get("total_detections"),
                 "pipeline_semantics": pipeline_semantics,
             }
-        except Exception:
-            pass
+        except Exception as exc:
+            log(f"[warn] save_cycle_history: skipping {mf.parent.name} — {exc}")
 
     if len(pipeline_semantics_seen) == 1:
         cycle_pipeline_semantics = next(iter(pipeline_semantics_seen))
