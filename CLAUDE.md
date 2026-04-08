@@ -44,6 +44,51 @@ Shared project guidance for YOLO-Bad-Triangle skills and code changes.
 - If evidence is partial, downgrade status rather than filling gaps with assumptions.
 - Do not infer deployment readiness from attacked-only A/B results. Clean (no-attack) baseline A/B must be confirmed before a deployment decision.
 
+## Review and audit posture
+
+- Default review stance is skeptical and evidence-gated. Approval is earned; do not rubber-stamp.
+- Findings come before summary. Use `P0` / `P1` / `P2` / `P3` severity labels and include exact file + line references whenever available.
+- Prefer the smallest diff that fixes the issue. Reject drive-by refactors in high-risk areas unless they are required for correctness or maintainability of the target change.
+- If a claim cannot be proven from code, artifacts, tests, or docs, report it as unknown, inconclusive, or missing evidence.
+- When no issue is provable, say "no finding" explicitly and then list residual risks or missing verification instead of inventing weaknesses.
+
+### High-risk surfaces
+
+- `scripts/auto_cycle.py`
+- `src/lab/runners/run_experiment.py`
+- `src/lab/reporting/`
+- `src/lab/eval/`
+- `src/lab/config/contracts.py`
+- `schemas/v1/`
+- checkpointed defenses such as `c_dog` / `c_dog_ensemble`
+- objective-aware or differentiable attacks
+
+### Merge blockers
+
+Block or escalate changes that:
+
+- can silently corrupt state, reports, or run artifacts
+- weaken like-for-like comparability or mix authoritative and diagnostic evidence without explicit handling
+- change pipeline semantics without updating contracts, schemas, and downstream reporting
+- introduce nondeterminism without explicit seed plumbing and documentation
+- guess missing evidence, provenance, or deployment readiness
+- hide failures behind broad exception handling or fallback behavior that changes experiment meaning
+
+### Required checks by change type
+
+- Stateful or resumable code: require atomic writes, explicit lock cleanup, interruption safety, and idempotent resume behavior.
+- Reporting or summary code: require deterministic machine-parseable outputs, correct authority selection, comparability guards, and explicit handling of missing pairs.
+- Attack plugins: require registration, objective/ROI correctness, seeded randomness, bounded outputs, same image shape/dtype, and focused smoke validation.
+- Defense plugins: require preprocess/postprocess separation, checkpoint provenance, clean-image regression awareness, same image shape/dtype, and focused smoke validation.
+- Schema or contract changes: require fixture updates, schema validation, and a deliberate compatibility note.
+
+### Review output format
+
+- Findings first, ordered by severity.
+- For each finding: short title, severity, file/line, concrete failure mode, evidence, and the minimal fix.
+- Then list open questions or missing tests.
+- End with a merge verdict and any residual risk that still needs verification.
+
 ## Skills & analysis conventions
 
 ### Checkpoint facts (current as of 2026-04-07)
@@ -87,6 +132,15 @@ Do not infer missing evidence. If a metric, file, or result is absent, record it
 - Use least-privilege `allowed-tools` and set `disable-model-invocation: true` for manual-only strategic skills.
 - Prefer `context: fork` for isolated planner/judge workflows.
 - Keep `SKILL.md` concise; place detailed examples and contracts in support files.
+
+## PR and commit discipline
+
+- Each PR must address exactly one concern. Do not bundle unrelated fixes, features, or subsystems into a single PR without explicit instruction.
+- Omnibus PRs that simultaneously touch runner code, reporting code, new scripts, schemas, and tests across unrelated areas will be held for split-and-re-review.
+- Each commit within a PR must be atomic: one logical change per commit with a message that states what changed and why, not just what files were touched.
+- Before opening a PR, state in the description: (1) the single concern this PR addresses, and (2) what it explicitly does not address.
+- If a task requires changes across many subsystems, open one PR per subsystem boundary and reference the others. Prefer sequential PRs over a single large one.
+- For pre-merge or post-change review passes, prefer `.claude/skills/big-brother-auditor/` and keep its checklist aligned with this file and `REMEDIATION_PLAN.md`.
 
 ## Local configuration policy
 
