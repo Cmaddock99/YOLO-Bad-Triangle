@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
+import hashlib
 import json
 import math
 import tempfile
@@ -617,6 +618,52 @@ class FrameworkOutputContractTests(unittest.TestCase):
             self.assertEqual(run_summary["provenance"]["defense_checkpoints"], fake_record)
             # YOLO model "dummy.pt" does not exist on disk — fingerprint stays None
             self.assertIsNone(run_summary["provenance"]["checkpoint_fingerprint_sha256"])
+
+    def test_run_summary_keeps_yolo_and_defense_checkpoint_provenance_distinct(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.jpg")
+
+            yolo_path = root / "weights" / "yolo.pt"
+            yolo_path.parent.mkdir(parents=True, exist_ok=True)
+            yolo_bytes = b"fake-yolo-weights"
+            yolo_path.write_bytes(yolo_bytes)
+            yolo_sha = hashlib.sha256(yolo_bytes).hexdigest()
+
+            defense_path = root / "weights" / "dpc.pt"
+            defense_bytes = b"fake-defense-checkpoint"
+            defense_path.write_bytes(defense_bytes)
+            defense_sha = hashlib.sha256(defense_bytes).hexdigest()
+
+            class _CheckpointedDefense(_PassthroughDefense):
+                def checkpoint_provenance(self) -> list[dict[str, str]]:
+                    return [{"path": str(defense_path.resolve()), "sha256": defense_sha}]
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": str(yolo_path)}},
+                "data": {"source_dir": str(source)},
+                "attack": {"name": "none", "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "provenance_distinct"},
+            }
+
+            with (
+                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
+                patch("lab.runners.run_experiment.build_defense_plugin", return_value=_CheckpointedDefense()),
+            ):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(run_summary["provenance"]["checkpoint_fingerprint_sha256"], yolo_sha)
+            self.assertTrue(Path(run_summary["provenance"]["checkpoint_fingerprint_source"]).samefile(yolo_path))
+            self.assertEqual(
+                run_summary["provenance"]["defense_checkpoints"],
+                [{"path": str(defense_path.resolve()), "sha256": defense_sha}],
+            )
 
     def test_run_summary_defense_checkpoint_provenance_empty_for_non_checkpoint_defense(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -25,6 +25,8 @@ Shared project guidance for YOLO-Bad-Triangle skills and code changes.
   - `src/lab/config/contracts.py`
   - `scripts/ci/validate_outputs.py`
 - Preserve run naming as `<model>__<attack>__<defense>` for matrix-style comparisons.
+- In `run_summary.json`, `provenance.checkpoint_fingerprint_*` identifies the primary model artifact only.
+- For checkpointed defenses such as `c_dog`, read defense model identity from `provenance.defense_checkpoints`, not from `defense.params` or the primary model fingerprint fields.
 - If a provenance field or optional artifact is missing, report uncertainty explicitly; do not guess.
 
 ## Comparability and parity rules
