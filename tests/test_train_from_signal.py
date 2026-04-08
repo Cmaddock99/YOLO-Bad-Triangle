@@ -303,5 +303,67 @@ class TrainFromSignalTest(unittest.TestCase):
         self.assertFalse(self.manifest_path.exists())
 
 
+class WS2GateAndManifestTest(unittest.TestCase):
+    """WS2 tests: gate threshold, manifest completeness, atomic manifest writes."""
+
+    def setUp(self) -> None:
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.repo = Path(self._tmpdir.name)
+
+    def tearDown(self) -> None:
+        self._tmpdir.cleanup()
+
+    def test_gate_threshold_is_minus_0005(self) -> None:
+        """_GATE_THRESHOLD must be -0.005 so that delta=-0.003 passes the gate."""
+        self.assertEqual(train_from_signal._GATE_THRESHOLD, -0.005)
+
+    def test_gate_passed_with_delta_minus_0003(self) -> None:
+        """A candidate with delta_mAP50=-0.003 should pass (within tolerance band)."""
+        result = subprocess.CompletedProcess(args=[], returncode=0)
+        payload = {"delta_mAP50": -0.003}
+        self.assertTrue(train_from_signal._gate_passed(result, payload))
+
+    def test_gate_fails_with_delta_minus_0006(self) -> None:
+        """A candidate with delta_mAP50=-0.006 must fail (beyond tolerance band)."""
+        result = subprocess.CompletedProcess(args=[], returncode=0)
+        payload = {"delta_mAP50": -0.006}
+        self.assertFalse(train_from_signal._gate_passed(result, payload))
+
+    def test_gate_fails_when_subprocess_exits_nonzero(self) -> None:
+        """A nonzero subprocess return code must cause the gate to fail regardless of delta."""
+        result = subprocess.CompletedProcess(args=[], returncode=1)
+        payload = {"delta_mAP50": 0.01}
+        self.assertFalse(train_from_signal._gate_passed(result, payload))
+
+    def test_manifest_contains_attack_params(self) -> None:
+        """training_manifest.json must include attack_params in the attack_gate section."""
+        manifest_dir = self.repo / "outputs" / "training_runs" / "cycle_test"
+        manifest_path = manifest_dir / "training_manifest.json"
+        manifest_dir.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "cycle_id": "cycle_test",
+            "attack_gate": {
+                "attack": "deepfool",
+                "attack_params": {"attack.params.epsilon": 0.1},
+                "result_path": "/tmp/result.json",
+                "delta_mAP50": 0.02,
+                "verdict": "passed",
+            },
+        }
+        train_from_signal._write_manifest(manifest_path, payload)
+        loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertIn("attack_params", loaded["attack_gate"])
+        self.assertEqual(loaded["attack_gate"]["attack_params"], {"attack.params.epsilon": 0.1})
+
+    def test_write_manifest_is_atomic(self) -> None:
+        """_write_manifest must not leave a .tmp file after a successful write."""
+        manifest_dir = self.repo / "manifests"
+        manifest_path = manifest_dir / "training_manifest.json"
+        train_from_signal._write_manifest(manifest_path, {"test": True})
+        self.assertTrue(manifest_path.exists())
+        tmp_files = list(manifest_dir.glob("*.tmp"))
+        self.assertEqual(tmp_files, [], f"Leftover .tmp after _write_manifest: {tmp_files}")
+
+
 if __name__ == "__main__":
     unittest.main()

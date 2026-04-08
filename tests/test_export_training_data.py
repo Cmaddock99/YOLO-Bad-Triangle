@@ -175,13 +175,13 @@ class ExportTrainingDataTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self._run_main("--preset", "square_retention", "--attacks", "square")
 
-    def test_no_usable_attacks_exits_zero_without_writing_zip(self) -> None:
+    def test_no_usable_attacks_exits_nonzero_without_writing_zip(self) -> None:
+        # WS2 fix: exit(2) instead of exit(0) so callers do not reuse a stale zip.
         run_root = self.framework_runs / "cycle_20260330_115004"
         run_root.mkdir()
         output_zip = self.repo / "outputs" / "training_exports" / "empty.zip"
-        stdout = io.StringIO()
 
-        with redirect_stdout(stdout), mock.patch.object(
+        with mock.patch.object(
             sys,
             "argv",
             [
@@ -197,8 +197,7 @@ class ExportTrainingDataTest(unittest.TestCase):
             with self.assertRaises(SystemExit) as exit_ctx:
                 export_training_data.main()
 
-        self.assertEqual(exit_ctx.exception.code, 0)
-        self.assertIn("No usable attacked image pairs found", stdout.getvalue())
+        self.assertEqual(exit_ctx.exception.code, 2)
         self.assertFalse(output_zip.exists())
 
     def test_preset_rejects_generic_training_zip_path(self) -> None:
