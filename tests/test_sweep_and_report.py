@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import io
 import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -19,13 +21,24 @@ class SweepAndReportScriptTest(unittest.TestCase):
         attacks = sweep_and_report._parse_attacks("fgsm, blur ,pgd")
         self.assertEqual(attacks, ["fgsm", "blur", "pgd"])
 
+    def test_parse_attacks_normalizes_aliases_and_dedupes(self) -> None:
+        attacks = sweep_and_report._parse_attacks("bim, pgd, gaussian_blur, blur")
+        self.assertEqual(attacks, ["pgd", "blur"])
+
     def test_parse_attacks_rejects_empty(self) -> None:
         with self.assertRaises(ValueError):
             sweep_and_report._parse_attacks(" , , ")
 
+    def test_resolve_all_attacks_returns_canonical_names_only(self) -> None:
+        attacks = sweep_and_report._resolve_all_plugins("all", "attack")
+        self.assertEqual(attacks, list(sweep_and_report.CANONICAL_ATTACKS_ALL))
+
     def test_default_max_images_for_presets(self) -> None:
         self.assertEqual(sweep_and_report._default_max_images("smoke"), 8)
         self.assertEqual(sweep_and_report._default_max_images("full"), 0)
+
+    def test_default_attacks_are_canonical(self) -> None:
+        self.assertEqual(sweep_and_report.DEFAULT_ATTACKS, ("blur", "deepfool", "fgsm", "pgd"))
 
     def test_experiment_command_contains_required_overrides(self) -> None:
         command = sweep_and_report._experiment_command(
@@ -104,6 +117,37 @@ class SweepAndReportScriptTest(unittest.TestCase):
             self.assertFalse(sweep_and_report._metrics_exists(run_dir))
             (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
             self.assertTrue(sweep_and_report._metrics_exists(run_dir))
+
+    def test_main_dry_run_reports_deduped_attack_count(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            runs_root = Path(tmp) / "runs"
+            report_root = Path(tmp) / "report"
+            buffer = io.StringIO()
+            argv = [
+                "sweep_and_report.py",
+                "--config",
+                str(REPO_ROOT / "configs/default.yaml"),
+                "--python-bin",
+                str(REPO_ROOT / ".venv/bin/python"),
+                "--runs-root",
+                str(runs_root),
+                "--report-root",
+                str(report_root),
+                "--attacks",
+                "bim,pgd,gaussian_blur",
+                "--defenses",
+                "none",
+                "--phases",
+                "2",
+                "--dry-run",
+            ]
+            with patch.object(sys, "argv", argv):
+                with redirect_stdout(buffer):
+                    sweep_and_report.main()
+
+        output = buffer.getvalue()
+        self.assertIn("Attacks:      ['pgd', 'blur']", output)
+        self.assertIn("Total runs:   2", output)
 
 
 if __name__ == "__main__":

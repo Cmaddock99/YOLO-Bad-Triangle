@@ -35,6 +35,7 @@ For each run:
 - `outputs/framework_runs/<run_name>/predictions.jsonl`
 - `outputs/framework_runs/<run_name>/run_summary.json`
 - `outputs/framework_runs/<run_name>/resolved_config.yaml`
+- `outputs/framework_runs/<run_name>/experiment_summary.json` when `summary.enabled=true`
 
 For each sweep:
 
@@ -42,6 +43,9 @@ For each sweep:
 - `outputs/framework_reports/<sweep_id>/framework_run_summary.csv`
 - `outputs/framework_reports/<sweep_id>/team_summary.json`
 - `outputs/framework_reports/<sweep_id>/team_summary.md`
+
+When a sweep contains both authoritative Phase 4 rows and diagnostic smoke rows,
+the warning system and concise summaries prefer the authoritative rows.
 
 ## Why there are two metric families
 

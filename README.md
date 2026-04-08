@@ -41,11 +41,12 @@ PYTHONPATH=src ./.venv/bin/python scripts/check_environment.py
 The supported local dev/test combo is Python 3.11.x with
 `ultralytics==8.4.23`, `torch==2.5.1`, and `torchvision==0.20.1`.
 
-If you plan to use `c_dog` or `c_dog_ensemble`, set a local checkpoint path in
-`.env` or your shell:
+If you plan to use `c_dog` or `c_dog_ensemble`, set `DPC_UNET_CHECKPOINT_PATH`
+in `.env` or your shell. This env var is the source of truth for which
+DPC-UNet checkpoint is active:
 
 ```bash
-export DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt
+export DPC_UNET_CHECKPOINT_PATH=/absolute/path/to/dpc_unet_checkpoint.pt
 ```
 
 ## Canonical workflow
@@ -152,6 +153,13 @@ files, transfer bundles, and other local-only artifacts should not be tracked.
 The plugin registry includes `c_dog_ensemble`, but the current auto-cycle
 catalog excludes it. The active auto-cycle defense set is narrower than the full
 registered defense list by design.
+
+## Reporting note
+
+When both authoritative Phase 4 rows and diagnostic smoke rows exist for the
+same comparison, reporting and warning generation prefer the authoritative rows.
+Diagnostic-only smoke sweeps still produce valid diagnostic summaries; they do
+not by themselves imply that validation is missing.
 
 ## Documentation
 

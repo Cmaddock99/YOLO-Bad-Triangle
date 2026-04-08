@@ -35,7 +35,30 @@ from lab.runners.cli_utils import (
 )
 
 
-DEFAULT_ATTACKS = ("bim", "blur", "deepfool", "fgsm", "gaussian_blur", "ifgsm", "pgd")
+CANONICAL_ATTACK_ALIASES = {
+    "gaussian_blur": "blur",
+    "ifgsm": "pgd",
+    "bim": "pgd",
+    "cw_l2": "cw",
+    "square_attack": "square",
+    "dr": "dispersion_reduction",
+    "localized_fgsm_center_patch": "fgsm_center_mask",
+    "localized_fgsm_edge_patch": "fgsm_edge_mask",
+}
+CANONICAL_ATTACKS_ALL = (
+    "blur",
+    "cw",
+    "deepfool",
+    "dispersion_reduction",
+    "eot_pgd",
+    "fgsm",
+    "fgsm_center_mask",
+    "fgsm_edge_mask",
+    "jpeg_attack",
+    "pgd",
+    "square",
+)
+DEFAULT_ATTACKS = ("blur", "deepfool", "fgsm", "pgd")
 DEFAULT_DEFENSES = ("median_preprocess",)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -92,7 +115,11 @@ def _resolve_all_plugins(value: str, kind: str) -> list[str]:
     sys.path.insert(0, str((REPO_ROOT / "src").resolve()))
     if kind == "attack":
         from lab.attacks.framework_registry import list_available_attack_plugins
-        return list_available_attack_plugins()
+        available = {
+            str(name).strip().lower()
+            for name in list_available_attack_plugins()
+        }
+        return [name for name in CANONICAL_ATTACKS_ALL if name in available]
     from lab.defenses.framework_registry import list_available_defense_plugins
     return [d for d in list_available_defense_plugins() if d not in {"none", "identity"}]
 
@@ -149,9 +176,27 @@ def _parse_csv_list(raw: str, label: str) -> list[str]:
     return items
 
 
+def _canonicalize_attack_name(name: str) -> str:
+    normalized = str(name).strip().lower()
+    return CANONICAL_ATTACK_ALIASES.get(normalized, normalized)
+
+
+def _normalize_requested_attacks(attacks: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for attack in attacks:
+        canonical = _canonicalize_attack_name(attack)
+        if canonical in seen:
+            continue
+        normalized.append(canonical)
+        seen.add(canonical)
+    return normalized
+
+
 def _parse_attacks(raw: str) -> list[str]:
     resolved = _resolve_all_plugins(raw, "attack")
-    return resolved if resolved is not None else _parse_csv_list(raw, "attack")
+    attacks = resolved if resolved is not None else _parse_csv_list(raw, "attack")
+    return _normalize_requested_attacks(attacks)
 
 
 def _parse_defenses(raw: str) -> list[str]:

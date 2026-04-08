@@ -10,14 +10,20 @@ Each cycle runs four phases in sequence via `scripts/auto_cycle.py --loop`.
 
 | Phase | Name | Dataset | Metric | Output |
 |---|---|---|---|---|
-| 1 | Characterize | 8 images (smoke) | Composite suppression (avg-confidence + detections) | Top-N worst attacks |
-| 2 | Matrix | 8 images (smoke) | Composite recovery | Top-N best defenses |
-| 3 | Tune | 8 images | Composite recovery | Best attack + defense params |
-| 4 | Validate | 500 images (full) | mAP50 | Ground-truth performance |
+| 1 | Characterize | 32 images by default (smoke); slower attacks use lower caps | Composite suppression (avg-confidence + detections) | Top-N worst attacks |
+| 2 | Matrix | 32 images by default (smoke) | Composite recovery | Top-N best defenses |
+| 3 | Tune | 16 images by default; slower attacks use lower caps | Composite recovery | Best attack + defense params |
+| 4 | Validate | 500 images by default; selected slow attacks are capped at 50 | mAP50 | Ground-truth performance |
 
 Phases 1–3 use fast proxy metrics (composite health from avg confidence + detection count)
-because they need to run thousands of times during coordinate-descent tuning. Phase 4 is the only
-authoritative number — mAP50 on the full validation set.
+because they need to run many times during ranking and coordinate-descent tuning. Phase 4 is the only
+authoritative number — mAP50 on the validation set.
+
+Current per-attack caps in `auto_cycle.py`:
+
+- Phase 1 characterize: `square=8`, `eot_pgd=12`, `dispersion_reduction=12`
+- Phase 3 tune: `square=8`, `eot_pgd=12`, `dispersion_reduction=12`
+- Phase 4 validate: `square=50`, `eot_pgd=50`, `dispersion_reduction=50`
 
 ## Warm-Start Carry-Forward
 
@@ -60,8 +66,10 @@ The intended flow after a cycle completes:
 4. **Retrain in Colab** — open `notebooks/finetune_dpc_unet.ipynb`, add the signal-reading
    cell (see below), run all cells on a T4 GPU
 5. **Evaluate the new checkpoint** — `scripts/evaluate_checkpoint.py --checkpoint-a old.pt
-   --checkpoint-b new.pt` compares mAP50; only deploy if B ≥ A
-6. **Deploy** — replace `dpc_unet_adversarial_finetuned.pt` with the new checkpoint
+   --checkpoint-b new.pt` compares mAP50; only deploy if the candidate passes the clean A/B gate
+   against the currently active checkpoint
+6. **Deploy** — move the candidate into the path pointed to by `DPC_UNET_CHECKPOINT_PATH`
+   (or update that env var target)
 7. **Next cycle** — the improved DPC-UNet is now the active defense; repeat
 
 ### Colab Notebook Signal Cell
@@ -91,6 +99,10 @@ else:
 - `outputs/cycle_report.csv` — raw data for analysis
 
 This updates automatically after each cycle completes (called from `save_cycle_history()`).
+
+Reporting and warning generation prefer authoritative Phase 4 rows over
+diagnostic smoke rows when both exist for the same comparison. Smoke-only runs
+remain useful for ranking and tuning, but they are not deployment evidence.
 
 ## Repo Hygiene for Outputs
 

@@ -21,7 +21,7 @@ Parse any arguments the user passed after `/sweep`. Map them to the sweep_and_re
 Then run the following command in the background using the Bash tool:
 
 ```bash
-DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
+PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
   --attacks <attacks> \
   --defenses <defenses> \
   --preset full \
@@ -30,12 +30,16 @@ DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt PYTHONPATH=src ./.venv/bin/pyt
 ```
 
 **Defaults (use these when not specified by the user):**
-- `--attacks`: `fgsm,pgd,deepfool,blur`
+- `--attacks`: `blur,deepfool,fgsm,pgd`
 - `--defenses`: `c_dog`
 - `--phases`: omit (run all phases 1,2,3,4)
 - `--workers`: always `1` (more than 1 causes memory crashes with DPC-UNet)
 
-**Always include** `DPC_UNET_CHECKPOINT_PATH=dpc_unet_final_golden.pt` and `PYTHONPATH=src` as env vars.
+**Always include** `PYTHONPATH=src`.
+
+If the sweep uses `c_dog` or `c_dog_ensemble`, keep the current
+`DPC_UNET_CHECKPOINT_PATH` from the shell or `.env`. Only set or override it
+explicitly when the user asks to benchmark a specific checkpoint.
 
 After launching the background task, tell the user:
 - What attacks and defenses are being swept
@@ -45,4 +49,4 @@ After launching the background task, tell the user:
 
 When the task completes, read the output and report:
 - Detection counts and % drop vs baseline (1,437 detections) for each attack+defense combo
-- Whether results improved vs previous best (fgsm+c_dog 30.0%, pgd+c_dog 29.9%, blur+c_dog 31.3%, deepfool+c_dog 88.7%)
+- Whether results improved vs the latest comparable tracked sweep/report for each attack+defense pair
