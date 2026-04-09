@@ -1,7 +1,7 @@
 # Direction A Closure Document (DRAFT)
-**Status:** INCOMPLETE — awaiting NUC timestep sweep results and fortification verdict
+**Status:** INCOMPLETE — awaiting 500-image ts7525 validation result and verdict
 **Date started:** 2026-04-09
-**Complete when:** NUC reports sweep results AND one full Round 4 cycle completes
+**Complete when:** 500-image ts7525 authoritative run completes + verdict written
 
 ---
 
@@ -40,9 +40,9 @@ Checkpoint round determined by file modification timestamp (Round 3 deployed 202
 | c13–c15 (avg, Round 3) | Round 3 | c_dog | 0.2238 | +0.0054 |
 | c13–c15 (avg, Round 3) | Round 3 | jpeg | **0.3175** | **+0.0992** |
 | c13–c15 (avg, Round 3) | Round 3 | median | 0.3656 | +0.1472 |
-| ts_sweep (Round 3) | Round 3 | c_dog ts10 | [TBD] | [TBD] |
-| ts_sweep (Round 3) | Round 3 | c_dog ts25 | [TBD] | [TBD] |
-| ts_sweep (Round 3) | Round 3 | c_dog ts7525 | [TBD] | [TBD] |
+| ts_sweep (Round 3) | Round 3 | c_dog ts10 | 0.2676 | +0.0492 |
+| ts_sweep (Round 3) | Round 3 | c_dog ts25 | 0.2679 | +0.0495 |
+| ts_sweep (Round 3) | Round 3 | c_dog ts7525 | 0.2929 | +0.0745 |
 
 ### Square attack (undefended: 0.3630, baseline: 0.6002)
 
@@ -67,6 +67,10 @@ Checkpoint round determined by file modification timestamp (Round 3 deployed 202
   pipeline with same Round 3 checkpoint, same attack params, same 500-image COCO subset.
 - run_summary.json missing from c12–c15 validate_deepfool_c_dog artifacts. Root cause:
   pre-atomic-write code (fixed in commit acbb1a5, 2026-04-08). Historical; not backfilled.
+- ts7525 sweep run failed on first attempt with TypeError (duplicate `passes` kwarg:
+  `passes=passes_meta` explicit + `**stats` containing `passes` from multipass wrapper).
+  Fixed: removed explicit kwarg, injected `stats["passes"]=1` for single-pass path.
+  Single-pass ts10/ts25 results unaffected. Fix applied in this commit.
 
 ---
 
@@ -77,8 +81,9 @@ Checkpoint round determined by file modification timestamp (Round 3 deployed 202
 | Round 1 | deepfool + blur | Colab finetune from scratch | modest improvement | not measured |
 | Round 2 | deepfool + blur | Colab continued from R1 | similar to R1 | not measured |
 | Round 3 | deepfool + blur + square | multi-attack mix, Colab from R2 | no measurable improvement | regressed vs R2 |
-| Timestep sweep | deepfool | param tuning (ts10/ts25/ts7525) | [TBD] | not applicable |
-| Round 4 | [TBD — square or deepfool] | [TBD] | [TBD] | [TBD] |
+| Timestep sweep | deepfool | param tuning (ts10/ts25/ts7525) | ts7525 best: 0.2929 (+0.0745); single-pass variants flat at ~0.268 | not applicable |
+| 500-img ts7525 validation | deepfool | full-scale confirm of ts7525 result | [TBD] | not applicable |
+| Round 4 | [TBD — pending 500-img result + YOLOv26 timing] | [TBD] | [TBD] | [TBD] |
 
 **Pattern:** Multi-attack mixing (Round 3) caused regression on both targets. Single-attack
 focus is required going forward.
@@ -87,10 +92,13 @@ focus is required going forward.
 
 ## Key Structural Findings
 
-1. **deepfool vs c_dog architecture mismatch:** deepfool perturbations are subtle and
-   high-frequency. jpeg_preprocess at quality=40 destroys them by frequency filtering —
-   a structural advantage DPC-UNet cannot replicate through more training. The deepfool
-   gap (c_dog 0.2238 vs jpeg 0.3175 = 0.0937) is architectural, not a data problem.
+1. **deepfool vs c_dog — gap reduced but not closed:** Single-pass c_dog (ts25) reaches
+   0.2238–0.2679, leaving a 0.0937–0.0496 gap to jpeg. Multi-pass ts7525 reaches 0.2929
+   (gap to jpeg: 0.0246) — the coarse→fine schedule partially handles high-frequency
+   perturbations. This disproves a pure "architectural ceiling" claim: scheduling is the
+   variable. However, c_dog ts7525 remains third on deepfool behind median (0.3656) and
+   jpeg (0.3175) on 100-image diagnostic runs. 500-image validation determines whether
+   0.2929 holds at full scale before any verdict is written.
 
 2. **square is better matched:** Large-patch occlusion (square attack) is well-suited
    to diffusion denoising's inpainting-style recovery. jpeg HURTS on square (-0.0383).

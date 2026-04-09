@@ -1,7 +1,9 @@
 # Direction A: Square Pivot Contingency Plan
 **Date:** 2026-04-09
-**Status:** CONTINGENCY — activate only if NUC timestep sweep returns best mAP50 < 0.24 on deepfool
-**Trigger:** Deepfool gap to jpeg (0.0937) confirmed architectural; timestep tuning cannot close it
+**Status:** NOT ACTIVATED — sweep best result 0.2929 (ts7525) exceeds 0.24 threshold
+**Original trigger:** Deepfool gap to jpeg (0.0937) confirmed architectural; timestep tuning cannot close it
+**Update 2026-04-09:** ts7525 multi-pass returned 0.2929 on 100 images — crosses 0.27 gate, requires
+500-image validation. Square pivot remains contingency until deepfool verdict is written.
 
 ---
 
