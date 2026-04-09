@@ -5,6 +5,14 @@ Each domain is audited using `/full-repo-audit <N>`. Findings accumulate here.
 
 See `.claude/skills/full-repo-audit/domains.md` for the full file list per domain.
 
+Status update (verified 2026-04-08):
+
+- Historical inline status bullets below are point-in-time audit snapshots, not the current repo state.
+- Current closure check:
+  `./.venv/bin/pytest -q` -> `288 passed, 1 deselected`
+- The WS1-WS7 remediation slices are now covered by focused regression tests in `tests/`.
+- Remaining notes in this file that explicitly say "No fix required" should be read as documented residual risk, not open correctness blockers.
+
 ---
 
 ## Domain 1 — Core Orchestration (audited 2026-04-07)
@@ -94,11 +102,11 @@ All six Domain 1 files were read in full.
 
 ### Status of prior findings (from 2026-04-07)
 
-- **P2 — `run_single` skips on `metrics.json` alone**: **NOT FIXED.** `auto_cycle.py` line 476 still checks only `(run_dir / "metrics.json").exists()`.
-- **P2 — non-atomic `metrics.json` / `run_summary.json` writes**: **NOT FIXED.** `run_experiment.py` lines 755–756 still use plain `.write_text()` with no tmp+`os.replace`.
-- **P3 — tqdm bar overflows by one (dashboard outside `with` block)**: **NOT FIXED.** `sweep_and_report.py` lines 888–939 — `report_steps` is 2 or 3, the dashboard step still runs after the `with tqdm(...)` block closes, and `bar=bar4` is still passed to `_run_command` on line 937 after the bar is closed.
-- **P3 — `run_single` skip does not validate run intent**: **NOT FIXED.**
-- **P3 — `git_commit_phase` commits directly to main**: **NOT FIXED.** Lines 1864–1872 still commit to HEAD (main) then push.
+- **P2 — `run_single` skips on `metrics.json` alone**: **FIXED.** `auto_cycle.run_single` now uses the shared three-artifact completion contract and run-intent resume checks.
+- **P2 — non-atomic `metrics.json` / `run_summary.json` writes**: **FIXED.** `run_experiment.py` now writes canonical artifacts via tmp files and `os.replace`, with `metrics.json` last.
+- **P3 — tqdm bar overflows by one (dashboard outside `with` block)**: **FIXED.** `sweep_and_report.py` now counts dashboard generation in the report step flow.
+- **P3 — `run_single` skip does not validate run intent**: **FIXED.** `auto_cycle.run_single` now reruns on partial or mismatched fingerprints.
+- **P3 — `git_commit_phase` commits directly to main**: **FIXED.** `git_commit_phase` now pushes snapshots to `nuc/cycle-snapshots`.
 - **Open Question #5 — `save_cycle_history` bare `except Exception: pass`**: Promoted to finding below.
 
 ---
@@ -661,6 +669,7 @@ All domain files reviewed.
 - File: `src/lab/defenses/dpc_unet_wrapper.py`, lines 129–145
 - Defined but never called. The actual load path (`_BaseCDogAdapter._ensure_loaded`, line 84 of `preprocess_dpc_unet_adapter.py`) calls `model.load_state_dict` directly. The fallback-to-relaxed behavior and `StrictLoadReport` type are unreachable.
 - Fix: delete or wire into `_ensure_loaded` with logging.
+- Status: fixed in current repo state. `_BaseCDogAdapter._ensure_loaded` now routes checkpoint loading through `strict_load_with_report` and raises a detailed incompatibility error when strict loading fails.
 
 ---
 

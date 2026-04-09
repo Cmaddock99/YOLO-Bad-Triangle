@@ -19,6 +19,7 @@ from .dpc_unet_wrapper import (
     run_wrapper_multipass_on_bgr_image,
     run_wrapper_on_bgr_image,
     sharpen_image,
+    strict_load_with_report,
 )
 from .framework_registry import register_defense_plugin
 from .routing import RoutingThresholds, choose_route, detect_attack_signal
@@ -82,7 +83,15 @@ class _BaseCDogAdapter(BaseDefense):
             raise FileNotFoundError(f"DPC-UNet checkpoint not found: {checkpoint}")
         model = DPCUNet()
         state_dict = load_checkpoint_state_dict(checkpoint)
-        model.load_state_dict(state_dict, strict=True)
+        load_report = strict_load_with_report(model, state_dict)
+        if not load_report.strict_passed:
+            missing = ", ".join(load_report.missing_keys) or "none"
+            unexpected = ", ".join(load_report.unexpected_keys) or "none"
+            details = load_report.error_message or "strict checkpoint load failed"
+            raise RuntimeError(
+                "DPC-UNet checkpoint is incompatible with the current wrapper: "
+                f"{details} (missing_keys={missing}; unexpected_keys={unexpected})"
+            )
         model.eval()
         self._model = model
         # Hash at load time so checkpoint_provenance() returns a stable value even if

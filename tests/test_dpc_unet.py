@@ -9,8 +9,10 @@ from unittest.mock import patch
 import numpy as np
 import torch
 
+from lab.defenses import preprocess_dpc_unet_adapter
 from lab.defenses.dpc_unet_wrapper import (
     DPCUNet,
+    StrictLoadReport,
     WrapperInputConfig,
     image_bgr_to_model_tensor,
     model_tensor_to_image_bgr,
@@ -134,6 +136,37 @@ class DPCUNetAdapterTests(unittest.TestCase):
                 return_value=(image.copy(), {"finite": False, "tensor_min": 0.0, "tensor_max": 0.0, "tensor_mean": 0.0, "tensor_std": 0.0}),
             ):
                 with self.assertRaises(RuntimeError):
+                    defense.preprocess(image)
+
+    def test_preprocess_uses_strict_load_report_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ckpt = Path(tmp) / "dpc.pt"
+            self._write_checkpoint(ckpt)
+            defense = build_defense_plugin("c_dog", checkpoint_path=str(ckpt))
+            image = np.full((32, 32, 3), 127, dtype=np.uint8)
+            with patch(
+                "lab.defenses.preprocess_dpc_unet_adapter.strict_load_with_report",
+                wraps=preprocess_dpc_unet_adapter.strict_load_with_report,
+            ) as load_mock:
+                defense.preprocess(image)
+            load_mock.assert_called_once()
+
+    def test_preprocess_surfaces_strict_load_incompatibility_details(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ckpt = Path(tmp) / "dpc.pt"
+            self._write_checkpoint(ckpt)
+            defense = build_defense_plugin("c_dog", checkpoint_path=str(ckpt))
+            image = np.full((32, 32, 3), 127, dtype=np.uint8)
+            with patch(
+                "lab.defenses.preprocess_dpc_unet_adapter.strict_load_with_report",
+                return_value=StrictLoadReport(
+                    strict_passed=False,
+                    missing_keys=["final.bias"],
+                    unexpected_keys=["weird.weight"],
+                    error_message="size mismatch",
+                ),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "final.bias"):
                     defense.preprocess(image)
 
 
