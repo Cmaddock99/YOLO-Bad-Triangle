@@ -121,7 +121,9 @@ def _gate_passed(result: "subprocess.CompletedProcess[bytes] | None", payload: d
 
 def _write_manifest(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def main() -> None:
@@ -187,6 +189,7 @@ def main() -> None:
         },
         "attack_gate": {
             "attack": worst_attack,
+            "attack_params": worst_attack_params,
             "result_path": str(attack_gate_result_path),
             "delta_mAP50": None,
             "verdict": "not_run",

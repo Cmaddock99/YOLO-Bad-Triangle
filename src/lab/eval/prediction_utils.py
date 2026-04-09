@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -16,11 +17,17 @@ def adapter_stage_metadata(defense: str, stage: str, **extra: Any) -> dict[str, 
 
 
 def write_predictions_jsonl(records: Iterable[PredictionRecord], output_path: Path) -> None:
-    """Persist normalized prediction records as JSONL."""
+    """Persist normalized prediction records as JSONL.
+
+    Writes atomically via a .tmp file + os.replace so a crash mid-write never
+    leaves a truncated file at the canonical path.
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as handle:
+    tmp_path = output_path.with_suffix(".jsonl.tmp")
+    with tmp_path.open("w", encoding="utf-8") as handle:
         for record in records:
             handle.write(json.dumps(record, sort_keys=True) + "\n")
+    os.replace(tmp_path, output_path)
 
 
 def filter_predictions_by_confidence(

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform as _platform
 import random
 import sys
@@ -752,8 +753,16 @@ class UnifiedExperimentRunner:
             "platform": f"{sys.platform}-{_platform.machine()}",
             "device_hint": _device_hint(),
         }
-        metrics_file.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
-        summary_file.write_text(json.dumps(run_summary, indent=2, sort_keys=True), encoding="utf-8")
+        # Write run_summary.json first, metrics.json last.
+        # metrics.json is the completion sentinel checked by run_single — it must only
+        # appear on disk after both other required artifacts are durably written.
+        summary_tmp = summary_file.with_suffix(".json.tmp")
+        summary_tmp.write_text(json.dumps(run_summary, indent=2, sort_keys=True), encoding="utf-8")
+        os.replace(summary_tmp, summary_file)
+
+        metrics_tmp = metrics_file.with_suffix(".json.tmp")
+        metrics_tmp.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
+        os.replace(metrics_tmp, metrics_file)
         return run_summary
 
 

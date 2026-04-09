@@ -38,7 +38,7 @@ from lab.runners.cli_utils import (
     load_yaml_mapping,
     with_src_pythonpath,
 )
-from lab.runners.run_intent import build_run_intent
+from lab.runners.run_intent import build_run_intent, check_run_resume
 
 
 CANONICAL_ATTACK_ALIASES = {
@@ -178,100 +178,8 @@ def _fmt_elapsed(seconds: float) -> str:
 def _metrics_exists(run_dir: Path) -> bool:
     return (run_dir / "metrics.json").is_file()
 
-
-def _required_run_artifacts_status(run_dir: Path) -> tuple[bool, list[str]]:
-    missing = [name for name in REQUIRED_RUN_ARTIFACTS if not (run_dir / name).is_file()]
-    return not missing, missing
-
-
-def _load_resume_fingerprint(run_dir: Path) -> dict[str, object] | None:
-    summary_path = run_dir / "run_summary.json"
-    if not summary_path.is_file():
-        return None
-    try:
-        payload = json.loads(summary_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    if not isinstance(payload, dict):
-        return None
-    provenance = payload.get("provenance")
-    if not isinstance(provenance, dict):
-        provenance = {}
-    validation = payload.get("validation")
-    if not isinstance(validation, dict):
-        validation = {}
-    reporting_context = payload.get("reporting_context")
-    if not isinstance(reporting_context, dict):
-        reporting_context = {}
-    defense_checkpoints = provenance.get("defense_checkpoints")
-    if not isinstance(defense_checkpoints, list):
-        defense_checkpoints = []
-    defense_shas = sorted(
-        str(item.get("sha256", "")).strip()
-        for item in defense_checkpoints
-        if isinstance(item, dict) and str(item.get("sha256", "")).strip()
-    )
-    return {
-        "config_fingerprint_sha256": provenance.get("config_fingerprint_sha256"),
-        "attack_signature": ((payload.get("attack") or {}).get("signature") if isinstance(payload.get("attack"), dict) else None),
-        "defense_signature": ((payload.get("defense") or {}).get("signature") if isinstance(payload.get("defense"), dict) else None),
-        "checkpoint_fingerprint_sha256": provenance.get("checkpoint_fingerprint_sha256"),
-        "defense_checkpoint_shas": defense_shas,
-        "seed": payload.get("seed"),
-        "validation_enabled": validation.get("enabled"),
-        "reporting_context": dict(reporting_context),
-    }
-
-
-def _normalize_intended_fingerprint(intent: dict[str, object]) -> dict[str, object]:
-    defense_checkpoints = intent.get("defense_checkpoints")
-    if not isinstance(defense_checkpoints, list):
-        defense_checkpoints = []
-    defense_shas = sorted(
-        str(item.get("sha256", "")).strip()
-        for item in defense_checkpoints
-        if isinstance(item, dict) and str(item.get("sha256", "")).strip()
-    )
-    reporting_context = intent.get("reporting_context")
-    if not isinstance(reporting_context, dict):
-        reporting_context = {}
-    return {
-        "config_fingerprint_sha256": intent.get("config_fingerprint_sha256"),
-        "attack_signature": intent.get("attack_signature"),
-        "defense_signature": intent.get("defense_signature"),
-        "checkpoint_fingerprint_sha256": intent.get("checkpoint_fingerprint_sha256"),
-        "defense_checkpoint_shas": defense_shas,
-        "seed": intent.get("seed"),
-        "validation_enabled": intent.get("validation_enabled"),
-        "reporting_context": dict(reporting_context),
-    }
-
-
 def _check_resume(run_dir: Path, intended_intent: dict[str, object]) -> tuple[str, str]:
-    artifacts_complete, missing = _required_run_artifacts_status(run_dir)
-    if not run_dir.exists() or (
-        not (run_dir / "metrics.json").exists()
-        and not (run_dir / "run_summary.json").exists()
-        and not (run_dir / "predictions.jsonl").exists()
-    ):
-        return "run", ""
-    if not artifacts_complete:
-        return "reran_partial", f"missing required artifacts: {', '.join(missing)}"
-    existing = _load_resume_fingerprint(run_dir)
-    if existing is None:
-        return "reran_partial", "run_summary.json missing or malformed"
-    intended = _normalize_intended_fingerprint(intended_intent)
-    # Only compare fields where the intended value is known (non-None).
-    # When the sweep cannot compute a field (e.g. checkpoint SHA when the
-    # file is absent on this machine), skip it rather than forcing a spurious
-    # reran_mismatch on every --resume invocation.
-    mismatches = [
-        key for key in sorted(intended)
-        if intended.get(key) is not None and existing.get(key) != intended.get(key)
-    ]
-    if mismatches:
-        return "reran_mismatch", f"run intent changed: {', '.join(mismatches)}"
-    return "skipped_exact", "exact run-intent match"
+    return check_run_resume(run_dir, intended_intent)
 
 
 def _parse_csv_list(raw: str, label: str) -> list[str]:
@@ -542,6 +450,13 @@ def main() -> None:
              "All failures are reported at the end.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Print commands without executing.")
+    parser.add_argument(
+        "--update-pages",
+        action="store_true",
+        default=False,
+        help="Allow dashboard generation to write docs/index.html (GitHub Pages). "
+             "Default: off. Only set this on intentional release sweeps.",
+    )
     parser.add_argument(
         "--list-plugins",
         action="store_true",
@@ -930,7 +845,8 @@ def main() -> None:
                 build_repo_python_command(
                     REPO_ROOT,
                     "scripts/generate_dashboard.py",
-                    ["--reports-root", str(report_root.parent), "--output", str(dashboard_out)],
+                    ["--reports-root", str(report_root.parent), "--output", str(dashboard_out)]
+                    + ([] if args.update_pages else ["--no-pages"]),
                     python_bin=args.python_bin,
                 ),
                 dry_run=args.dry_run,

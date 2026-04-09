@@ -15,11 +15,13 @@ from lab.reporting import (
     render_markdown_report,
     write_team_summary,
 )
+from lab.reporting.framework_comparison import discover_framework_runs as _discover, write_summary_csv
 from lab.reporting.warnings import (
     WARN_ATTACK_BELOW_NOISE,
     WARN_DEFENSE_DEGRADES_PERFORMANCE,
     WARN_DEFENSE_RECOVERY_UNDEFINED,
     WARN_LOW_ATTACK_COUNT,
+    WARN_LOW_CONFIDENCE_FLOOR,
     WARN_MISSING_PER_CLASS,
     WARN_MULTIPLE_BASELINES,
     WARN_NO_VALIDATION,
@@ -954,6 +956,171 @@ class FrameworkReportingTest(unittest.TestCase):
             rows = build_comparison_rows(records)
             self.assertEqual(len(rows), 1)
             self.assertAlmostEqual(float(rows[0]["mAP50_drop"]), 0.4)
+
+
+class WS1AtomicWriteTest(unittest.TestCase):
+    """Tests for atomic (tmp+replace) writes in reporting writers (WS1)."""
+
+    def _make_minimal_run_dir(self, root: Path, run_name: str, *, attack: str = "none") -> None:
+        """Write minimal valid run artifacts for discover_framework_runs."""
+        run_dir = root / run_name
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "run_summary.json").write_text(
+            json.dumps({
+                "model": {"name": "yolo", "params": {}},
+                "attack": {"name": attack, "params": {}},
+                "defense": {"name": "none", "params": {}},
+                "seed": 42,
+                "prediction_record_count": 1,
+                "pipeline": {
+                    "transform_order": ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
+                    "semantic_order": "attack_then_defense",
+                },
+                "provenance": {"checkpoint_fingerprint_sha256": None, "defense_checkpoints": []},
+                "attack": {"name": attack, "params": {}, "signature": "sig"},
+                "defense": {"name": "none", "params": {}, "signature": "sig"},
+            }),
+            encoding="utf-8",
+        )
+        (run_dir / "metrics.json").write_text(
+            json.dumps({
+                "predictions": {
+                    "image_count": 1,
+                    "images_with_detections": 1,
+                    "total_detections": 5,
+                    "confidence": {"mean": 0.8},
+                },
+                "validation": {"status": "missing", "enabled": False, "error": None},
+                "provenance": {
+                    "transform_order": ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
+                    "semantic_order": "attack_then_defense",
+                },
+            }),
+            encoding="utf-8",
+        )
+        (run_dir / "predictions.jsonl").write_text(
+            json.dumps({"image_id": "a.jpg", "boxes": [], "scores": [], "class_ids": [], "metadata": {}}) + "\n",
+            encoding="utf-8",
+        )
+
+    def test_write_summary_csv_leaves_no_tmp_file(self) -> None:
+        """write_summary_csv must leave no .tmp file after a successful write."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_minimal_run_dir(root, "baseline_none")
+            records = _discover(root)
+            out_csv = root / "framework_run_summary.csv"
+            write_summary_csv(records, out_csv)
+            self.assertTrue(out_csv.exists())
+            tmp_files = list(root.glob("*.tmp"))
+            self.assertEqual(tmp_files, [], f"Leftover .tmp after write_summary_csv: {tmp_files}")
+
+    def test_write_summary_csv_output_is_readable_csv(self) -> None:
+        """write_summary_csv output must be a valid CSV with at least a header row."""
+        import csv as _csv
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_minimal_run_dir(root, "baseline_none")
+            records = _discover(root)
+            out_csv = root / "framework_run_summary.csv"
+            write_summary_csv(records, out_csv)
+            rows = list(_csv.DictReader(out_csv.open(encoding="utf-8")))
+            self.assertGreater(len(rows), 0)
+            self.assertIn("run_name", rows[0])
+
+    def test_write_team_summary_leaves_no_tmp_files(self) -> None:
+        """write_team_summary must leave no .tmp file after a successful write."""
+        with tempfile.TemporaryDirectory() as tmp:
+            report_root = Path(tmp)
+            import csv as _csv
+            csv_path = report_root / "framework_run_summary.csv"
+            with csv_path.open("w", newline="", encoding="utf-8") as fh:
+                writer = _csv.writer(fh)
+                writer.writerow([
+                    "run_name", "run_dir", "model", "attack", "defense", "seed",
+                    "prediction_count", "images_with_detections", "total_detections",
+                    "avg_confidence", "validation_status", "precision", "recall",
+                    "mAP50", "mAP50-95",
+                ])
+                writer.writerow([
+                    "baseline_none", str(tmp), "yolo", "none", "none", "42",
+                    "8", "8", "20", "0.8", "missing", "", "", "", "",
+                ])
+            write_team_summary(report_root)
+            tmp_files = list(report_root.glob("*.tmp"))
+            self.assertEqual(tmp_files, [], f"Leftover .tmp after write_team_summary: {tmp_files}")
+            self.assertTrue((report_root / "team_summary.json").exists())
+            self.assertTrue((report_root / "team_summary.md").exists())
+
+
+class WS3WarningCorrectnessTest(unittest.TestCase):
+    """WS3 tests: warning code rename, NO_VALIDATION pre-filter, attack_signature dedup."""
+
+    def _make_payload(
+        self,
+        *,
+        attack_rows: list[dict] | None = None,
+        baseline_avg_confidence: float | None = None,
+    ) -> dict:
+        baseline: dict = {"run_name": "baseline", "candidate_count": 1}
+        if baseline_avg_confidence is not None:
+            baseline["avg_confidence"] = baseline_avg_confidence
+        return {
+            "baseline": baseline,
+            "attack_effectiveness_rows": attack_rows or [],
+            "defense_recovery_rows": [],
+            "per_class_vulnerability_rows": [],
+        }
+
+    def test_warn_low_confidence_floor_code_is_correct_string(self) -> None:
+        """The renamed constant must carry the correct string value."""
+        self.assertEqual(WARN_LOW_CONFIDENCE_FLOOR, "LOW_CONFIDENCE_FLOOR")
+
+    def test_warn_low_confidence_floor_fires_when_confidence_below_half(self) -> None:
+        """evaluate_warnings must emit LOW_CONFIDENCE_FLOOR (not HIGH_*) when avg_confidence < 0.5."""
+        payload = self._make_payload(baseline_avg_confidence=0.3)
+        warnings = evaluate_warnings(payload)
+        codes = [w["code"] for w in warnings]
+        self.assertIn(WARN_LOW_CONFIDENCE_FLOOR, codes)
+        self.assertNotIn("HIGH_CONFIDENCE_FLOOR", codes)
+
+    def test_no_validation_not_fired_when_phase4_rows_exist_but_not_authoritative(self) -> None:
+        """NO_VALIDATION must be suppressed when full (unfiltered) rows have a success status,
+        even if those rows are not authoritative and get filtered out by _prefer_authoritative_rows.
+
+        The bug: has_validation was computed AFTER _prefer_authoritative_rows stripped Phase 4
+        rows, causing a false NO_VALIDATION warning. The fix computes has_validation first.
+        """
+        from lab.config.contracts import REPORTING_AUTHORITY_DIAGNOSTIC, REPORTING_AUTHORITY_AUTHORITATIVE
+        # One authoritative diagnostic-only smoke row (no validation success)
+        authoritative_smoke = {
+            "authority": REPORTING_AUTHORITY_AUTHORITATIVE,
+            "validation_status": "missing",
+            "attack": "fgsm",
+        }
+        # One non-authoritative Phase 4 row with a real validation success
+        phase4_row = {
+            "authority": REPORTING_AUTHORITY_DIAGNOSTIC,
+            "validation_status": "complete",
+            "attack": "fgsm",
+        }
+        payload = self._make_payload(attack_rows=[authoritative_smoke, phase4_row])
+        warnings = evaluate_warnings(payload)
+        codes = [w["code"] for w in warnings]
+        self.assertNotIn(WARN_NO_VALIDATION, codes)
+
+    def test_no_validation_still_fires_when_all_rows_lack_success(self) -> None:
+        """NO_VALIDATION must still fire when no row anywhere has a success status."""
+        from lab.config.contracts import REPORTING_AUTHORITY_AUTHORITATIVE
+        row = {
+            "authority": REPORTING_AUTHORITY_AUTHORITATIVE,
+            "validation_status": "missing",
+            "attack": "fgsm",
+        }
+        payload = self._make_payload(attack_rows=[row, row])
+        warnings = evaluate_warnings(payload)
+        codes = [w["code"] for w in warnings]
+        self.assertIn(WARN_NO_VALIDATION, codes)
 
 
 if __name__ == "__main__":

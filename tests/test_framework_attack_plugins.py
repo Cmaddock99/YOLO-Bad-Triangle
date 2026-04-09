@@ -149,5 +149,115 @@ class CWAttackBehaviorTest(unittest.TestCase):
         self.assertTrue(meta.get("success"))
 
 
+class WS4AttackCorrectnessTest(unittest.TestCase):
+    """WS4 tests: CPU generator fix, DR seed determinism, threshold constant, objective contracts."""
+
+    def setUp(self) -> None:
+        self.image = np.full((64, 64, 3), 127, dtype=np.uint8)
+
+    def test_square_sign_generated_on_cpu_not_device(self) -> None:
+        """SquareAttack must not pass a device= arg to torch.randint for the sign tensor.
+
+        Previously: generator=generator, device=device was passed, causing CUDA/MPS crash
+        when generator is CPU-pinned but device is GPU.  The fix generates on CPU then .to(device).
+        """
+        from lab.attacks.square_adapter import SquareAttack
+        attack = SquareAttack(eps=0.05, n_queries=2, p_init=0.5)
+        generator = torch.Generator(device="cpu")
+        generator.manual_seed(42)
+        model = _DummyDetectionModel()
+        # Run on CPU — this should complete without error (device mismatch would raise).
+        x = torch.zeros(1, 3, 64, 64)
+        result, _ = attack._apply_to_tensor(x, model, generator=generator)
+        self.assertEqual(result.shape, x.shape)
+
+    def test_dr_seed_produces_identical_output(self) -> None:
+        """DispersionReduction with the same seed must produce identical outputs."""
+        from lab.attacks.dispersion_reduction_adapter import _DispersionReductionCore
+
+        class _TinyModel(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.model = torch.nn.ModuleList([torch.nn.Identity()])
+
+            def forward(self, x):
+                return x
+
+        impl = _DispersionReductionCore(epsilon=0.1, steps=2, alpha=0.05, layer_indices=[0])
+        x0 = torch.full((1, 3, 32, 32), 0.5)
+        model = _TinyModel()
+        out_a = impl.apply_to_tensor(x0.clone(), model, seed=7)
+        out_b = impl.apply_to_tensor(x0.clone(), model, seed=7)
+        self.assertTrue(torch.allclose(out_a, out_b), "Same seed must give identical DR output")
+
+    def test_dr_different_seeds_produce_different_output(self) -> None:
+        """Different seeds must produce different DR outputs (probabilistic check)."""
+        from lab.attacks.dispersion_reduction_adapter import _DispersionReductionCore
+
+        class _TinyModel(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.model = torch.nn.ModuleList([torch.nn.Identity()])
+
+            def forward(self, x):
+                return x
+
+        impl = _DispersionReductionCore(epsilon=0.1, steps=2, alpha=0.05, layer_indices=[0])
+        x0 = torch.full((1, 3, 32, 32), 0.5)
+        model = _TinyModel()
+        out_a = impl.apply_to_tensor(x0.clone(), model, seed=1)
+        out_b = impl.apply_to_tensor(x0.clone(), model, seed=2)
+        self.assertFalse(torch.allclose(out_a, out_b), "Different seeds must give different DR output")
+
+    def test_detection_conf_threshold_constant_visible(self) -> None:
+        """_DETECTION_CONF_THRESHOLD must be a named constant in both square and cw modules."""
+        from lab.attacks import square_adapter, cw_adapter
+        self.assertEqual(square_adapter._DETECTION_CONF_THRESHOLD, 0.1)
+        self.assertEqual(cw_adapter._DETECTION_CONF_THRESHOLD, 0.1)
+
+    def test_fgsm_uses_contract_objective_constants(self) -> None:
+        """FGSM loss function must branch on contract constants, not raw string literals."""
+        from lab.config.contracts import ATTACK_OBJECTIVE_TARGET_CLASS, ATTACK_OBJECTIVE_CLASS_HIDE
+        import lab.attacks.fgsm_adapter as fgsm_mod
+        import inspect
+        source = inspect.getsource(fgsm_mod.FGSMAttack._compute_loss)
+        # Must reference the contract constant, not the bare string
+        self.assertIn("ATTACK_OBJECTIVE_TARGET_CLASS", source)
+        self.assertIn("ATTACK_OBJECTIVE_CLASS_HIDE", source)
+        self.assertNotIn('"target_class_misclassification"', source)
+        self.assertNotIn('"class_conditional_hiding"', source)
+
+    def test_deepfool_uses_contract_objective_constants(self) -> None:
+        """DeepFool _detection_confidence must use contract constants, not raw strings."""
+        import lab.attacks.deepfool_adapter as df_mod
+        import inspect
+        source = inspect.getsource(df_mod.DeepFoolAttack._detection_confidence)
+        self.assertIn("ATTACK_OBJECTIVE_TARGET_CLASS", source)
+        self.assertIn("ATTACK_OBJECTIVE_CLASS_HIDE", source)
+        self.assertNotIn('"target_class_misclassification"', source)
+        self.assertNotIn('"class_conditional_hiding"', source)
+
+    def test_cw_metadata_includes_confidence_used_false(self) -> None:
+        """CW _apply_to_tensor metadata must include confidence_used=False."""
+        from lab.attacks.cw_adapter import CWAttack
+        model = _DummyCWModel()
+        attack = CWAttack(c=1.0, max_iter=2, lr=0.01, binary_search_steps=1, early_stop=False)
+        x = torch.zeros(1, 3, 64, 64)
+        with mock.patch.object(
+            CWAttack, "_count_detections",
+            side_effect=[0],  # baseline=0 → skipped path
+        ):
+            _, meta = attack._apply_to_tensor(x, model)
+        # skipped path does not include confidence_used
+        # Test the non-skipped path instead
+        with mock.patch.object(
+            CWAttack, "_count_detections",
+            side_effect=[5] + [3] * 20,
+        ):
+            _, meta = attack._apply_to_tensor(x, model)
+        self.assertIn("confidence_used", meta)
+        self.assertFalse(meta["confidence_used"])
+
+
 if __name__ == "__main__":
     unittest.main()

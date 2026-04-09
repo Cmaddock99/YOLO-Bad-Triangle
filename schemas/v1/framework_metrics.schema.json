@@ -37,7 +37,12 @@
       "required": [
         "status",
         "enabled"
-      ]
+      ],
+      "properties": {
+        "status": {
+          "enum": ["missing", "partial", "complete", "error"]
+        }
+      }
     },
     "runtime": {
       "type": "object",

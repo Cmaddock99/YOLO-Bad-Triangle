@@ -84,6 +84,108 @@ def _sha256_file_cached(path_str: str) -> str | None:
     return sha256_file(Path(path_str))
 
 
+REQUIRED_RUN_ARTIFACTS = ("metrics.json", "run_summary.json", "predictions.jsonl")
+
+
+def required_run_artifacts_status(run_dir: Path) -> tuple[bool, list[str]]:
+    missing = [name for name in REQUIRED_RUN_ARTIFACTS if not (run_dir / name).is_file()]
+    return not missing, missing
+
+
+def load_run_resume_fingerprint(run_dir: Path) -> dict[str, object] | None:
+    summary_path = run_dir / "run_summary.json"
+    if not summary_path.is_file():
+        return None
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    provenance = payload.get("provenance")
+    if not isinstance(provenance, dict):
+        provenance = {}
+    validation = payload.get("validation")
+    if not isinstance(validation, dict):
+        validation = {}
+    reporting_context = payload.get("reporting_context")
+    if not isinstance(reporting_context, dict):
+        reporting_context = {}
+    defense_checkpoints = provenance.get("defense_checkpoints")
+    if not isinstance(defense_checkpoints, list):
+        defense_checkpoints = []
+    defense_shas = sorted(
+        str(item.get("sha256", "")).strip()
+        for item in defense_checkpoints
+        if isinstance(item, dict) and str(item.get("sha256", "")).strip()
+    )
+    return {
+        "config_fingerprint_sha256": provenance.get("config_fingerprint_sha256"),
+        "attack_signature": (
+            (payload.get("attack") or {}).get("signature")
+            if isinstance(payload.get("attack"), dict)
+            else None
+        ),
+        "defense_signature": (
+            (payload.get("defense") or {}).get("signature")
+            if isinstance(payload.get("defense"), dict)
+            else None
+        ),
+        "checkpoint_fingerprint_sha256": provenance.get("checkpoint_fingerprint_sha256"),
+        "defense_checkpoint_shas": defense_shas,
+        "seed": payload.get("seed"),
+        "validation_enabled": validation.get("enabled"),
+        "reporting_context": dict(reporting_context),
+    }
+
+
+def normalize_intended_fingerprint(intent: dict[str, object]) -> dict[str, object]:
+    defense_checkpoints = intent.get("defense_checkpoints")
+    if not isinstance(defense_checkpoints, list):
+        defense_checkpoints = []
+    defense_shas = sorted(
+        str(item.get("sha256", "")).strip()
+        for item in defense_checkpoints
+        if isinstance(item, dict) and str(item.get("sha256", "")).strip()
+    )
+    reporting_context = intent.get("reporting_context")
+    if not isinstance(reporting_context, dict):
+        reporting_context = {}
+    return {
+        "config_fingerprint_sha256": intent.get("config_fingerprint_sha256"),
+        "attack_signature": intent.get("attack_signature"),
+        "defense_signature": intent.get("defense_signature"),
+        "checkpoint_fingerprint_sha256": intent.get("checkpoint_fingerprint_sha256"),
+        "defense_checkpoint_shas": defense_shas,
+        "seed": intent.get("seed"),
+        "validation_enabled": intent.get("validation_enabled"),
+        "reporting_context": dict(reporting_context),
+    }
+
+
+def check_run_resume(run_dir: Path, intended_intent: dict[str, object]) -> tuple[str, str]:
+    artifacts_complete, missing = required_run_artifacts_status(run_dir)
+    if not run_dir.exists() or (
+        not (run_dir / "metrics.json").exists()
+        and not (run_dir / "run_summary.json").exists()
+        and not (run_dir / "predictions.jsonl").exists()
+    ):
+        return "run", ""
+    if not artifacts_complete:
+        return "reran_partial", f"missing required artifacts: {', '.join(missing)}"
+    existing = load_run_resume_fingerprint(run_dir)
+    if existing is None:
+        return "reran_partial", "run_summary.json missing or malformed"
+    intended = normalize_intended_fingerprint(intended_intent)
+    mismatches = [
+        key for key in sorted(intended)
+        if intended.get(key) is not None and existing.get(key) != intended.get(key)
+    ]
+    if mismatches:
+        return "reran_mismatch", f"run intent changed: {', '.join(mismatches)}"
+    return "skipped_exact", "exact run-intent match"
+
+
 def build_attack_signature(
     *,
     attack_name: str,

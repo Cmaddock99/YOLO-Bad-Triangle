@@ -790,5 +790,63 @@ class FrameworkOutputContractTests(unittest.TestCase):
             self.assertIn("interpretation", report)
 
 
+class WS1ThreeArtifactContractTest(unittest.TestCase):
+    """Tests for the three-artifact completion contract (WS1)."""
+
+    def test_partial_run_dir_with_metrics_only_is_not_complete(self) -> None:
+        """A directory with only metrics.json must not be treated as a finished run.
+        This validates the _REQUIRED_RUN_ARTIFACTS constant covers all three files."""
+        from scripts.auto_cycle import _REQUIRED_RUN_ARTIFACTS
+
+        self.assertIn("metrics.json", _REQUIRED_RUN_ARTIFACTS)
+        self.assertIn("run_summary.json", _REQUIRED_RUN_ARTIFACTS)
+        self.assertIn("predictions.jsonl", _REQUIRED_RUN_ARTIFACTS)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "partial_run"
+            run_dir.mkdir()
+            (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+            # Only metrics.json — incomplete
+            complete = all((run_dir / f).exists() for f in _REQUIRED_RUN_ARTIFACTS)
+            self.assertFalse(complete, "metrics.json alone must not satisfy the three-artifact check")
+
+    def test_all_three_artifacts_present_is_complete(self) -> None:
+        from scripts.auto_cycle import _REQUIRED_RUN_ARTIFACTS
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "complete_run"
+            run_dir.mkdir()
+            (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+            (run_dir / "run_summary.json").write_text("{}", encoding="utf-8")
+            (run_dir / "predictions.jsonl").write_text("", encoding="utf-8")
+            complete = all((run_dir / f).exists() for f in _REQUIRED_RUN_ARTIFACTS)
+            self.assertTrue(complete)
+
+    def test_run_produces_no_leftover_tmp_files(self) -> None:
+        """After a successful run, no .tmp sentinel files should remain in the run dir."""
+        root = Path(tempfile.mkdtemp())
+        source = root / "images"
+        source.mkdir()
+        image = np.full((40, 60, 3), 127, dtype=np.uint8)
+        import cv2 as _cv2
+        _cv2.imwrite(str(source / "a.jpg"), image)
+
+        config = {
+            "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+            "data": {"source_dir": str(source)},
+            "attack": {"name": "none", "params": {}},
+            "defense": {"name": "none", "params": {}},
+            "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+            "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+            "runner": {"seed": 99, "output_root": str(root / "outputs"), "run_name": "no_tmp_test"},
+        }
+        with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+            summary = UnifiedExperimentRunner(config=config).run()
+
+        run_dir = Path(summary["run_dir"])
+        tmp_files = list(run_dir.glob("*.tmp"))
+        self.assertEqual(tmp_files, [], f"Leftover .tmp files after run: {tmp_files}")
+
+
 if __name__ == "__main__":
     unittest.main()

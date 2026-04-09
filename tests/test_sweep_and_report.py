@@ -201,6 +201,19 @@ class SweepAndReportScriptTest(unittest.TestCase):
             self.assertEqual(action, "reran_partial")
             self.assertIn("predictions.jsonl", reason)
 
+    def test_check_resume_reruns_partial_when_run_summary_is_malformed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "run"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+            (run_dir / "predictions.jsonl").write_text("{}", encoding="utf-8")
+            (run_dir / "run_summary.json").write_text("{bad-json", encoding="utf-8")
+
+            action, reason = sweep_and_report._check_resume(run_dir, {})
+
+            self.assertEqual(action, "reran_partial")
+            self.assertIn("run_summary.json missing or malformed", reason)
+
     def test_check_resume_reruns_on_run_intent_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = Path(tmp) / "run"
@@ -255,6 +268,63 @@ class SweepAndReportScriptTest(unittest.TestCase):
         self.assertIn("Attacks:      ['pgd', 'blur']", output)
         self.assertIn("Total runs:   2", output)
         self.assertEqual(manifest["aggregate"]["total"], 2)
+
+
+class WS7SweepNoPagesTest(unittest.TestCase):
+    """Item 6: --no-pages passed to dashboard by default; --update-pages suppresses it."""
+
+    _BASE_ARGV = [
+        "sweep_and_report.py",
+        "--config",
+        str(REPO_ROOT / "configs/default.yaml"),
+        "--python-bin",
+        str(REPO_ROOT / ".venv/bin/python"),
+        "--attacks",
+        "pgd",
+        "--defenses",
+        "none",
+        "--phases",
+        "4",
+        "--dry-run",
+    ]
+
+    def _captured_dashboard_args(self, extra_argv: list[str]) -> list[str]:
+        """Run sweep in dry-run mode and capture args passed to generate_dashboard.py."""
+        captured: list[list[str]] = []
+
+        original_run_command = sweep_and_report._run_command
+
+        def capturing_run_command(cmd: list[str], **kwargs: object) -> bool:
+            if "generate_dashboard.py" in " ".join(str(c) for c in cmd):
+                captured.append([str(c) for c in cmd])
+            return original_run_command(cmd, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            argv = self._BASE_ARGV + [
+                "--runs-root", str(Path(tmp) / "runs"),
+                "--report-root", str(Path(tmp) / "report"),
+            ] + extra_argv
+            with patch.object(sys, "argv", argv):
+                with patch.object(sweep_and_report, "_run_command", side_effect=capturing_run_command):
+                    try:
+                        sweep_and_report.main()
+                    except SystemExit:
+                        pass
+
+        self.assertTrue(captured, "generate_dashboard.py was never invoked")
+        return captured[0]
+
+    def test_no_pages_passed_by_default(self) -> None:
+        """Without --update-pages, dashboard command includes --no-pages."""
+        args = self._captured_dashboard_args([])
+        flat = " ".join(args)
+        self.assertIn("--no-pages", flat)
+
+    def test_update_pages_omits_no_pages_flag(self) -> None:
+        """With --update-pages, --no-pages is NOT added to the dashboard command."""
+        args = self._captured_dashboard_args(["--update-pages"])
+        flat = " ".join(args)
+        self.assertNotIn("--no-pages", flat)
 
 
 if __name__ == "__main__":

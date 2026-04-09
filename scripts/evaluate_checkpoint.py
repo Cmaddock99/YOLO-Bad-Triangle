@@ -67,14 +67,16 @@ def _run_validation(
     runs_root: Path,
     max_images: int,
     attack_params: list[str] | None = None,
+    python_bin: Path | None = None,
 ) -> dict | None:
     """Run one validation experiment, return metrics dict or None on failure."""
     run_dir = runs_root / run_name
     metrics_file = run_dir / "metrics.json"
+    _python = str(python_bin if python_bin is not None else PYTHON)
 
     if not metrics_file.exists():
         cmd = [
-            str(PYTHON), "scripts/run_unified.py", "run-one",
+            _python, "scripts/run_unified.py", "run-one",
             "--config", "configs/default.yaml",
             "--set", f"attack.name={attack}",
             "--set", f"defense.name={defense}",
@@ -119,6 +121,7 @@ def evaluate(
     images: int,
     output_json: Path | None,
     attack_params: list[str] | None = None,
+    python_bin: Path | None = None,
 ) -> int:
     """Run A/B evaluation. Returns 0 if B >= A, 1 if B is worse.
 
@@ -153,6 +156,7 @@ def evaluate(
             runs_root=runs_root,
             max_images=images,
             attack_params=attack_params,
+            python_bin=python_bin,
         )
         map50_a, dets_a = _extract(metrics_a)
 
@@ -165,6 +169,7 @@ def evaluate(
             runs_root=runs_root,
             max_images=images,
             attack_params=attack_params,
+            python_bin=python_bin,
         )
         map50_b, dets_b = _extract(metrics_b)
 
@@ -200,18 +205,24 @@ def evaluate(
 
     if output_json:
         output_json.parent.mkdir(parents=True, exist_ok=True)
-        output_json.write_text(json.dumps(result, indent=2))
+        _tmp = output_json.with_suffix(".json.tmp")
+        _tmp.write_text(json.dumps(result, indent=2))
+        os.replace(_tmp, output_json)
         print(f"\nResult written to: {output_json}")
 
     # Auto-write clean validation sentinel when attack=none.
     # This enables research_brief.py to run after every subsequent cycle.
     if attack in ("none", ""):
         CLEAN_VALIDATION_SENTINEL.parent.mkdir(parents=True, exist_ok=True)
-        CLEAN_VALIDATION_SENTINEL.write_text(json.dumps(result, indent=2))
+        _stmp = CLEAN_VALIDATION_SENTINEL.with_suffix(".json.tmp")
+        _stmp.write_text(json.dumps(result, indent=2))
+        os.replace(_stmp, CLEAN_VALIDATION_SENTINEL)
         print(f"\nClean validation sentinel written to: {CLEAN_VALIDATION_SENTINEL}")
         print("research_brief.py will now run automatically after each cycle.")
 
-    return 0 if delta >= -0.001 else 1
+    # Threshold kept in sync with _GATE_THRESHOLD in train_from_signal.py (-0.005).
+    # A candidate with delta in [-0.005, 0) should pass (evaluation noise floor).
+    return 0 if delta >= -0.005 else 1
 
 
 def main() -> None:
@@ -252,7 +263,15 @@ def main() -> None:
         "--output-json",
         help="Write result JSON to this path (optional).",
     )
+    parser.add_argument(
+        "--python-bin",
+        default=None,
+        help="Python interpreter to use for inner run-unified.py subprocess. "
+             "Defaults to the same interpreter that evaluate_checkpoint.py was invoked with.",
+    )
     args = parser.parse_args()
+
+    python_bin = Path(args.python_bin) if args.python_bin else PYTHON
 
     try:
         exit_code = evaluate(
@@ -263,6 +282,7 @@ def main() -> None:
             images=args.images,
             output_json=Path(args.output_json) if args.output_json else None,
             attack_params=args.attack_params or [],
+            python_bin=python_bin,
         )
     except (FileNotFoundError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

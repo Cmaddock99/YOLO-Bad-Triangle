@@ -47,9 +47,11 @@ class YOLOModelAdapter(BaseModel):
         box = getattr(results, "box", None)
         if box is None:
             return {"precision": None, "recall": None, "mAP50": None, "mAP50-95": None}
+        def _to_float_or_none(val: object) -> float | None:
+            return float(val) if val is not None else None
         return {
-            "precision": float(getattr(box, "mp", 0.0)),
-            "recall": float(getattr(box, "mr", 0.0)),
-            "mAP50": float(getattr(box, "map50", 0.0)),
-            "mAP50-95": float(getattr(box, "map", 0.0)),
+            "precision": _to_float_or_none(getattr(box, "mp", None)),
+            "recall": _to_float_or_none(getattr(box, "mr", None)),
+            "mAP50": _to_float_or_none(getattr(box, "map50", None)),
+            "mAP50-95": _to_float_or_none(getattr(box, "map", None)),
         }

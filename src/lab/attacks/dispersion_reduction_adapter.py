@@ -23,7 +23,7 @@ class _DispersionReductionCore:
         self.alpha = alpha
         self.layer_indices = layer_indices
 
-    def apply_to_tensor(self, x0: torch.Tensor, torch_model: torch.nn.Module) -> torch.Tensor:
+    def apply_to_tensor(self, x0: torch.Tensor, torch_model: torch.nn.Module, *, seed: int | None = None) -> torch.Tensor:
         device = x0.device
         torch_model = torch_model.to(device)
         torch_model.eval()
@@ -57,8 +57,14 @@ class _DispersionReductionCore:
                     f"Valid range: 0–{len(torch_model.model) - 1}."
                 )
 
-            # Random start within epsilon ball
-            x_adv = (x0 + torch.empty_like(x0).uniform_(-self.epsilon, self.epsilon)).clamp(0, 1)
+            # Random start within epsilon ball (seeded for reproducibility when seed is given)
+            generator: torch.Generator | None = None
+            if seed is not None:
+                generator = torch.Generator(device="cpu")
+                generator.manual_seed(int(seed))
+            noise = torch.empty_like(x0).uniform_(-self.epsilon, self.epsilon) if generator is None \
+                else torch.empty(x0.shape).uniform_(-self.epsilon, self.epsilon, generator=generator).to(x0.device)
+            x_adv = (x0 + noise).clamp(0, 1)
 
             for _ in range(self.steps):
                 x_adv = x_adv.detach()
@@ -175,11 +181,13 @@ class DispersionReductionAdapter(BaseAttack):
             alpha=self.alpha,
             layer_indices=layer_indices,
         )
-        x_adv = impl.apply_to_tensor(self._to_tensor(image), torch_model)
+        seed = kwargs.get("seed")
+        x_adv = impl.apply_to_tensor(self._to_tensor(image), torch_model, seed=seed)
         return self._to_image(x_adv), {
             "attack": "dispersion_reduction",
             "epsilon": self.epsilon,
             "steps": self.steps,
             "alpha": self.alpha,
             "layers_hooked": layer_indices,
+            "seed": seed,
         }

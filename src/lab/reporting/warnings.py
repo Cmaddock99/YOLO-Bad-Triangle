@@ -13,7 +13,7 @@ WARN_NO_BASELINE = "NO_BASELINE"
 WARN_MULTIPLE_BASELINES = "MULTIPLE_BASELINES"
 WARN_NO_VALIDATION = "NO_VALIDATION"
 WARN_LOW_ATTACK_COUNT = "LOW_ATTACK_COUNT"
-WARN_HIGH_CONFIDENCE_FLOOR = "HIGH_CONFIDENCE_FLOOR"
+WARN_LOW_CONFIDENCE_FLOOR = "LOW_CONFIDENCE_FLOOR"
 WARN_DEFENSE_RECOVERY_UNDEFINED = "DEFENSE_RECOVERY_UNDEFINED"
 WARN_DEFENSE_DEGRADES_PERFORMANCE = "DEFENSE_DEGRADES_PERFORMANCE"
 WARN_ATTACK_BELOW_NOISE = "ATTACK_BELOW_NOISE"
@@ -77,14 +77,15 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
             )
         )
 
-    attack_rows: list[dict[str, Any]] = _prefer_authoritative_rows(
-        list(payload.get("attack_effectiveness_rows") or [])
-    )
-    attack_rows_are_diagnostic_only = _has_only_diagnostic_rows(attack_rows)
+    _all_attack_rows: list[dict[str, Any]] = list(payload.get("attack_effectiveness_rows") or [])
+    # Compute has_validation from the full unfiltered set so Phase 4 rows that are
+    # not authoritative cannot falsely suppress NO_VALIDATION after filtering.
     has_validation = any(
         is_validation_success(r.get("validation_status"))
-        for r in attack_rows
+        for r in _all_attack_rows
     )
+    attack_rows: list[dict[str, Any]] = _prefer_authoritative_rows(_all_attack_rows)
+    attack_rows_are_diagnostic_only = _has_only_diagnostic_rows(attack_rows)
     if not has_validation and not attack_rows_are_diagnostic_only:
         warnings.append(
             _warn(
@@ -107,7 +108,7 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
     if baseline_conf is not None and float(baseline_conf) < 0.5:
         warnings.append(
             _warn(
-                WARN_HIGH_CONFIDENCE_FLOOR,
+                WARN_LOW_CONFIDENCE_FLOOR,
                 f"Baseline avg_confidence ({baseline_conf:.4f}) is below 0.5; "
                 "model may be under-confident on this dataset.",
                 baseline_avg_confidence=baseline_conf,
