@@ -14,6 +14,9 @@ WARN_MULTIPLE_BASELINES = "MULTIPLE_BASELINES"
 WARN_NO_VALIDATION = "NO_VALIDATION"
 WARN_LOW_ATTACK_COUNT = "LOW_ATTACK_COUNT"
 WARN_LOW_CONFIDENCE_FLOOR = "LOW_CONFIDENCE_FLOOR"
+# Backward-compatible alias — stored artifacts and old importers used this name.
+# Do not remove until all stored warnings.json files have been migrated.
+WARN_HIGH_CONFIDENCE_FLOOR = WARN_LOW_CONFIDENCE_FLOOR
 WARN_DEFENSE_RECOVERY_UNDEFINED = "DEFENSE_RECOVERY_UNDEFINED"
 WARN_DEFENSE_DEGRADES_PERFORMANCE = "DEFENSE_DEGRADES_PERFORMANCE"
 WARN_ATTACK_BELOW_NOISE = "ATTACK_BELOW_NOISE"
@@ -78,8 +81,14 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
         )
 
     _all_attack_rows: list[dict[str, Any]] = list(payload.get("attack_effectiveness_rows") or [])
-    # Compute has_validation from the full unfiltered set so Phase 4 rows that are
-    # not authoritative cannot falsely suppress NO_VALIDATION after filtering.
+    # Compute has_validation from the full unfiltered set before authority filtering.
+    # Rationale: _prefer_authoritative_rows may return only Phase 1 smoke rows
+    # (which never reach validation_status="complete") even when Phase 4 validate
+    # rows exist in the payload under a different authority value. Checking the
+    # unfiltered set prevents NO_VALIDATION false-positives in that case.
+    # The inverse false-negative (a diagnostic row suppressing the warning) cannot
+    # happen in practice because validation_status="complete" requires a full Phase 4
+    # mAP50 run — Phase 1 smoke rows always have status "partial" or "missing".
     has_validation = any(
         is_validation_success(r.get("validation_status"))
         for r in _all_attack_rows

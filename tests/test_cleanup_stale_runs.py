@@ -142,6 +142,47 @@ class StaleRunCleanupTest(unittest.TestCase):
         # dry-run: dir still exists
         self.assertTrue((self.runs_root / "run_old").is_dir())
 
+    def test_max_delete_blocks_live_run_exceeding_limit(self) -> None:
+        """--max-delete N aborts with exit code 2 when stale count exceeds N."""
+        for i in range(5):
+            _make_run_dir(self.runs_root, f"run_stale_{i}", sha="old_sha", age_hours=48)
+        _make_manifest(self.training_runs, "cycle_001", promoted_sha="new_sha", age_hours=24)
+
+        p1, p2 = self._patch_roots()
+        with p1, p2:
+            rc = cleanup_stale_runs.main(["--max-delete", "3"])
+
+        self.assertEqual(rc, 2)
+        # Nothing deleted
+        for i in range(5):
+            self.assertTrue((self.runs_root / f"run_stale_{i}").is_dir())
+
+    def test_max_delete_does_not_block_dry_run(self) -> None:
+        """--max-delete limit is not enforced in --dry-run mode."""
+        for i in range(5):
+            _make_run_dir(self.runs_root, f"run_dry_{i}", sha="old_sha", age_hours=48)
+        _make_manifest(self.training_runs, "cycle_002", promoted_sha="new_sha", age_hours=24)
+
+        p1, p2 = self._patch_roots()
+        with p1, p2:
+            rc = cleanup_stale_runs.main(["--dry-run", "--max-delete", "3"])
+
+        self.assertEqual(rc, 0)
+
+    def test_max_delete_zero_disables_limit(self) -> None:
+        """--max-delete 0 disables the cap and allows any number of deletions."""
+        for i in range(5):
+            _make_run_dir(self.runs_root, f"run_unlimited_{i}", sha="old_sha", age_hours=48)
+        _make_manifest(self.training_runs, "cycle_003", promoted_sha="new_sha", age_hours=24)
+
+        p1, p2 = self._patch_roots()
+        with p1, p2:
+            rc = cleanup_stale_runs.main(["--max-delete", "0"])
+
+        self.assertEqual(rc, 0)
+        for i in range(5):
+            self.assertFalse((self.runs_root / f"run_unlimited_{i}").exists())
+
     def test_deletes_stale_dirs_in_live_mode(self) -> None:
         """Without --dry-run, stale directories are actually removed."""
         _make_run_dir(self.runs_root, "run_stale", sha="old_sha", age_hours=48)
