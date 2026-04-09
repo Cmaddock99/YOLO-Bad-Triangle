@@ -1921,16 +1921,41 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
                 "See outputs/cycle_status.md for live status.",
             ]
 
+        # Use git plumbing to write the snapshot commit without touching HEAD/local main.
+        # git commit would accumulate unreviewed commits on local main every cycle.
+        # Instead: write the staged tree as a commit object and push that hash directly
+        # to nuc/cycle-snapshots, leaving the local branch graph unchanged.
+        tree_result = subprocess.run(
+            ["git", "write-tree"], cwd=str(REPO), check=True,
+            capture_output=True, text=True,
+        )
+        tree_hash = tree_result.stdout.strip()
+
+        # Parent: tip of the remote snapshot branch (if it exists); otherwise orphan.
+        parent_result = subprocess.run(
+            ["git", "rev-parse", "origin/nuc/cycle-snapshots"],
+            cwd=str(REPO), capture_output=True, text=True,
+        )
+        parent_args = (
+            ["-p", parent_result.stdout.strip()]
+            if parent_result.returncode == 0
+            else []
+        )
+
+        commit_result = subprocess.run(
+            ["git", "commit-tree", tree_hash] + parent_args + ["-m", "\n".join(msg_lines)],
+            cwd=str(REPO), check=True, capture_output=True, text=True,
+        )
+        commit_hash = commit_result.stdout.strip()
+
         subprocess.run(
-            ["git", "commit", "-m", "\n".join(msg_lines)],
+            ["git", "push", "origin", f"{commit_hash}:nuc/cycle-snapshots"],
             cwd=str(REPO), check=True,
         )
-        # Push to a dedicated branch, not HEAD/main, to avoid polluting the main branch
-        # with unreviewed auto-cycle snapshots.  Mirrors the pattern in _push_state_to_branch.
-        subprocess.run(
-            ["git", "push", "origin", "HEAD:nuc/cycle-snapshots"],
-            cwd=str(REPO), check=True,
-        )
+
+        # Reset the index so staged files no longer show as "to be committed".
+        subprocess.run(["git", "reset", "HEAD"], cwd=str(REPO), check=True)
+
         log(f"git_commit_phase: pushed phase {phase_num} snapshot for {cycle_id}")
         _push_state_to_branch(state, phase_num)
     except subprocess.CalledProcessError as exc:

@@ -117,6 +117,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Treat runs older than this timestamp as potentially stale. "
              "Defaults to generated_at from the most recent training_manifest.json.",
     )
+    parser.add_argument(
+        "--max-delete",
+        type=int,
+        default=20,
+        metavar="N",
+        help="Abort if more than N directories would be deleted (default: 20). "
+             "Pass 0 to disable the limit.",
+    )
     args = parser.parse_args(argv)
 
     # Resolve cutoff timestamp
@@ -148,6 +156,14 @@ def main(argv: list[str] | None = None) -> int:
     if not stale:
         print(f"No stale run directories found (cutoff: {cutoff.isoformat()}).")
         return 0
+
+    if args.max_delete > 0 and len(stale) > args.max_delete and not args.dry_run:
+        print(
+            f"ERROR: {len(stale)} stale directories found but --max-delete is {args.max_delete}. "
+            f"Run with --dry-run to review, then pass --max-delete {len(stale)} to confirm.",
+            file=sys.stderr,
+        )
+        return 2
 
     mode = "DRY RUN — would remove" if args.dry_run else "Removing"
     removed = 0
