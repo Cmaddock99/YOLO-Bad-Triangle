@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -26,6 +27,10 @@ EXPECTED_TORCHVISION_VERSION = "0.20.1"
 TORCH_RUNTIME_TIMEOUT_SECONDS = 30
 DEFAULT_DATASET_PATH = "coco/val2017_subset500/images"
 DEFAULT_MODEL_CANDIDATES = ("yolo26n.pt", "yolo11n.pt", "yolo11s.pt", "yolov8n.pt")
+DEFAULT_DPC_CHECKPOINT_CANDIDATES = (
+    "dpc_unet_adversarial_finetuned.pt",
+    "dpc_unet_final_golden.pt",
+)
 CHECKMARK = "✔"
 CROSSMARK = "✘"
 
@@ -52,6 +57,17 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Specific YOLO weights file path to check. "
         "If omitted, common default model files are checked.",
+    )
+    parser.add_argument(
+        "--dpc-checkpoint-path",
+        default=None,
+        help="Specific DPC-UNet checkpoint path to check. "
+        "If omitted, DPC_UNET_CHECKPOINT_PATH and common local filenames are checked.",
+    )
+    parser.add_argument(
+        "--require-cdog",
+        action="store_true",
+        help="Fail the environment check when no usable DPC-UNet checkpoint is found.",
     )
     return parser.parse_args()
 
@@ -268,6 +284,52 @@ def check_model_weights(model_path: str | None) -> CheckResult:
     )
 
 
+def resolve_dpc_checkpoint_path(checkpoint_path: str | None) -> Path | None:
+    if checkpoint_path:
+        candidate = Path(checkpoint_path)
+        return candidate if candidate.exists() else None
+
+    env_candidate = os.environ.get("DPC_UNET_CHECKPOINT_PATH")
+    if env_candidate:
+        candidate = Path(env_candidate)
+        return candidate if candidate.exists() else None
+
+    for candidate_name in DEFAULT_DPC_CHECKPOINT_CANDIDATES:
+        candidate = Path(candidate_name)
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def check_dpc_checkpoint(
+    checkpoint_path: str | None,
+    *,
+    require: bool = False,
+) -> CheckResult:
+    resolved = resolve_dpc_checkpoint_path(checkpoint_path)
+    if resolved is not None:
+        return CheckResult("DPC-UNet checkpoint found", True, detail=str(resolved))
+
+    env_candidate = os.environ.get("DPC_UNET_CHECKPOINT_PATH")
+    if not require and not checkpoint_path and not env_candidate:
+        return CheckResult(
+            "DPC-UNet checkpoint optional",
+            True,
+            detail="Set DPC_UNET_CHECKPOINT_PATH if you plan to run c_dog or c_dog_ensemble.",
+        )
+
+    checked_target = checkpoint_path or env_candidate or ", ".join(DEFAULT_DPC_CHECKPOINT_CANDIDATES)
+    return CheckResult(
+        "DPC-UNet checkpoint missing",
+        False,
+        instruction=(
+            "Place `dpc_unet_adversarial_finetuned.pt` in the repo root, "
+            "or set DPC_UNET_CHECKPOINT_PATH=/absolute/path/to/your_checkpoint.pt."
+        ),
+        detail=f"checked: {checked_target}",
+    )
+
+
 def print_result(result: CheckResult) -> None:
     symbol = CHECKMARK if result.ok else CROSSMARK
     print(f"{symbol} {result.label}")
@@ -294,6 +356,7 @@ def main() -> int:
         ),
         check_torch_runtime_health(),
         check_model_weights(args.model_path),
+        check_dpc_checkpoint(args.dpc_checkpoint_path, require=args.require_cdog),
         check_dataset_path(args.dataset_path),
     ]
 

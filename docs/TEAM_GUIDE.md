@@ -2,6 +2,12 @@
 
 This is the quickest accurate onboarding doc for a teammate joining the repo.
 
+> **Fresh clone / machine setup:** See [FRESH_CLONE_SETUP.md](FRESH_CLONE_SETUP.md)
+> before you assume a normal `git pull` brought the local weights, checkpoint, or dataset.
+
+> **Looking for the full reference?** See [TEAM_MANUAL.md](TEAM_MANUAL.md) — it covers
+> all scripts, attacks, defenses, warning codes, NUC operations, and troubleshooting.
+
 ## What this project is
 
 YOLO-Bad-Triangle is an adversarial robustness experiment lab for YOLO object
