@@ -51,11 +51,19 @@ import fcntl
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+from lab.runners.cli_utils import apply_override, load_yaml_mapping
+from lab.runners.run_intent import (
+    REQUIRED_RUN_ARTIFACTS,
+    build_run_intent,
+    check_run_resume,
+)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -68,6 +76,9 @@ PAUSE_FILE = OUTPUTS / ".cycle.pause"
 HISTORY_DIR = OUTPUTS / "cycle_history"
 LOG_DIR = REPO / "logs"
 PYTHON = REPO / ".venv" / "bin" / "python"
+RUN_SINGLE_CONFIG_REL = "configs/default.yaml"
+RUN_SINGLE_CONFIG = REPO / RUN_SINGLE_CONFIG_REL
+_REQUIRED_RUN_ARTIFACTS = REQUIRED_RUN_ARTIFACTS
 CURRENT_PIPELINE_SEMANTICS = "attack_then_defense"
 LEGACY_PIPELINE_SEMANTICS = "defense_then_attack"
 UNKNOWN_PIPELINE_SEMANTICS = "legacy_unknown"
@@ -458,7 +469,48 @@ def run_sweep(
     return result.returncode == 0
 
 
-_REQUIRED_RUN_ARTIFACTS = ("predictions.jsonl", "run_summary.json", "metrics.json")
+def _run_single_override_assignments(
+    *,
+    attack: str,
+    defense: str,
+    run_name: str,
+    runs_root: str,
+    overrides: dict | None = None,
+    preset: str = "smoke",
+    validation: bool = False,
+    max_images_override: int | None = None,
+    reporting_context: dict[str, str] | None = None,
+) -> list[str]:
+    # Generic preset defaults used by manual callers. auto_cycle overrides
+    # Phase 1/2 smoke runs to 32 images and tune runs to TUNE_MAX_IMAGES.
+    max_images = (
+        str(max_images_override)
+        if max_images_override is not None
+        else {"smoke": "8", "tune": str(TUNE_MAX_IMAGES), "full": "0"}.get(preset, "0")
+    )
+    assignments = [
+        f"attack.name={attack}",
+        f"defense.name={defense}",
+        f"runner.run_name={run_name}",
+        f"runner.output_root={runs_root}",
+        f"runner.max_images={max_images}",
+    ]
+    if validation:
+        assignments.append("validation.enabled=true")
+    for key in ("run_role", "dataset_scope", "authority", "source_phase"):
+        value = (reporting_context or {}).get(key)
+        if value:
+            assignments.append(f"reporting_context.{key}={value}")
+    for key, val in (overrides or {}).items():
+        assignments.append(f"{key}={val}")
+    return assignments
+
+
+def _build_run_single_intended_intent(assignments: list[str]) -> dict[str, object]:
+    config = load_yaml_mapping(RUN_SINGLE_CONFIG)
+    for assignment in assignments:
+        apply_override(config, assignment)
+    return build_run_intent(config, cwd=REPO)
 
 
 def run_single(
@@ -474,38 +526,42 @@ def run_single(
     max_images_override: int | None = None,
     reporting_context: dict[str, str] | None = None,
 ) -> bool:
-    """Call run_unified.py for one experiment. Skip if all required artifacts exist."""
+    """Call run_unified.py for one experiment with sweep-parity resume checks."""
     run_dir = Path(runs_root) / run_name
-    if all((run_dir / f).exists() for f in _REQUIRED_RUN_ARTIFACTS):
-        log(f"  skip (exists): {run_name}")
-        return True
-
-    # Generic preset defaults used by manual callers. auto_cycle overrides
-    # Phase 1/2 smoke runs to 32 images and tune runs to TUNE_MAX_IMAGES.
-    max_images = (
-        str(max_images_override)
-        if max_images_override is not None
-        else {"smoke": "8", "tune": str(TUNE_MAX_IMAGES), "full": "0"}.get(preset, "0")
+    assignments = _run_single_override_assignments(
+        attack=attack,
+        defense=defense,
+        run_name=run_name,
+        runs_root=runs_root,
+        overrides=overrides,
+        preset=preset,
+        validation=validation,
+        max_images_override=max_images_override,
+        reporting_context=reporting_context,
     )
+    intended_intent = _build_run_single_intended_intent(assignments)
+
+    # Resume parity now matches sweep resume checks: only exact run-intent
+    # matches skip, so checkpoint promotion no longer requires manual stale-dir deletion.
+    resume_action, resume_reason = check_run_resume(run_dir, intended_intent)
+    if resume_action == "skipped_exact":
+        log(f"  skip: {run_name} ({resume_reason})")
+        return True
+    if resume_action in {"reran_partial", "reran_mismatch"}:
+        log(f"  rerun: {run_name} ({resume_reason})")
+        if run_dir.is_dir():
+            shutil.rmtree(run_dir)
+        elif run_dir.exists():
+            run_dir.unlink()
+    else:
+        log(f"  run: {run_name}")
+
     cmd = [
         str(PYTHON), "scripts/run_unified.py", "run-one",
-        "--config", "configs/default.yaml",
-        "--set", f"attack.name={attack}",
-        "--set", f"defense.name={defense}",
-        "--set", f"runner.run_name={run_name}",
-        "--set", f"runner.output_root={runs_root}",
-        "--set", f"runner.max_images={max_images}",
+        "--config", RUN_SINGLE_CONFIG_REL,
     ]
-    if validation:
-        cmd += ["--set", "validation.enabled=true"]
-    for key in ("run_role", "dataset_scope", "authority", "source_phase"):
-        value = (reporting_context or {}).get(key)
-        if value:
-            cmd += ["--set", f"reporting_context.{key}={value}"]
-    for key, val in (overrides or {}).items():
-        cmd += ["--set", f"{key}={val}"]
-
-    log(f"  run: {run_name}")
+    for assignment in assignments:
+        cmd += ["--set", assignment]
     try:
         result = subprocess.run(cmd, cwd=str(REPO), env=_env(), timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
@@ -1869,11 +1925,12 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
             ["git", "commit", "-m", "\n".join(msg_lines)],
             cwd=str(REPO), check=True,
         )
+        # Push to a dedicated branch, not HEAD/main, to avoid polluting the main branch
+        # with unreviewed auto-cycle snapshots.  Mirrors the pattern in _push_state_to_branch.
         subprocess.run(
-            ["git", "pull", "--rebase", "origin", "main"],
+            ["git", "push", "origin", "HEAD:nuc/cycle-snapshots"],
             cwd=str(REPO), check=True,
         )
-        subprocess.run(["git", "push"], cwd=str(REPO), check=True)
         log(f"git_commit_phase: pushed phase {phase_num} snapshot for {cycle_id}")
         _push_state_to_branch(state, phase_num)
     except subprocess.CalledProcessError as exc:

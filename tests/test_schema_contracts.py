@@ -41,5 +41,80 @@ class SchemaContractsTest(unittest.TestCase):
             )
 
 
+class WS6SchemaContractsTest(unittest.TestCase):
+    """WS6 tests: schema-ID consistency, zero-row CSV, status enum, duplicate alias."""
+
+    def test_schema_ids_consistent_with_files(self) -> None:
+        """Every key in SCHEMA_IDS must have a corresponding schema file in schemas/v1/."""
+        from lab.config.contracts import SCHEMA_IDS
+        schema_root = Path("schemas/v1").resolve()
+        for key, schema_id in SCHEMA_IDS.items():
+            # Derive expected file name from the schema id (e.g. "cycle_summary/v1" → cycle_summary.schema.json)
+            base = schema_id.split("/")[0]
+            expected_file = schema_root / f"{base}.schema.json"
+            self.assertTrue(
+                expected_file.is_file(),
+                msg=f"SCHEMA_IDS['{key}'] = '{schema_id}' has no matching file {expected_file}",
+            )
+
+    def test_schema_files_have_id_fields(self) -> None:
+        """Every schema file in schemas/v1/ must have an 'id' field."""
+        schema_root = Path("schemas/v1").resolve()
+        for path in sorted(schema_root.glob("*.schema.json")):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertIn("id", payload, msg=f"Schema missing 'id': {path.name}")
+
+    def test_zero_row_csv_fails_validation(self) -> None:
+        """validate_legacy_csv_file must raise ValueError on an empty CSV."""
+        import tempfile
+        from lab.health_checks.schema import validate_legacy_csv_file
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "empty.csv"
+            csv_path.write_text("col_a,col_b\n", encoding="utf-8")
+            schema_path = Path(tmp) / "schema.json"
+            schema_path.write_text(
+                json.dumps({"id": "test/v1", "required_columns": ["col_a"]}),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                validate_legacy_csv_file(path=csv_path, schema_file=schema_path)
+
+    def test_duplicate_attack_plugin_alias_raises(self) -> None:
+        """Registering the same alias to a different class must raise ValueError."""
+        from lab.core.plugin_registry import PluginRegistry
+
+        class _Base:
+            pass
+
+        registry: PluginRegistry[_Base] = PluginRegistry("test")
+
+        @registry.register("tool_a")
+        class ClassA(_Base):
+            pass
+
+        class ClassB(_Base):
+            pass
+
+        with self.assertRaises(ValueError):
+            registry.register("tool_a")(ClassB)
+
+    def test_same_class_re_registered_under_same_alias_is_idempotent(self) -> None:
+        """Re-registering the SAME class under the same alias must not raise."""
+        from lab.core.plugin_registry import PluginRegistry
+
+        class _Base:
+            pass
+
+        registry: PluginRegistry[_Base] = PluginRegistry("test")
+
+        @registry.register("myalias")
+        class ClassA(_Base):
+            pass
+
+        # Same class, same alias — must not raise
+        registry.register("myalias")(ClassA)
+        self.assertIs(registry.get("myalias"), ClassA)
+
+
 if __name__ == "__main__":
     unittest.main()

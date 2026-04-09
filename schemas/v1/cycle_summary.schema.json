@@ -1,0 +1,16 @@
+{
+  "id": "cycle_summary/v1",
+  "type": "object",
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {
+      "const": "cycle_summary/v1"
+    },
+    "cycle_id": {"type": "string"},
+    "started_at": {"type": "string"},
+    "finished_at": {"type": "string"},
+    "top_attacks": {"type": "array", "items": {"type": "string"}},
+    "top_defenses": {"type": "array", "items": {"type": "string"}},
+    "validation_results": {"type": "object"}
+  }
+}

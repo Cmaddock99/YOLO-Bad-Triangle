@@ -11,6 +11,10 @@ import torch.nn.functional as F
 
 from lab.config.contracts import PIXEL_MAX
 
+# Below-production-default threshold used to count detections inside the attack loop.
+# Intentionally low so weak detections are still counted against the adversary.
+_DETECTION_CONF_THRESHOLD = 0.1
+
 from .base_attack import BaseAttack
 from .fgsm_adapter import FGSMAttack
 from .framework_registry import register_attack_plugin
@@ -62,7 +66,7 @@ class CWAttack(FGSMAttack):
         for t in self._iter_output_tensors(outputs):
             if t.ndim >= 2 and t.shape[-1] >= 5:
                 conf = t[..., 4]
-                count += int((conf > 0.1).sum().item())
+                count += int((conf > _DETECTION_CONF_THRESHOLD).sum().item())
         return count
 
     # ------------------------------------------------------------------
@@ -177,6 +181,9 @@ class CWAttack(FGSMAttack):
             "c": c_current,
             "max_iter": self.max_iter,
             "binary_search_steps": self.binary_search_steps,
+            # self.confidence is stored but not yet used in the loss term;
+            # reserved for a future margin-based stopping criterion.
+            "confidence_used": False,
         }
 
 

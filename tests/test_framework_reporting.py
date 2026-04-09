@@ -21,6 +21,7 @@ from lab.reporting.warnings import (
     WARN_DEFENSE_DEGRADES_PERFORMANCE,
     WARN_DEFENSE_RECOVERY_UNDEFINED,
     WARN_LOW_ATTACK_COUNT,
+    WARN_LOW_CONFIDENCE_FLOOR,
     WARN_MISSING_PER_CLASS,
     WARN_MULTIPLE_BASELINES,
     WARN_NO_VALIDATION,
@@ -1050,6 +1051,76 @@ class WS1AtomicWriteTest(unittest.TestCase):
             self.assertEqual(tmp_files, [], f"Leftover .tmp after write_team_summary: {tmp_files}")
             self.assertTrue((report_root / "team_summary.json").exists())
             self.assertTrue((report_root / "team_summary.md").exists())
+
+
+class WS3WarningCorrectnessTest(unittest.TestCase):
+    """WS3 tests: warning code rename, NO_VALIDATION pre-filter, attack_signature dedup."""
+
+    def _make_payload(
+        self,
+        *,
+        attack_rows: list[dict] | None = None,
+        baseline_avg_confidence: float | None = None,
+    ) -> dict:
+        baseline: dict = {"run_name": "baseline", "candidate_count": 1}
+        if baseline_avg_confidence is not None:
+            baseline["avg_confidence"] = baseline_avg_confidence
+        return {
+            "baseline": baseline,
+            "attack_effectiveness_rows": attack_rows or [],
+            "defense_recovery_rows": [],
+            "per_class_vulnerability_rows": [],
+        }
+
+    def test_warn_low_confidence_floor_code_is_correct_string(self) -> None:
+        """The renamed constant must carry the correct string value."""
+        self.assertEqual(WARN_LOW_CONFIDENCE_FLOOR, "LOW_CONFIDENCE_FLOOR")
+
+    def test_warn_low_confidence_floor_fires_when_confidence_below_half(self) -> None:
+        """evaluate_warnings must emit LOW_CONFIDENCE_FLOOR (not HIGH_*) when avg_confidence < 0.5."""
+        payload = self._make_payload(baseline_avg_confidence=0.3)
+        warnings = evaluate_warnings(payload)
+        codes = [w["code"] for w in warnings]
+        self.assertIn(WARN_LOW_CONFIDENCE_FLOOR, codes)
+        self.assertNotIn("HIGH_CONFIDENCE_FLOOR", codes)
+
+    def test_no_validation_not_fired_when_phase4_rows_exist_but_not_authoritative(self) -> None:
+        """NO_VALIDATION must be suppressed when full (unfiltered) rows have a success status,
+        even if those rows are not authoritative and get filtered out by _prefer_authoritative_rows.
+
+        The bug: has_validation was computed AFTER _prefer_authoritative_rows stripped Phase 4
+        rows, causing a false NO_VALIDATION warning. The fix computes has_validation first.
+        """
+        from lab.config.contracts import REPORTING_AUTHORITY_DIAGNOSTIC, REPORTING_AUTHORITY_AUTHORITATIVE
+        # One authoritative diagnostic-only smoke row (no validation success)
+        authoritative_smoke = {
+            "authority": REPORTING_AUTHORITY_AUTHORITATIVE,
+            "validation_status": "missing",
+            "attack": "fgsm",
+        }
+        # One non-authoritative Phase 4 row with a real validation success
+        phase4_row = {
+            "authority": REPORTING_AUTHORITY_DIAGNOSTIC,
+            "validation_status": "complete",
+            "attack": "fgsm",
+        }
+        payload = self._make_payload(attack_rows=[authoritative_smoke, phase4_row])
+        warnings = evaluate_warnings(payload)
+        codes = [w["code"] for w in warnings]
+        self.assertNotIn(WARN_NO_VALIDATION, codes)
+
+    def test_no_validation_still_fires_when_all_rows_lack_success(self) -> None:
+        """NO_VALIDATION must still fire when no row anywhere has a success status."""
+        from lab.config.contracts import REPORTING_AUTHORITY_AUTHORITATIVE
+        row = {
+            "authority": REPORTING_AUTHORITY_AUTHORITATIVE,
+            "validation_status": "missing",
+            "attack": "fgsm",
+        }
+        payload = self._make_payload(attack_rows=[row, row])
+        warnings = evaluate_warnings(payload)
+        codes = [w["code"] for w in warnings]
+        self.assertIn(WARN_NO_VALIDATION, codes)
 
 
 if __name__ == "__main__":

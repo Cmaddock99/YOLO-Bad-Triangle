@@ -507,16 +507,20 @@ def _merge_effectiveness_and_recovery(
     attack_rows: list[dict[str, Any]],
     recovery_rows: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Merge attack rows with their defense recovery data (left join)."""
-    # Build lookup: (model, seed, attack) → list of recovery rows
+    """Merge attack rows with their defense recovery data (left join).
+
+    The merge key includes attack_signature so that two attacks with the same
+    name but different objective_mode/target_class/etc. are not cross-merged.
+    """
+    # Build lookup: (model, seed, attack, attack_signature) → list of recovery rows
     recovery_lookup: dict[tuple, list[dict[str, Any]]] = {}
     for r in recovery_rows:
-        key = (r.get("model"), r.get("seed"), r.get("attack"))
+        key = (r.get("model"), r.get("seed"), r.get("attack"), r.get("attack_signature"))
         recovery_lookup.setdefault(key, []).append(r)
 
     merged: list[dict[str, Any]] = []
     for arow in attack_rows:
-        key = (arow.get("model"), arow.get("seed"), arow.get("attack"))
+        key = (arow.get("model"), arow.get("seed"), arow.get("attack"), arow.get("attack_signature"))
         defenses = recovery_lookup.get(key, [])
         if defenses:
             for drow in defenses:

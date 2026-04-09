@@ -32,6 +32,12 @@ class PluginRegistry(Generic[T]):
             for name in names:
                 key = name.strip().lower()
                 if key:
+                    existing = self._store.get(key)
+                    if existing is not None and existing is not cls:
+                        raise ValueError(
+                            f"Duplicate {self._label} plugin alias '{key}': "
+                            f"{cls} conflicts with existing registration {existing}."
+                        )
                     self._store[key] = cls
             return cls
 

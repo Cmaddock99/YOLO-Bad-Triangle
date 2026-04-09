@@ -71,10 +71,13 @@ def validate_legacy_csv_file(*, path: Path, schema_file: Path) -> None:
         missing_columns = [col for col in required_columns if col not in headers]
         if missing_columns:
             raise ValueError(f"{path} missing required CSV columns: {missing_columns}")
+        rows = list(reader)
+        if not rows:
+            raise ValueError(f"{path} contains no data rows (zero-row CSV would be a false pass)")
         version_info = schema.get("schema_version_column", {})
         version_name = version_info.get("name")
         version_const = version_info.get("const")
-        for idx, row in enumerate(reader, start=2):
+        for idx, row in enumerate(rows, start=2):
             if version_name and version_const and row.get(version_name) != version_const:
                 raise ValueError(
                     f"{path} row {idx} schema_version mismatch: expected {version_const}, got {row.get(version_name)}"

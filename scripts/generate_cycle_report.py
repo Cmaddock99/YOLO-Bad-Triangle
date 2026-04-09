@@ -72,6 +72,7 @@ def _parse_validation(validation_results: dict) -> tuple[dict | None, dict, dict
     baseline: dict | None = None
     attack_map: dict[str, dict] = {}
     defended_map: dict[tuple[str, str], dict] = {}
+    _defended_run_names: dict[tuple[str, str], str] = {}
 
     for _run_name, v in validation_results.items():
         if _is_baseline(v):
@@ -85,7 +86,14 @@ def _parse_validation(validation_results: dict) -> tuple[dict | None, dict, dict
             atk = v.get("attack")
             dfn = v.get("defense")
             if atk and dfn and atk not in ("none", "") and dfn not in ("none", ""):
-                defended_map[(str(atk), str(dfn))] = v
+                key = (str(atk), str(dfn))
+                existing_name = _defended_run_names.get(key, "")
+                is_validate = _run_name.startswith("validate_")
+                existing_is_validate = existing_name.startswith("validate_")
+                # prefer validate_ (Phase 4) rows over smoke (Phase 1) rows
+                if key not in defended_map or (is_validate and not existing_is_validate):
+                    defended_map[key] = v
+                    _defended_run_names[key] = _run_name
 
     return baseline, attack_map, defended_map
 
@@ -136,7 +144,7 @@ def _build_csv_rows(cycles: list[dict]) -> list[dict[str, Any]]:
             atk_map50 = atk_entry.get("mAP50")
             atk_dets = atk_entry.get("detections")
             drop_pct: float | None = None
-            if baseline_dets and atk_dets is not None:
+            if baseline_dets is not None and baseline_dets != 0 and atk_dets is not None:
                 drop_pct = (baseline_dets - atk_dets) / baseline_dets
 
             rows.append({
@@ -163,7 +171,7 @@ def _build_csv_rows(cycles: list[dict]) -> list[dict[str, Any]]:
 
             drop_pct = None
             recovery_pct = None
-            if baseline_dets and atk_dets is not None and def_dets is not None:
+            if baseline_dets is not None and baseline_dets != 0 and atk_dets is not None and def_dets is not None:
                 drop = baseline_dets - atk_dets
                 if drop > 0:
                     recovery_pct = (def_dets - atk_dets) / drop

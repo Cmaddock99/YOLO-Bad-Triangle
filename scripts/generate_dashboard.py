@@ -330,7 +330,7 @@ def _run_table_html(sweep: dict) -> str:
     </table>"""
 
 
-def generate(reports_root: Path, output: Path) -> None:
+def generate(reports_root: Path, output: Path, *, no_pages: bool = False) -> None:
     sweep_dirs = sorted(
         [
             d for d in reports_root.iterdir()
@@ -580,14 +580,15 @@ Plotly.newPlot("trend", {trend_json},
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(html, encoding="utf-8")
-
-    # Also write to docs/index.html for GitHub Pages
-    pages_out = Path("docs/index.html").resolve()
-    pages_out.parent.mkdir(parents=True, exist_ok=True)
-    pages_out.write_text(html, encoding="utf-8")
-
     print(f"Dashboard written to {output}")
-    print(f"  GitHub Pages:  {pages_out}")
+
+    # Write to docs/index.html for GitHub Pages unless suppressed.
+    # Suppressed when: --no-pages is set, OR output already IS docs/index.html.
+    pages_out = Path("docs/index.html").resolve()
+    if not no_pages and output != pages_out:
+        pages_out.parent.mkdir(parents=True, exist_ok=True)
+        pages_out.write_text(html, encoding="utf-8")
+        print(f"  GitHub Pages:  {pages_out}")
     print(f"  Sweeps loaded: {len(sweeps)}")
     print(f"  Latest sweep:  {latest['label']} ({latest['sweep']})")
 
@@ -604,10 +605,17 @@ def main() -> None:
         default="outputs/dashboard.html",
         help="Output HTML file path.",
     )
+    parser.add_argument(
+        "--no-pages",
+        action="store_true",
+        default=False,
+        help="Skip writing docs/index.html for GitHub Pages.",
+    )
     args = parser.parse_args()
     generate(
         reports_root=Path(args.reports_root).expanduser().resolve(),
         output=Path(args.output).expanduser().resolve(),
+        no_pages=args.no_pages,
     )
 
 

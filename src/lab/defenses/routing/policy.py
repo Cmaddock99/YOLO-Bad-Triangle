@@ -1,8 +1,18 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from .attack_detector import AttackSignal
+
+LOGGER = logging.getLogger(__name__)
+
+_KNOWN_ATTACK_HINTS = frozenset({
+    "", "none", "identity",
+    "fgsm", "pgd", "ifgsm", "bim",
+    "deepfool",
+    "square", "cw",
+})
 
 
 @dataclass(frozen=True)
@@ -19,6 +29,10 @@ def choose_route(
     thresholds: RoutingThresholds,
 ) -> str:
     hint = (attack_hint or "").strip().lower()
+    if hint not in _KNOWN_ATTACK_HINTS:
+        LOGGER.warning(
+            "routing: unknown attack hint '%s', falling back to signal-based routing.", hint
+        )
     if hint in {"none", "identity", ""} and signal.high_freq_energy < thresholds.low_noise_hf:
         return "passthrough"
     if hint in {"fgsm", "pgd", "ifgsm", "bim"}:

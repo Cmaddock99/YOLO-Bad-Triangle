@@ -58,6 +58,7 @@ class _BaseCDogAdapter(BaseDefense):
     _model: DPCUNet = field(init=False, repr=False)
     _cfg: WrapperInputConfig = field(init=False, repr=False)
     _loaded: bool = field(default=False, init=False, repr=False)
+    _checkpoint_sha256: str | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self._cfg = WrapperInputConfig(
@@ -84,6 +85,9 @@ class _BaseCDogAdapter(BaseDefense):
         model.load_state_dict(state_dict, strict=True)
         model.eval()
         self._model = model
+        # Hash at load time so checkpoint_provenance() returns a stable value even if
+        # the file is later modified or replaced on disk.
+        self._checkpoint_sha256 = _sha256_file(checkpoint)
         self._loaded = True
 
     def _routing_thresholds(self) -> RoutingThresholds:
@@ -100,7 +104,8 @@ class _BaseCDogAdapter(BaseDefense):
         resolved = Path(raw).expanduser().resolve()
         if not resolved.is_file():
             return []
-        digest = _sha256_file(resolved)
+        # Use cached hash from load time; fall back to re-hashing if not loaded yet.
+        digest = self._checkpoint_sha256 if self._loaded else _sha256_file(resolved)
         if digest is None:
             return []
         return [{"path": str(resolved), "sha256": digest}]
@@ -186,11 +191,21 @@ class CDogDefenseAdapter(_BaseCDogAdapter):
             )
         if self.sharpen_alpha > 0.0:
             output = sharpen_image(output, alpha=float(self.sharpen_alpha))
+        if schedule:
+            # Multipass: timestep is meaningless (multiple values were used); report schedule instead.
+            timestep_meta: float | None = None
+            schedule_meta: str | None = self.timestep_schedule or None
+            passes_meta: int = len(schedule)
+        else:
+            timestep_meta = float(self.timestep)
+            schedule_meta = None
+            passes_meta = 1
         return output, adapter_stage_metadata(
             self._stage_name, "preprocess",
             checkpoint_path=str(Path(self.checkpoint_path).expanduser()),
-            timestep=float(self.timestep),
-            timestep_schedule=self.timestep_schedule or None,
+            timestep=timestep_meta,
+            timestep_schedule=schedule_meta,
+            passes=passes_meta,
             sharpen_alpha=float(self.sharpen_alpha),
             color_order=self._cfg.color_order,
             scaling=self._cfg.scaling,
