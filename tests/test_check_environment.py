@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts import check_environment
 
@@ -89,6 +90,35 @@ class CheckEnvironmentTest(unittest.TestCase):
             (labels_dir / "a.txt").write_text("0 0.5 0.5 0.1 0.1\n", encoding="utf-8")
             result = check_environment.check_dataset_path(str(images_dir))
             self.assertTrue(result.ok)
+
+    def test_dpc_checkpoint_optional_passes_when_not_required(self) -> None:
+        with patch.dict("os.environ", {}, clear=True), patch.object(
+            check_environment,
+            "DEFAULT_DPC_CHECKPOINT_CANDIDATES",
+            ("missing_checkpoint_a.pt", "missing_checkpoint_b.pt"),
+        ):
+            result = check_environment.check_dpc_checkpoint(None, require=False)
+        self.assertTrue(result.ok)
+        self.assertIn("optional", result.label.lower())
+
+    def test_dpc_checkpoint_required_fails_when_missing(self) -> None:
+        with patch.dict("os.environ", {}, clear=True), patch.object(
+            check_environment,
+            "DEFAULT_DPC_CHECKPOINT_CANDIDATES",
+            ("missing_checkpoint_a.pt", "missing_checkpoint_b.pt"),
+        ):
+            result = check_environment.check_dpc_checkpoint(None, require=True)
+        self.assertFalse(result.ok)
+        self.assertIn("checkpoint", result.label.lower())
+
+    def test_dpc_checkpoint_passes_when_env_points_to_existing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = Path(tmp) / "dpc_unet_adversarial_finetuned.pt"
+            checkpoint.write_bytes(b"stub")
+            with patch.dict("os.environ", {"DPC_UNET_CHECKPOINT_PATH": str(checkpoint)}, clear=True):
+                result = check_environment.check_dpc_checkpoint(None, require=True)
+        self.assertTrue(result.ok)
+        self.assertIn(str(checkpoint), result.detail or "")
 
 
 if __name__ == "__main__":
