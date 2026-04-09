@@ -10,6 +10,8 @@ SCHEMA_ID_CYCLE_SUMMARY = "cycle_summary/v1"
 SCHEMA_ID_WARNINGS = "warnings/v1"
 SCHEMA_ID_HEADLINE_METRICS_CSV = "headline_metrics_csv/v1"
 SCHEMA_ID_PER_CLASS_VULNERABILITY_CSV = "per_class_vulnerability_csv/v1"
+SCHEMA_ID_SYSTEM_HEALTH_SUMMARY = "system_health_summary/v1"
+SCHEMA_ID_DEMO_MANIFEST = "demo_manifest/v1"
 
 SCHEMA_IDS = MappingProxyType(
     {
@@ -20,6 +22,8 @@ SCHEMA_IDS = MappingProxyType(
         "warnings": SCHEMA_ID_WARNINGS,
         "headline_metrics_csv": SCHEMA_ID_HEADLINE_METRICS_CSV,
         "per_class_vulnerability_csv": SCHEMA_ID_PER_CLASS_VULNERABILITY_CSV,
+        "system_health_summary": SCHEMA_ID_SYSTEM_HEALTH_SUMMARY,
+        "demo_manifest": SCHEMA_ID_DEMO_MANIFEST,
     }
 )
 

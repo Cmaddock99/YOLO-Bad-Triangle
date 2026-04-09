@@ -126,6 +126,8 @@ class StrictLoadReport:
     error_message: str | None
 
 
+# TODO (WS5): wire strict_load_with_report into _ensure_loaded so strict loading with
+# a logged report is the default load path. Currently not called at runtime.
 def strict_load_with_report(model: nn.Module, state_dict: dict[str, Tensor]) -> StrictLoadReport:
     try:
         incompatible = model.load_state_dict(state_dict, strict=True)
@@ -242,10 +244,14 @@ def run_wrapper_multipass_on_bgr_image(
     model = model.to(device=device)
     model.eval()
     current = image_bgr_to_model_tensor(image_bgr, cfg=cfg).to(device=device)
+    output = current  # initialise so final_output is defined even if schedule is empty
     for t in timestep_schedule:
         output = model(current, timestep=float(t))
-        # Re-encode via uint8 round-trip to stay in valid image space between passes.
+        # NaN guard: catch non-finite output before the round-trip clamp.
         arr = output.squeeze(0).permute(1, 2, 0).cpu().numpy().astype(np.float32)
+        if not np.isfinite(arr).all():
+            raise RuntimeError(f"DPC-UNet produced non-finite output at timestep {t}")
+        # Re-encode via uint8 round-trip to stay in valid image space between passes.
         if cfg.normalize:
             mean = np.asarray(cfg.mean, dtype=np.float32).reshape(1, 1, 3)
             std = np.asarray(cfg.std, dtype=np.float32).reshape(1, 1, 3)
@@ -257,7 +263,8 @@ def run_wrapper_multipass_on_bgr_image(
         if cfg.color_order == "rgb":
             intermediate = cv2.cvtColor(intermediate, cv2.COLOR_RGB2BGR)
         current = image_bgr_to_model_tensor(intermediate, cfg=cfg).to(device=device)
-    final_output = model(current, timestep=float(timestep_schedule[-1]))
+    # Use the output from the last loop iteration — no extra model call after the schedule.
+    final_output = output
     finite = bool(torch.isfinite(final_output).all().item())
     stats = {
         "finite": finite,

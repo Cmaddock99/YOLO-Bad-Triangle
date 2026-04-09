@@ -118,7 +118,10 @@ def resolve_latest_dir(
     if not parent.is_dir():
         raise FileNotFoundError(f"Directory not found: {parent}")
     keep = predicate or (lambda _: True)
-    candidates = sorted((path for path in parent.iterdir() if path.is_dir() and keep(path)), key=lambda p: p.name)
+    candidates = sorted(
+        (path for path in parent.iterdir() if path.is_dir() and keep(path)),
+        key=lambda p: (p.stat().st_mtime, p.name),
+    )
     if not candidates:
         raise FileNotFoundError(f"No {description} found under {parent}")
     return candidates[-1]

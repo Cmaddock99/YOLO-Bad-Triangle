@@ -12,6 +12,10 @@ import torch.nn.functional as F
 
 from lab.config.contracts import PIXEL_MAX
 
+# Below-production-default threshold used to score detections inside the attack loop.
+# Intentionally low so weak detections are still counted against the adversary.
+_DETECTION_CONF_THRESHOLD = 0.1
+
 from .base_attack import BaseAttack
 from .fgsm_adapter import FGSMAttack
 from .framework_registry import register_attack_plugin
@@ -53,7 +57,7 @@ class SquareAttack:
         for t in FGSMAttack._iter_output_tensors(outputs):
             if t.ndim >= 2 and t.shape[-1] >= 5:
                 conf = t[..., 4]
-                total += float(conf[conf > 0.1].sum().item())
+                total += float(conf[conf > _DETECTION_CONF_THRESHOLD].sum().item())
         return total
 
     def _apply_to_tensor(
@@ -93,9 +97,12 @@ class SquareAttack:
                 top = int(torch.randint(0, max(1, h - sq_h + 1), (1,), generator=generator).item())
                 left = int(torch.randint(0, max(1, w - sq_w + 1), (1,), generator=generator).item())
 
-                # ±eps perturbation sign chosen per-channel
-                sign = torch.randint(0, 2, (1, x_padded.shape[1], sq_h, sq_w),
-                                     generator=generator, device=device).float() * 2.0 - 1.0
+                # ±eps perturbation sign chosen per-channel.
+                # Generate on CPU to avoid device/generator mismatch, then move to target device.
+                sign = (
+                    torch.randint(0, 2, (1, x_padded.shape[1], sq_h, sq_w), generator=generator)
+                    .float() * 2.0 - 1.0
+                ).to(device)
 
                 candidate = best.clone()
                 candidate[:, :, top:top + sq_h, left:left + sq_w] = torch.clamp(

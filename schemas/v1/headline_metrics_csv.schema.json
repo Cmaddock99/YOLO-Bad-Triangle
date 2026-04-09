@@ -1,0 +1,8 @@
+{
+  "id": "headline_metrics_csv/v1",
+  "description": "Schema for headline_metrics.csv produced by auto_summary.",
+  "type": "csv",
+  "required_columns": [
+    "model", "attack", "defense", "baseline_mAP50", "mAP50_effectiveness"
+  ]
+}

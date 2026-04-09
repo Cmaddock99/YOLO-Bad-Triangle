@@ -212,11 +212,12 @@ def main() -> None:
 
     if not usable_attacks:
         print(
-            f"[warn] No usable attacked image pairs found under {runs_root}. "
+            f"[error] No usable attacked image pairs found under {runs_root}. "
             "Phase 1/2 smoke runs must have completed before export. "
-            "Skipping export — no zip written."
+            "No zip written — exiting with code 2 so callers do not reuse a stale zip.",
+            file=sys.stderr,
         )
-        sys.exit(0)
+        sys.exit(2)
 
     output_zip.parent.mkdir(parents=True, exist_ok=True)
 

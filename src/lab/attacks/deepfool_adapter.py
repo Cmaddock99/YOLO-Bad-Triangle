@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from lab.config.contracts import ATTACK_OBJECTIVE_UNTARGETED
+from lab.config.contracts import ATTACK_OBJECTIVE_CLASS_HIDE, ATTACK_OBJECTIVE_TARGET_CLASS, ATTACK_OBJECTIVE_UNTARGETED
 from lab.config.contracts import PIXEL_MAX
 
 from .base_attack import BaseAttack
@@ -73,9 +73,9 @@ class DeepFoolAttack(FGSMAttack):
                     f"target_class {target_class} out of range for logits size {max_classes}"
                 )
             target = class_logits[..., target_class].mean()
-            if self.objective.mode == "target_class_misclassification":
+            if self.objective.mode == ATTACK_OBJECTIVE_TARGET_CLASS:
                 return -target  # maximize this objective in DeepFool loop.
-            if self.objective.mode == "class_conditional_hiding":
+            if self.objective.mode == ATTACK_OBJECTIVE_CLASS_HIDE:
                 if max_classes <= 1:
                     return target
                 other_idx = [idx for idx in range(max_classes) if idx != target_class]
