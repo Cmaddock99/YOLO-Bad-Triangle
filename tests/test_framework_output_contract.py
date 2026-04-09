@@ -231,17 +231,30 @@ class FrameworkOutputContractTests(unittest.TestCase):
             metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
             self.assertIn("predictions", metrics)
             self.assertIn("validation", metrics)
+            self.assertIn("runtime", metrics)
             self.assertIn("status", metrics["validation"])
             self.assertIn(metrics["validation"]["status"], {"missing", "partial", "complete", "error"})
             for key in ("image_count", "images_with_detections", "total_detections"):
                 self.assertIn(key, metrics["predictions"])
             confidence_mean = metrics["predictions"]["confidence"]["mean"]
             self.assertTrue(confidence_mean is None or math.isfinite(float(confidence_mean)))
+            self.assertGreater(float(metrics["runtime"]["total_ms"]), 0.0)
+            for key in (
+                "attack_ms",
+                "defense_preprocess_ms",
+                "image_write_ms",
+                "predict_ms",
+                "defense_postprocess_ms",
+                "validation_ms",
+                "artifact_write_ms",
+            ):
+                self.assertIn(key, metrics["runtime"])
 
             run_summary = json.loads(run_summary_path.read_text(encoding="utf-8"))
             for key in ("run_dir", "metrics_path", "processed_image_count", "prediction_record_count"):
                 self.assertIn(key, run_summary)
             self.assertNotIn("reporting_context", run_summary)
+            self.assertIn("runtime", run_summary)
             self.assertIn("pipeline", run_summary)
             self.assertEqual(
                 run_summary["pipeline"]["transform_order"],
@@ -256,6 +269,10 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
             self.assertEqual(metrics["provenance"]["semantic_order"], "attack_then_defense")
+            self.assertIn(run_summary["runtime"]["device_hint"], {"cpu", "mps", "cuda"})
+            self.assertIn("python_version", run_summary["runtime"])
+            self.assertIn("platform", run_summary["runtime"])
+            self.assertGreater(float(run_summary["runtime"]["total_ms"]), 0.0)
 
             resolved = yaml.safe_load(resolved_config_path.read_text(encoding="utf-8"))
             self.assertEqual(resolved["attack"]["name"], "none")
@@ -427,8 +444,8 @@ class FrameworkOutputContractTests(unittest.TestCase):
 
             with (
                 patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
-                patch("lab.runners.run_experiment.build_attack_plugin", return_value=attack),
-                patch("lab.runners.run_experiment.build_defense_plugin", return_value=defense),
+                patch("lab.runners.run_intent.build_attack_plugin", return_value=attack),
+                patch("lab.runners.run_intent.build_defense_plugin", return_value=defense),
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
@@ -490,8 +507,8 @@ class FrameworkOutputContractTests(unittest.TestCase):
 
             with (
                 patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
-                patch("lab.runners.run_experiment.build_attack_plugin", side_effect=_build_attack),
-                patch("lab.runners.run_experiment.build_defense_plugin", side_effect=_build_defense),
+                patch("lab.runners.run_intent.build_attack_plugin", side_effect=_build_attack),
+                patch("lab.runners.run_intent.build_defense_plugin", side_effect=_build_defense),
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
@@ -610,7 +627,7 @@ class FrameworkOutputContractTests(unittest.TestCase):
 
             with (
                 patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
-                patch("lab.runners.run_experiment.build_defense_plugin", return_value=_CheckpointedDefense()),
+                patch("lab.runners.run_intent.build_defense_plugin", return_value=_CheckpointedDefense()),
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
@@ -653,7 +670,7 @@ class FrameworkOutputContractTests(unittest.TestCase):
 
             with (
                 patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
-                patch("lab.runners.run_experiment.build_defense_plugin", return_value=_CheckpointedDefense()),
+                patch("lab.runners.run_intent.build_defense_plugin", return_value=_CheckpointedDefense()),
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
@@ -688,7 +705,7 @@ class FrameworkOutputContractTests(unittest.TestCase):
 
             with (
                 patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
-                patch("lab.runners.run_experiment.build_defense_plugin", return_value=_ExplicitEmptyDefense()),
+                patch("lab.runners.run_intent.build_defense_plugin", return_value=_ExplicitEmptyDefense()),
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
@@ -716,7 +733,7 @@ class FrameworkOutputContractTests(unittest.TestCase):
             # _PassthroughDefense has no checkpoint_provenance method
             with (
                 patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
-                patch("lab.runners.run_experiment.build_defense_plugin", return_value=_PassthroughDefense()),
+                patch("lab.runners.run_intent.build_defense_plugin", return_value=_PassthroughDefense()),
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
@@ -771,6 +788,64 @@ class FrameworkOutputContractTests(unittest.TestCase):
             self.assertIn("defense_recovery", report)
             self.assertIn("confidence_drop", report)
             self.assertIn("interpretation", report)
+
+
+class WS1ThreeArtifactContractTest(unittest.TestCase):
+    """Tests for the three-artifact completion contract (WS1)."""
+
+    def test_partial_run_dir_with_metrics_only_is_not_complete(self) -> None:
+        """A directory with only metrics.json must not be treated as a finished run.
+        This validates the _REQUIRED_RUN_ARTIFACTS constant covers all three files."""
+        from scripts.auto_cycle import _REQUIRED_RUN_ARTIFACTS
+
+        self.assertIn("metrics.json", _REQUIRED_RUN_ARTIFACTS)
+        self.assertIn("run_summary.json", _REQUIRED_RUN_ARTIFACTS)
+        self.assertIn("predictions.jsonl", _REQUIRED_RUN_ARTIFACTS)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "partial_run"
+            run_dir.mkdir()
+            (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+            # Only metrics.json — incomplete
+            complete = all((run_dir / f).exists() for f in _REQUIRED_RUN_ARTIFACTS)
+            self.assertFalse(complete, "metrics.json alone must not satisfy the three-artifact check")
+
+    def test_all_three_artifacts_present_is_complete(self) -> None:
+        from scripts.auto_cycle import _REQUIRED_RUN_ARTIFACTS
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "complete_run"
+            run_dir.mkdir()
+            (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+            (run_dir / "run_summary.json").write_text("{}", encoding="utf-8")
+            (run_dir / "predictions.jsonl").write_text("", encoding="utf-8")
+            complete = all((run_dir / f).exists() for f in _REQUIRED_RUN_ARTIFACTS)
+            self.assertTrue(complete)
+
+    def test_run_produces_no_leftover_tmp_files(self) -> None:
+        """After a successful run, no .tmp sentinel files should remain in the run dir."""
+        root = Path(tempfile.mkdtemp())
+        source = root / "images"
+        source.mkdir()
+        image = np.full((40, 60, 3), 127, dtype=np.uint8)
+        import cv2 as _cv2
+        _cv2.imwrite(str(source / "a.jpg"), image)
+
+        config = {
+            "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+            "data": {"source_dir": str(source)},
+            "attack": {"name": "none", "params": {}},
+            "defense": {"name": "none", "params": {}},
+            "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+            "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+            "runner": {"seed": 99, "output_root": str(root / "outputs"), "run_name": "no_tmp_test"},
+        }
+        with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+            summary = UnifiedExperimentRunner(config=config).run()
+
+        run_dir = Path(summary["run_dir"])
+        tmp_files = list(run_dir.glob("*.tmp"))
+        self.assertEqual(tmp_files, [], f"Leftover .tmp files after run: {tmp_files}")
 
 
 if __name__ == "__main__":

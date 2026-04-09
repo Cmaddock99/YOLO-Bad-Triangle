@@ -21,6 +21,8 @@ from pathlib import Path
 
 
 PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.32.0.min.js"
+MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 ATTACK_COLORS = {
     "fgsm": "#4C72B0",
@@ -43,6 +45,13 @@ DEFENSE_LABELS = {
     "median_preprocess": "Median Filter",
     "none": "Undefended",
 }
+_PHASE_PRIORITY = {
+    "phase4": 0,
+    "phase2": 1,
+    "phase1": 2,
+    "phase3": 3,
+    "manual": 4,
+}
 
 
 def _attack_color(attack: str) -> str:
@@ -60,12 +69,65 @@ def _defense_label(defense: str) -> str:
 def _sweep_label(sweep_dir: str) -> str:
     """Convert sweep_20260321T183700Z → Mar 21 17:37."""
     m = re.search(r"(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})", sweep_dir)
-    if not m:
-        return sweep_dir
-    _, mo, day, hr, mn = m.groups()
-    months = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    return f"{months[int(mo)]} {int(day)} {hr}:{mn}"
+    if m:
+        _, mo, day, hr, mn = m.groups()
+        return f"{MONTHS[int(mo)]} {int(day)} {hr}:{mn}"
+    m = re.search(r"(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})", sweep_dir)
+    if m:
+        _, mo, day, hr, mn = m.groups()
+        return f"{MONTHS[int(mo)]} {int(day)} {hr}:{mn}"
+    return sweep_dir
+
+
+def _normalize_text(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def _authority_priority(value: object) -> int:
+    normalized = _normalize_text(value)
+    if normalized == "authoritative":
+        return 0
+    if normalized == "diagnostic":
+        return 1
+    return 2
+
+
+def _phase_priority(value: object) -> int:
+    return _PHASE_PRIORITY.get(_normalize_text(value), len(_PHASE_PRIORITY))
+
+
+def _validation_priority(row: dict[str, str]) -> int:
+    status = _normalize_text(row.get("validation_status"))
+    if status == "complete":
+        return 0
+    if str(row.get("mAP50") or "").strip():
+        return 1
+    return 2
+
+
+def _row_selection_key(row: dict[str, str]) -> tuple[int, int, int, str]:
+    return (
+        _authority_priority(row.get("authority")),
+        _validation_priority(row),
+        _phase_priority(row.get("source_phase")),
+        str(row.get("run_name") or ""),
+    )
+
+
+def _dedupe_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    grouped: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
+    for row in rows:
+        key = (
+            _normalize_text(row.get("model")),
+            str(row.get("seed") or ""),
+            _normalize_text(row.get("attack")),
+            _normalize_text(row.get("defense")),
+        )
+        grouped.setdefault(key, []).append(row)
+    deduped: list[dict[str, str]] = []
+    for key in sorted(grouped):
+        deduped.append(min(grouped[key], key=_row_selection_key))
+    return deduped
 
 
 def _load_sweep(report_dir: Path) -> dict | None:
@@ -79,11 +141,14 @@ def _load_sweep(report_dir: Path) -> dict | None:
             rows.append(row)
     if not rows:
         return None
+    rows = _dedupe_rows(rows)
 
-    # Prefer explicit full-validation baseline when present; fall back to generic none/none.
-    baseline = next((r for r in rows if r.get("run_name") == "validate_baseline"), None)
-    if baseline is None:
-        baseline = next((r for r in rows if r["attack"] == "none" and r["defense"] == "none"), None)
+    baseline_candidates = [
+        row
+        for row in rows
+        if _normalize_text(row.get("attack")) in {"", "none"} and _normalize_text(row.get("defense")) in {"", "none"}
+    ]
+    baseline = min(baseline_candidates, key=_row_selection_key) if baseline_candidates else None
     if not baseline or not baseline.get("total_detections"):
         return None
     baseline_det = float(baseline["total_detections"])
@@ -265,9 +330,12 @@ def _run_table_html(sweep: dict) -> str:
     </table>"""
 
 
-def generate(reports_root: Path, output: Path) -> None:
+def generate(reports_root: Path, output: Path, *, no_pages: bool = False) -> None:
     sweep_dirs = sorted(
-        [d for d in reports_root.iterdir() if d.is_dir() and d.name.startswith("sweep_")],
+        [
+            d for d in reports_root.iterdir()
+            if d.is_dir() and (d.name.startswith("sweep_") or d.name.startswith("cycle_"))
+        ],
         key=lambda d: d.name,
     )
 
@@ -512,14 +580,15 @@ Plotly.newPlot("trend", {trend_json},
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(html, encoding="utf-8")
-
-    # Also write to docs/index.html for GitHub Pages
-    pages_out = Path("docs/index.html").resolve()
-    pages_out.parent.mkdir(parents=True, exist_ok=True)
-    pages_out.write_text(html, encoding="utf-8")
-
     print(f"Dashboard written to {output}")
-    print(f"  GitHub Pages:  {pages_out}")
+
+    # Write to docs/index.html for GitHub Pages unless suppressed.
+    # Suppressed when: --no-pages is set, OR output already IS docs/index.html.
+    pages_out = Path("docs/index.html").resolve()
+    if not no_pages and output != pages_out:
+        pages_out.parent.mkdir(parents=True, exist_ok=True)
+        pages_out.write_text(html, encoding="utf-8")
+        print(f"  GitHub Pages:  {pages_out}")
     print(f"  Sweeps loaded: {len(sweeps)}")
     print(f"  Latest sweep:  {latest['label']} ({latest['sweep']})")
 
@@ -536,10 +605,17 @@ def main() -> None:
         default="outputs/dashboard.html",
         help="Output HTML file path.",
     )
+    parser.add_argument(
+        "--no-pages",
+        action="store_true",
+        default=False,
+        help="Skip writing docs/index.html for GitHub Pages.",
+    )
     args = parser.parse_args()
     generate(
         reports_root=Path(args.reports_root).expanduser().resolve(),
         output=Path(args.output).expanduser().resolve(),
+        no_pages=args.no_pages,
     )
 
 

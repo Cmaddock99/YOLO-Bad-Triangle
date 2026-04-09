@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from lab.config.contracts import ATTACK_OBJECTIVE_UNTARGETED
+from lab.config.contracts import ATTACK_OBJECTIVE_CLASS_HIDE, ATTACK_OBJECTIVE_TARGET_CLASS, ATTACK_OBJECTIVE_UNTARGETED
 from lab.config.contracts import PIXEL_MAX
 
 from .base_attack import BaseAttack
@@ -87,11 +87,11 @@ class FGSMAttack:
             )
         target_logit = class_logits[..., target_class].mean()
 
-        if self.objective.mode == "target_class_misclassification":
+        if self.objective.mode == ATTACK_OBJECTIVE_TARGET_CLASS:
             # Maximize target class activation.
             return target_logit
 
-        if self.objective.mode == "class_conditional_hiding":
+        if self.objective.mode == ATTACK_OBJECTIVE_CLASS_HIDE:
             if max_classes <= 1:
                 return -target_logit
             other_idx = [idx for idx in range(max_classes) if idx != target_class]
@@ -144,6 +144,13 @@ class FGSMAttack:
             if out.ndim == 3:
                 # Common raw YOLO path: (batch, channels, anchors)
                 if out.shape[1] > 6:
+                    if out.shape[-1] > 6:
+                        # Both dims are large; heuristic: treat dim-1 as channels path.
+                        LOGGER.debug(
+                            "_extract_class_logits: ambiguous tensor shape %s — "
+                            "treating dim-1 as channel axis (BCHW convention).",
+                            list(out.shape),
+                        )
                     return out[:, 4:, :].permute(0, 2, 1).float()
                 # Alternate path: (batch, anchors, channels)
                 if out.shape[-1] > 6:

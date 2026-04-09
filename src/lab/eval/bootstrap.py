@@ -7,11 +7,17 @@ from typing import Any
 import numpy as np
 
 
-def _load_predictions(jsonl_path: Path) -> dict[str, dict[str, Any]]:
-    """Load predictions.jsonl → {image_id: record}."""
+def _load_predictions(jsonl_path: Path) -> tuple[dict[str, dict[str, Any]], int]:
+    """Load predictions.jsonl → ({image_id: record}, skipped_lines).
+
+    Lines that fail JSON parsing are counted in skipped_lines and omitted from
+    the returned dict.  Callers should surface skipped_lines when non-zero so
+    that operators can detect truncated or corrupt JSONL files.
+    """
     records: dict[str, dict[str, Any]] = {}
+    skipped = 0
     if not jsonl_path.is_file():
-        return records
+        return records, skipped
     with jsonl_path.open("r", encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
@@ -20,11 +26,12 @@ def _load_predictions(jsonl_path: Path) -> dict[str, dict[str, Any]]:
             try:
                 rec = json.loads(line)
             except json.JSONDecodeError:
+                skipped += 1
                 continue
             image_id = str(rec.get("image_id", ""))
             if image_id:
                 records[image_id] = rec
-    return records
+    return records, skipped
 
 
 def _count_detections(record: dict[str, Any]) -> int:
@@ -95,10 +102,12 @@ def bootstrap_paired_ci(
         "n_bootstrap": n_bootstrap,
         "alpha": alpha,
         "note": "mAP50 CI not computed — requires per-image ground truth",
+        "skipped_lines": 0,
     }
 
-    baseline_records = _load_predictions(baseline_jsonl)
-    attack_records = _load_predictions(attack_jsonl)
+    baseline_records, skipped_baseline = _load_predictions(baseline_jsonl)
+    attack_records, skipped_attack = _load_predictions(attack_jsonl)
+    result["skipped_lines"] = skipped_baseline + skipped_attack
     common_ids = sorted(set(baseline_records) & set(attack_records))
     result["n_images"] = len(common_ids)
     if len(common_ids) < 4:

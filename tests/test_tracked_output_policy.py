@@ -90,5 +90,37 @@ class TrackedOutputPolicyTest(unittest.TestCase):
         self.assertEqual(result, 1)
 
 
+class WS6FrameworkReportsBinaryTest(unittest.TestCase):
+    """WS6: binary artifacts inside outputs/framework_reports/ must be blocked."""
+
+    def test_rejects_pt_inside_framework_reports(self) -> None:
+        from scripts.ci import check_tracked_outputs
+        result = check_tracked_outputs.find_disallowed_tracked_outputs([
+            Path("outputs/framework_reports/sweep_001/model.pt"),
+        ])
+        self.assertEqual(len(result), 1)
+
+    def test_rejects_zip_inside_framework_reports(self) -> None:
+        from scripts.ci import check_tracked_outputs
+        result = check_tracked_outputs.find_disallowed_tracked_outputs([
+            Path("outputs/framework_reports/sweep_001/bundle.zip"),
+        ])
+        self.assertEqual(len(result), 1)
+
+    def test_allows_csv_inside_framework_reports(self) -> None:
+        from scripts.ci import check_tracked_outputs
+        result = check_tracked_outputs.find_disallowed_tracked_outputs([
+            Path("outputs/framework_reports/sweep_001/headline_metrics.csv"),
+        ])
+        self.assertEqual(result, [])
+
+    def test_allows_json_inside_framework_reports(self) -> None:
+        from scripts.ci import check_tracked_outputs
+        result = check_tracked_outputs.find_disallowed_tracked_outputs([
+            Path("outputs/framework_reports/sweep_001/summary.json"),
+        ])
+        self.assertEqual(result, [])
+
+
 if __name__ == "__main__":
     unittest.main()

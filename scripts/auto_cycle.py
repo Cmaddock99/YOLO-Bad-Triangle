@@ -51,11 +51,19 @@ import fcntl
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+from lab.runners.cli_utils import apply_override, load_yaml_mapping
+from lab.runners.run_intent import (
+    REQUIRED_RUN_ARTIFACTS,
+    build_run_intent,
+    check_run_resume,
+)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -68,6 +76,9 @@ PAUSE_FILE = OUTPUTS / ".cycle.pause"
 HISTORY_DIR = OUTPUTS / "cycle_history"
 LOG_DIR = REPO / "logs"
 PYTHON = REPO / ".venv" / "bin" / "python"
+RUN_SINGLE_CONFIG_REL = "configs/default.yaml"
+RUN_SINGLE_CONFIG = REPO / RUN_SINGLE_CONFIG_REL
+_REQUIRED_RUN_ARTIFACTS = REQUIRED_RUN_ARTIFACTS
 CURRENT_PIPELINE_SEMANTICS = "attack_then_defense"
 LEGACY_PIPELINE_SEMANTICS = "defense_then_attack"
 UNKNOWN_PIPELINE_SEMANTICS = "legacy_unknown"
@@ -458,6 +469,50 @@ def run_sweep(
     return result.returncode == 0
 
 
+def _run_single_override_assignments(
+    *,
+    attack: str,
+    defense: str,
+    run_name: str,
+    runs_root: str,
+    overrides: dict | None = None,
+    preset: str = "smoke",
+    validation: bool = False,
+    max_images_override: int | None = None,
+    reporting_context: dict[str, str] | None = None,
+) -> list[str]:
+    # Generic preset defaults used by manual callers. auto_cycle overrides
+    # Phase 1/2 smoke runs to 32 images and tune runs to TUNE_MAX_IMAGES.
+    max_images = (
+        str(max_images_override)
+        if max_images_override is not None
+        else {"smoke": "8", "tune": str(TUNE_MAX_IMAGES), "full": "0"}.get(preset, "0")
+    )
+    assignments = [
+        f"attack.name={attack}",
+        f"defense.name={defense}",
+        f"runner.run_name={run_name}",
+        f"runner.output_root={runs_root}",
+        f"runner.max_images={max_images}",
+    ]
+    if validation:
+        assignments.append("validation.enabled=true")
+    for key in ("run_role", "dataset_scope", "authority", "source_phase"):
+        value = (reporting_context or {}).get(key)
+        if value:
+            assignments.append(f"reporting_context.{key}={value}")
+    for key, val in (overrides or {}).items():
+        assignments.append(f"{key}={val}")
+    return assignments
+
+
+def _build_run_single_intended_intent(assignments: list[str]) -> dict[str, object]:
+    config = load_yaml_mapping(RUN_SINGLE_CONFIG)
+    for assignment in assignments:
+        apply_override(config, assignment)
+    return build_run_intent(config, cwd=REPO)
+
+
 def run_single(
     *,
     attack: str,
@@ -471,38 +526,42 @@ def run_single(
     max_images_override: int | None = None,
     reporting_context: dict[str, str] | None = None,
 ) -> bool:
-    """Call run_unified.py for one experiment. Skip if metrics.json already exists."""
+    """Call run_unified.py for one experiment with sweep-parity resume checks."""
     run_dir = Path(runs_root) / run_name
-    if (run_dir / "metrics.json").exists():
-        log(f"  skip (exists): {run_name}")
-        return True
-
-    # Generic preset defaults used by manual callers. auto_cycle overrides
-    # Phase 1/2 smoke runs to 32 images and tune runs to TUNE_MAX_IMAGES.
-    max_images = (
-        str(max_images_override)
-        if max_images_override is not None
-        else {"smoke": "8", "tune": str(TUNE_MAX_IMAGES), "full": "0"}.get(preset, "0")
+    assignments = _run_single_override_assignments(
+        attack=attack,
+        defense=defense,
+        run_name=run_name,
+        runs_root=runs_root,
+        overrides=overrides,
+        preset=preset,
+        validation=validation,
+        max_images_override=max_images_override,
+        reporting_context=reporting_context,
     )
+    intended_intent = _build_run_single_intended_intent(assignments)
+
+    # Resume parity now matches sweep resume checks: only exact run-intent
+    # matches skip, so checkpoint promotion no longer requires manual stale-dir deletion.
+    resume_action, resume_reason = check_run_resume(run_dir, intended_intent)
+    if resume_action == "skipped_exact":
+        log(f"  skip: {run_name} ({resume_reason})")
+        return True
+    if resume_action in {"reran_partial", "reran_mismatch"}:
+        log(f"  rerun: {run_name} ({resume_reason})")
+        if run_dir.is_dir():
+            shutil.rmtree(run_dir)
+        elif run_dir.exists():
+            run_dir.unlink()
+    else:
+        log(f"  run: {run_name}")
+
     cmd = [
         str(PYTHON), "scripts/run_unified.py", "run-one",
-        "--config", "configs/default.yaml",
-        "--set", f"attack.name={attack}",
-        "--set", f"defense.name={defense}",
-        "--set", f"runner.run_name={run_name}",
-        "--set", f"runner.output_root={runs_root}",
-        "--set", f"runner.max_images={max_images}",
+        "--config", RUN_SINGLE_CONFIG_REL,
     ]
-    if validation:
-        cmd += ["--set", "validation.enabled=true"]
-    for key in ("run_role", "dataset_scope", "authority", "source_phase"):
-        value = (reporting_context or {}).get(key)
-        if value:
-            cmd += ["--set", f"reporting_context.{key}={value}"]
-    for key, val in (overrides or {}).items():
-        cmd += ["--set", f"{key}={val}"]
-
-    log(f"  run: {run_name}")
+    for assignment in assignments:
+        cmd += ["--set", assignment]
     try:
         result = subprocess.run(cmd, cwd=str(REPO), env=_env(), timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
@@ -653,7 +712,8 @@ def _compute_phase4_demotions(validation_results: dict) -> list[str]:
                 atk_map50 = validation_results.get(attack_key, {}).get("mAP50")
                 def_map50 = val.get("mAP50")
                 if atk_map50 is None or def_map50 is None:
-                    break
+                    log(f"  [phase4-demotion] missing mAP50 for {key} — skipping recovery entry")
+                    continue
                 denom = baseline_map50 - atk_map50
                 if abs(denom) < 1e-6:
                     break
@@ -1379,8 +1439,8 @@ def save_cycle_history(state: dict) -> None:
                 "detections": m["predictions"].get("total_detections"),
                 "pipeline_semantics": pipeline_semantics,
             }
-        except Exception:
-            pass
+        except Exception as exc:
+            log(f"[warn] save_cycle_history: skipping {mf.parent.name} — {exc}")
 
     if len(pipeline_semantics_seen) == 1:
         cycle_pipeline_semantics = next(iter(pipeline_semantics_seen))
@@ -1861,11 +1921,41 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
                 "See outputs/cycle_status.md for live status.",
             ]
 
+        # Use git plumbing to write the snapshot commit without touching HEAD/local main.
+        # git commit would accumulate unreviewed commits on local main every cycle.
+        # Instead: write the staged tree as a commit object and push that hash directly
+        # to nuc/cycle-snapshots, leaving the local branch graph unchanged.
+        tree_result = subprocess.run(
+            ["git", "write-tree"], cwd=str(REPO), check=True,
+            capture_output=True, text=True,
+        )
+        tree_hash = tree_result.stdout.strip()
+
+        # Parent: tip of the remote snapshot branch (if it exists); otherwise orphan.
+        parent_result = subprocess.run(
+            ["git", "rev-parse", "origin/nuc/cycle-snapshots"],
+            cwd=str(REPO), capture_output=True, text=True,
+        )
+        parent_args = (
+            ["-p", parent_result.stdout.strip()]
+            if parent_result.returncode == 0
+            else []
+        )
+
+        commit_result = subprocess.run(
+            ["git", "commit-tree", tree_hash] + parent_args + ["-m", "\n".join(msg_lines)],
+            cwd=str(REPO), check=True, capture_output=True, text=True,
+        )
+        commit_hash = commit_result.stdout.strip()
+
         subprocess.run(
-            ["git", "commit", "-m", "\n".join(msg_lines)],
+            ["git", "push", "origin", f"{commit_hash}:nuc/cycle-snapshots"],
             cwd=str(REPO), check=True,
         )
-        subprocess.run(["git", "push"], cwd=str(REPO), check=True)
+
+        # Reset the index so staged files no longer show as "to be committed".
+        subprocess.run(["git", "reset", "HEAD"], cwd=str(REPO), check=True)
+
         log(f"git_commit_phase: pushed phase {phase_num} snapshot for {cycle_id}")
         _push_state_to_branch(state, phase_num)
     except subprocess.CalledProcessError as exc:
@@ -1974,6 +2064,10 @@ def git_push_results(state: dict) -> None:
         ]
         msg = "\n".join(lines)
         subprocess.run(["git", "commit", "-m", msg], cwd=str(REPO), check=True)
+        subprocess.run(
+            ["git", "pull", "--rebase", "origin", "main"],
+            cwd=str(REPO), check=True,
+        )
         subprocess.run(["git", "push"], cwd=str(REPO), check=True)
         log(f"git_push: pushed results for {cycle_id}")
     except subprocess.CalledProcessError as exc:

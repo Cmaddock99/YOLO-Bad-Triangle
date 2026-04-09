@@ -2,14 +2,14 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
+import os
 import platform as _platform
 import random
 import sys
+import time
 import traceback
 from copy import deepcopy
-import dataclasses
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,11 +26,10 @@ from lab.config.contracts import (
     FRAMEWORK_METRICS_SCHEMA_VERSION,
     FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
     PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
-    REPORTING_CONTEXT_KEYS,
 )
-from lab.attacks.framework_registry import build_attack_plugin, list_available_attack_plugins
+from lab.attacks.framework_registry import list_available_attack_plugins
 from lab.attacks.utils import iter_images
-from lab.defenses.framework_registry import build_defense_plugin, list_available_defense_plugins
+from lab.defenses.framework_registry import list_available_defense_plugins
 from lab.eval.framework_metrics import (
     VALIDATION_STATUS_VALUES,
     sanitize_validation_metrics,
@@ -41,41 +40,19 @@ from lab.eval.prediction_utils import write_predictions_jsonl
 from lab.eval.prediction_schema import PredictionRecord, validate_prediction_records
 from lab.models.framework_registry import build_model, list_available_models
 from lab.reporting.experiment_summary import generate_summary
+from lab.runners.run_intent import (
+    build_attack_signature as _build_attack_signature,
+    build_run_intent,
+    build_defense_signature as _build_defense_signature,
+    config_fingerprint_sha256,
+    normalized_config_for_output as _normalized_config_for_output,
+    resolve_attack_instance,
+    resolve_defense_instance,
+    resolved_config_yaml_text,
+    resolved_reporting_context as _resolved_reporting_context,
+    without_none_values as _without_none_values,
+)
 from lab.runners.cli_utils import apply_override, as_mapping, load_yaml_mapping, sanitize_segment
-
-
-def _normalized_config_for_output(config: dict[str, Any]) -> dict[str, Any]:
-    normalized = deepcopy(config)
-    for section in ("attack", "defense"):
-        value = normalized.get(section)
-        if value is None:
-            normalized[section] = {"name": "none", "params": {}}
-            continue
-        if not isinstance(value, dict):
-            continue
-        name = value.get("name")
-        if name is None or not str(name).strip():
-            value["name"] = "none"
-    return normalized
-
-
-def _resolved_reporting_context(config: dict[str, Any]) -> dict[str, str]:
-    section = as_mapping(config, "reporting_context")
-    if not section:
-        return {}
-    payload: dict[str, str] = {}
-    for key in REPORTING_CONTEXT_KEYS:
-        value = section.get(key)
-        if value is None:
-            continue
-        text = str(value).strip()
-        if text:
-            payload[key] = text
-    return payload
-
-
-def _without_none_values(mapping: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in mapping.items() if value is not None}
 
 
 def _collect_images(source_dir: Path, max_images: int) -> list[Path]:
@@ -134,52 +111,12 @@ def _is_none_name(name: str) -> bool:
     return name.strip().lower() in {"", "none", "identity"}
 
 
-def _stable_signature(payload: Any) -> str:
-    try:
-        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    except (TypeError, ValueError):
-        return "{}"
-
-
-def _sha256_file(path: Path) -> str | None:
-    try:
-        digest = hashlib.sha256()
-        with path.open("rb") as handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
-    except OSError:
-        return None
-
-
-def _build_attack_signature(
-    *,
-    attack_name: str,
-    attack_params: dict[str, Any],
-    resolved_objective: dict[str, Any],
-) -> str:
-    return _stable_signature(
-        {
-            "attack_name": attack_name.strip().lower(),
-            "objective_mode": resolved_objective.get("objective_mode") or attack_params.get("objective_mode"),
-            "target_class": (
-                resolved_objective.get("target_class")
-                if resolved_objective.get("target_class") is not None
-                else attack_params.get("target_class")
-            ),
-            "attack_roi": resolved_objective.get("attack_roi") or attack_params.get("attack_roi"),
-            "attack_params": attack_params,
-        }
-    )
-
-
-def _build_defense_signature(*, defense_name: str, defense_params: dict[str, Any]) -> str:
-    return _stable_signature(
-        {
-            "defense_name": defense_name.strip().lower(),
-            "defense_params": defense_params,
-        }
-    )
+def _device_hint() -> str:
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
 
 
 def _collect_summary_candidates(
@@ -347,10 +284,10 @@ class UnifiedExperimentRunner:
         images: list[Path],
         seed: int,
         attack_name: str,
-    ) -> tuple[list[Path], int, int, dict[str, Any]]:
+    ) -> tuple[list[Path], int, int, dict[str, Any], dict[str, float]]:
         """Apply attack and defense preprocessing, write results to images/.
 
-        Returns (prepared_paths, skipped_unreadable, failed_writes, attack_metadata).
+        Returns (prepared_paths, skipped_unreadable, failed_writes, attack_metadata, timing_ms).
         """
         prepared_dir = run_dir / "images"
         prepared_dir.mkdir(parents=True, exist_ok=True)
@@ -358,6 +295,9 @@ class UnifiedExperimentRunner:
         skipped_unreadable = 0
         failed_writes = 0
         attack_metadata: dict[str, Any] = {}
+        attack_elapsed = 0.0
+        defense_preprocess_elapsed = 0.0
+        image_write_elapsed = 0.0
         for index, image_path in enumerate(
             tqdm(images, desc="Preparing images", unit="img", dynamic_ncols=True)
         ):
@@ -367,16 +307,22 @@ class UnifiedExperimentRunner:
                 continue
             transformed = image
             if attack is not None:
+                attack_started = time.monotonic()
                 transformed, attack_meta = attack.apply(
                     image,
                     model=model,
                     seed=int(seed) + index,
                 )
+                attack_elapsed += time.monotonic() - attack_started
                 if not attack_metadata:
                     attack_metadata = cast(dict[str, Any], dict(attack_meta))
+            defense_started = time.monotonic()
             defended_image, _ = defense.preprocess(transformed, attack_hint=attack_name)
+            defense_preprocess_elapsed += time.monotonic() - defense_started
             target = prepared_dir / image_path.name
+            write_started = time.monotonic()
             wrote = cv2.imwrite(str(target), defended_image)
+            image_write_elapsed += time.monotonic() - write_started
             if not wrote:
                 failed_writes += 1
                 continue
@@ -387,7 +333,11 @@ class UnifiedExperimentRunner:
                 f"unreadable={skipped_unreadable}, failed_writes={failed_writes}, "
                 f"source_count={len(images)}"
             )
-        return prepared_paths, skipped_unreadable, failed_writes, attack_metadata
+        return prepared_paths, skipped_unreadable, failed_writes, attack_metadata, {
+            "attack_ms": round(attack_elapsed * 1000, 1),
+            "defense_preprocess_ms": round(defense_preprocess_elapsed * 1000, 1),
+            "image_write_ms": round(image_write_elapsed * 1000, 1),
+        }
 
     def _run_inference(
         self,
@@ -396,12 +346,17 @@ class UnifiedExperimentRunner:
         prepared_paths: list[Path],
         predict_cfg: dict[str, Any],
         defense: Any,
-    ) -> list[PredictionRecord]:
+    ) -> tuple[list[PredictionRecord], dict[str, float]]:
         """Run model prediction and defense postprocessing."""
+        predict_started = time.monotonic()
         predictions = model.predict(prepared_paths, **predict_cfg)
+        predict_elapsed = time.monotonic() - predict_started
         postprocessed: list[PredictionRecord] = []
+        defense_postprocess_elapsed = 0.0
         for record in predictions:
+            postprocess_started = time.monotonic()
             records, _ = defense.postprocess([record])
+            defense_postprocess_elapsed += time.monotonic() - postprocess_started
             postprocessed.extend(records)
         if prepared_paths and not postprocessed:
             raise RuntimeError(
@@ -409,7 +364,10 @@ class UnifiedExperimentRunner:
                 f"processed_image_count={len(prepared_paths)}"
             )
         validate_prediction_records(postprocessed)
-        return postprocessed
+        return postprocessed, {
+            "predict_ms": round(predict_elapsed * 1000, 1),
+            "defense_postprocess_ms": round(defense_postprocess_elapsed * 1000, 1),
+        }
 
     def _run_validation(
         self,
@@ -589,33 +547,24 @@ class UnifiedExperimentRunner:
         if not images:
             raise ValueError(f"No images discovered under: {source_dir}")
 
+        run_started_at = datetime.now(timezone.utc)
+        run_started_mono = time.monotonic()
         model_params = dict(as_mapping(model_cfg, "params"))
         model = build_model(model_name, **model_params)
         model.load()
 
         attack_name = str(attack_cfg.get("name", "none")).strip().lower()
-        attack_params = _without_none_values(dict(as_mapping(attack_cfg, "params")))
-        attack = None
-        if attack_name not in {"", "none", "identity"}:
-            attack = build_attack_plugin(attack_name, **attack_params)
-            # Enrich attack_params with effective resolved values from the plugin instance.
-            # This captures defaults for params not explicitly set in the config (e.g. Phase 1/2
-            # smoke runs that pass no explicit hyperparams).
-            if dataclasses.is_dataclass(attack):
-                _objective_fields = {"name", "objective_mode", "target_class", "preserve_weight", "attack_roi"}
-                attack_params = _without_none_values(
-                    {
-                        f.name: getattr(attack, f.name)
-                        for f in dataclasses.fields(attack)
-                        if not f.name.startswith("_") and f.name not in _objective_fields
-                    }
-                )
+        attack_params = dict(as_mapping(attack_cfg, "params"))
+        attack, attack_params, resolved_objective = resolve_attack_instance(attack_name, attack_params)
 
         defense_name = str(defense_cfg.get("name", "none")).strip().lower()
-        defense_params = _without_none_values(dict(as_mapping(defense_cfg, "params")))
-        defense = build_defense_plugin(defense_name or "none", **defense_params)
+        defense_params = dict(as_mapping(defense_cfg, "params"))
+        defense, defense_params, defense_checkpoint_provenance = resolve_defense_instance(
+            defense_name,
+            defense_params,
+        )
 
-        prepared_paths, skipped_unreadable, failed_writes, attack_metadata = self._prepare_images(
+        prepared_paths, skipped_unreadable, failed_writes, attack_metadata, prepare_timing = self._prepare_images(
             run_dir=run_dir,
             model=model,
             attack=attack,
@@ -624,25 +573,51 @@ class UnifiedExperimentRunner:
             seed=seed,
             attack_name=attack_name or "none",
         )
+        resolved_objective = {
+            **resolved_objective,
+            **{
+                key: attack_metadata.get(key, resolved_objective.get(key))
+                for key in ("objective_mode", "target_class", "attack_roi", "preserve_weight")
+            },
+        }
 
-        postprocessed = self._run_inference(
+        postprocessed, inference_timing = self._run_inference(
             model=model,
             prepared_paths=prepared_paths,
             predict_cfg=predict_cfg,
             defense=defense,
         )
+        runtime_metrics: dict[str, float | None] = {
+            **prepare_timing,
+            **inference_timing,
+            "validation_ms": None,
+            "artifact_write_ms": None,
+            "total_ms": None,
+        }
 
-        predictions_file = run_dir / "predictions.jsonl"
-        write_predictions_jsonl(postprocessed, predictions_file)
         prediction_metrics = summarize_prediction_metrics(postprocessed)
 
+        validation_started = time.monotonic()
         validation_section, validation_error = self._run_validation(
             model=model,
             validation_cfg=validation_cfg,
             prepared_dir=run_dir / "images",
         )
+        runtime_metrics["validation_ms"] = round((time.monotonic() - validation_started) * 1000, 1)
         validation_enabled = bool(validation_cfg.get("enabled", False))
         validation_dataset = validation_cfg.get("dataset")
+        runtime_payload = {
+            "started_at_utc": run_started_at.isoformat(),
+            "finished_at_utc": None,
+            "attack_ms": runtime_metrics["attack_ms"],
+            "defense_preprocess_ms": runtime_metrics["defense_preprocess_ms"],
+            "image_write_ms": runtime_metrics["image_write_ms"],
+            "predict_ms": runtime_metrics["predict_ms"],
+            "defense_postprocess_ms": runtime_metrics["defense_postprocess_ms"],
+            "validation_ms": runtime_metrics["validation_ms"],
+            "artifact_write_ms": runtime_metrics["artifact_write_ms"],
+            "total_ms": runtime_metrics["total_ms"],
+        }
         metrics_payload = {
             "schema_version": FRAMEWORK_METRICS_SCHEMA_VERSION,
             "validation": {
@@ -657,48 +632,34 @@ class UnifiedExperimentRunner:
                 "semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
                 "attack_applied": attack is not None,
             },
+            "runtime": dict(runtime_payload),
         }
         _assert_metrics_payload_contract(metrics_payload)
-        metrics_file = run_dir / "metrics.json"
-        metrics_file.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
-
-        self._generate_experiment_summary(
-            run_dir=run_dir,
-            model_name=model_name,
-            seed=seed,
-            attack_name=attack_name or "none",
-            defense_name=defense_name or "none",
-            attack_params=attack_params,
-            defense_params=defense_params,
-            attack_metadata=attack_metadata,
-            metrics_payload=metrics_payload,
-            runner_cfg=runner_cfg,
-        )
-
         resolved_config_file = run_dir / "resolved_config.yaml"
-        resolved_config_file.write_text(
-            yaml.safe_dump(_normalized_config_for_output(self.config), sort_keys=False),
-            encoding="utf-8",
+        resolved_config_text = resolved_config_yaml_text(self.config)
+        run_intent = build_run_intent(self.config, cwd=Path.cwd())
+        config_fingerprint = str(run_intent.get("config_fingerprint_sha256") or config_fingerprint_sha256(self.config))
+        checkpoint_fingerprint = run_intent.get("checkpoint_fingerprint_sha256")
+        checkpoint_source = run_intent.get("checkpoint_fingerprint_source")
+        defense_checkpoint_provenance = list(run_intent.get("defense_checkpoints") or defense_checkpoint_provenance)
+        attack_signature = str(
+            run_intent.get("attack_signature")
+            or _build_attack_signature(
+                attack_name=attack_name or "none",
+                attack_params=attack_params,
+                resolved_objective=resolved_objective,
+            )
         )
-        config_fingerprint = _sha256_file(resolved_config_file)
-
-        # YOLO model fingerprint — unchanged semantics, YOLO path only
-        checkpoint_fingerprint: str | None = None
-        checkpoint_source: str | None = None
-        model_path_candidate = str(model_params.get("model", "")).strip()
-        if model_path_candidate:
-            yolo_path = Path(model_path_candidate).expanduser()
-            if not yolo_path.is_absolute():
-                yolo_path = (Path.cwd() / yolo_path).resolve()
-            if yolo_path.is_file():
-                checkpoint_fingerprint = _sha256_file(yolo_path)
-                checkpoint_source = str(yolo_path)
-
-        # Defense checkpoint provenance — additive channel, guarded for stub compatibility
-        defense_checkpoint_provenance: list[dict[str, str]] = []
-        checkpoint_fn = getattr(defense, "checkpoint_provenance", None)
-        if callable(checkpoint_fn):
-            defense_checkpoint_provenance = checkpoint_fn()
+        defense_signature = str(
+            run_intent.get("defense_signature")
+            or _build_defense_signature(
+                defense_name=defense_name or "none",
+                defense_params=defense_params,
+            )
+        )
+        predictions_file = run_dir / "predictions.jsonl"
+        metrics_file = run_dir / "metrics.json"
+        summary_file = run_dir / "run_summary.json"
 
         run_summary = {
             "schema_version": FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
@@ -714,25 +675,18 @@ class UnifiedExperimentRunner:
             "attack": {
                 "name": attack_name or "none",
                 "params": attack_params,
-                "signature": _build_attack_signature(
-                    attack_name=attack_name or "none",
-                    attack_params=attack_params,
-                    resolved_objective=attack_metadata,
-                ),
+                "signature": attack_signature,
                 "resolved_objective": {
-                    "objective_mode": attack_metadata.get("objective_mode"),
-                    "target_class": attack_metadata.get("target_class"),
-                    "attack_roi": attack_metadata.get("attack_roi"),
-                    "preserve_weight": attack_metadata.get("preserve_weight"),
+                    "objective_mode": resolved_objective.get("objective_mode"),
+                    "target_class": resolved_objective.get("target_class"),
+                    "attack_roi": resolved_objective.get("attack_roi"),
+                    "preserve_weight": resolved_objective.get("preserve_weight"),
                 },
             },
             "defense": {
                 "name": defense_name or "none",
                 "params": defense_params,
-                "signature": _build_defense_signature(
-                    defense_name=defense_name or "none",
-                    defense_params=defense_params,
-                ),
+                "signature": defense_signature,
             },
             "pipeline": {
                 "transform_order": list(CURRENT_PIPELINE_TRANSFORM_ORDER),
@@ -756,11 +710,59 @@ class UnifiedExperimentRunner:
                 "checkpoint_fingerprint_source": checkpoint_source,
                 "defense_checkpoints": defense_checkpoint_provenance,
             },
+            "runtime": {
+                **runtime_payload,
+                "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+                "platform": f"{sys.platform}-{_platform.machine()}",
+                "device_hint": _device_hint(),
+            },
         }
         if reporting_context:
             run_summary["reporting_context"] = reporting_context
-        summary_file = run_dir / "run_summary.json"
-        summary_file.write_text(json.dumps(run_summary, indent=2, sort_keys=True), encoding="utf-8")
+
+        artifact_write_started = time.monotonic()
+        write_predictions_jsonl(postprocessed, predictions_file)
+
+        self._generate_experiment_summary(
+            run_dir=run_dir,
+            model_name=model_name,
+            seed=seed,
+            attack_name=attack_name or "none",
+            defense_name=defense_name or "none",
+            attack_params=attack_params,
+            defense_params=defense_params,
+            attack_metadata=resolved_objective,
+            metrics_payload=metrics_payload,
+            runner_cfg=runner_cfg,
+        )
+
+        resolved_config_file.write_text(resolved_config_text, encoding="utf-8")
+        # metrics.json and run_summary.json are written once below, after the
+        # runtime block is fully populated. A prior double-write left partial
+        # artifacts on disk (missing total_ms / finished_at_utc) if a crash
+        # occurred between the two writes; the single write eliminates that window.
+
+        runtime_payload["artifact_write_ms"] = round((time.monotonic() - artifact_write_started) * 1000, 1)
+        run_finished_at = datetime.now(timezone.utc)
+        runtime_payload["finished_at_utc"] = run_finished_at.isoformat()
+        runtime_payload["total_ms"] = round((time.monotonic() - run_started_mono) * 1000, 1)
+        metrics_payload["runtime"] = dict(runtime_payload)
+        run_summary["runtime"] = {
+            **runtime_payload,
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+            "platform": f"{sys.platform}-{_platform.machine()}",
+            "device_hint": _device_hint(),
+        }
+        # Write run_summary.json first, metrics.json last.
+        # metrics.json is the completion sentinel checked by run_single — it must only
+        # appear on disk after both other required artifacts are durably written.
+        summary_tmp = summary_file.with_suffix(".json.tmp")
+        summary_tmp.write_text(json.dumps(run_summary, indent=2, sort_keys=True), encoding="utf-8")
+        os.replace(summary_tmp, summary_file)
+
+        metrics_tmp = metrics_file.with_suffix(".json.tmp")
+        metrics_tmp.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
+        os.replace(metrics_tmp, metrics_file)
         return run_summary
 
 

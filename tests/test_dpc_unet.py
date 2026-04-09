@@ -14,6 +14,7 @@ from lab.defenses.dpc_unet_wrapper import (
     WrapperInputConfig,
     image_bgr_to_model_tensor,
     model_tensor_to_image_bgr,
+    run_wrapper_multipass_on_bgr_image,
     run_wrapper_on_bgr_image,
     sinusoidal_timestep_embedding,
 )
@@ -134,6 +135,82 @@ class DPCUNetAdapterTests(unittest.TestCase):
             ):
                 with self.assertRaises(RuntimeError):
                     defense.preprocess(image)
+
+
+class WS5MultipassTest(unittest.TestCase):
+    """WS5 tests: multipass call count, NaN guard, multipass metadata."""
+
+    def setUp(self) -> None:
+        self.model = DPCUNet().eval()
+        self.image = np.full((32, 32, 3), 127, dtype=np.uint8)
+        self.cfg = WrapperInputConfig(color_order="bgr", scaling="zero_one", normalize=False)
+
+    def test_multipass_call_count_equals_schedule_length(self) -> None:
+        """Model must be called exactly len(schedule) times — no extra post-loop pass."""
+        schedule = [75.0, 50.0, 25.0]
+        call_count = [0]
+        original_forward = self.model.forward
+
+        def counting_forward(x, timestep=None):
+            call_count[0] += 1
+            return original_forward(x, timestep=timestep)
+
+        with patch.object(self.model, "forward", side_effect=counting_forward):
+            run_wrapper_multipass_on_bgr_image(
+                self.image, self.model, timestep_schedule=schedule, cfg=self.cfg, device="cpu"
+            )
+        self.assertEqual(call_count[0], len(schedule))
+
+    def test_multipass_nan_raises_runtime_error(self) -> None:
+        """A model that returns NaN must cause RuntimeError before the round-trip clamp."""
+        import torch
+
+        def nan_forward(x, timestep=None):
+            return torch.full_like(x, float("nan"))
+
+        with patch.object(self.model, "forward", side_effect=nan_forward):
+            with self.assertRaises(RuntimeError):
+                run_wrapper_multipass_on_bgr_image(
+                    self.image, self.model, timestep_schedule=[50.0], cfg=self.cfg, device="cpu"
+                )
+
+    def test_multipass_passes_stat_equals_schedule_length(self) -> None:
+        """stats['passes'] must equal len(timestep_schedule)."""
+        schedule = [75.0, 25.0]
+        _, stats = run_wrapper_multipass_on_bgr_image(
+            self.image, self.model, timestep_schedule=schedule, cfg=self.cfg, device="cpu"
+        )
+        self.assertEqual(stats["passes"], len(schedule))
+
+
+class WS5CheckpointProvenanceTest(unittest.TestCase):
+    """WS5: hash is cached at load time; on-disk replacement does not change provenance output."""
+
+    def test_hash_cached_at_load_time(self) -> None:
+        from lab.defenses.framework_registry import build_defense_plugin
+        with tempfile.TemporaryDirectory() as tmp:
+            ckpt = Path(tmp) / "dpc.pt"
+            model = DPCUNet()
+            torch.save(model.state_dict(), ckpt)
+            defense = build_defense_plugin(
+                "c_dog", checkpoint_path=str(ckpt), timestep=50,
+                color_order="bgr", scaling="zero_one", normalize=False,
+            )
+            image = np.full((32, 32, 3), 127, dtype=np.uint8)
+            defense.preprocess(image)  # triggers _ensure_loaded
+
+            prov_before = defense.checkpoint_provenance()
+            sha_before = prov_before[0]["sha256"]
+
+            # Overwrite file on disk with a different model
+            model2 = DPCUNet()
+            torch.save(model2.state_dict(), ckpt)
+
+            prov_after = defense.checkpoint_provenance()
+            sha_after = prov_after[0]["sha256"]
+
+            # Provenance must reflect the file as-it-was-at-load, not the new file
+            self.assertEqual(sha_before, sha_after)
 
 
 if __name__ == "__main__":

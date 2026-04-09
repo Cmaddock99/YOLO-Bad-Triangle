@@ -24,6 +24,7 @@ import csv
 import hashlib
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 import yaml
@@ -463,7 +464,7 @@ def _build_appendix_table(
 def _write_csv(path: Path, rows: list[dict[str, str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
-        raise ValueError(f"No rows available for output: {path}")
+        sys.exit(f"ERROR: No rows available for output: {path}")
     fieldnames = list(rows[0].keys())
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)

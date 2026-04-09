@@ -57,6 +57,14 @@ PRESET_CONFIGS: dict[str, dict[str, object]] = {
         "output": "dpc_unet_square_retention.pt",
         "resume": "outputs/dpc_unet_training_resume_square_retention.pt",
     },
+    "signal_driven": {
+        "epochs": 60,
+        "batch_size": 8,
+        "lr": 2e-5,
+        "patch_size": 320,
+        "edge_weight": 0.15,
+        "fresh": True,
+    },
 }
 
 
@@ -264,6 +272,33 @@ def _resolve_training_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]
     return ROOT / training_zip_raw, ROOT / output_raw, ROOT / resume_raw
 
 
+def _apply_preset_defaults(args: argparse.Namespace, argv: list[str]) -> None:
+    preset = PRESET_CONFIGS.get(args.preset, {})
+    if not preset:
+        return
+    provided_flags = {token for token in argv[1:] if token.startswith("--")}
+    flag_for_key = {
+        "training_zip": "--training-zip",
+        "output": "--output",
+        "resume": "--resume",
+        "batch_size": "--batch-size",
+        "patch_size": "--patch-size",
+        "edge_weight": "--edge-weight",
+        "lr": "--lr",
+        "epochs": "--epochs",
+        "fresh": "--fresh",
+    }
+    for key, value in preset.items():
+        flag = flag_for_key.get(key, f"--{key.replace('_', '-')}")
+        current = getattr(args, key, None)
+        if key in {"training_zip", "output", "resume"}:
+            if not current:
+                setattr(args, key, value)
+            continue
+        if flag not in provided_flags:
+            setattr(args, key, value)
+
+
 def train(args: argparse.Namespace) -> None:
     device = _get_device()
     print(f"Device: {device}")
@@ -297,8 +332,15 @@ def train(args: argparse.Namespace) -> None:
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    # Extract training data
-    if not extract_dir.exists():
+    # Extract training data. Re-extract if the zip is newer than the existing
+    # extract directory so that a freshly-exported zip is never silently skipped.
+    _need_extract = not extract_dir.exists()
+    if not _need_extract and zip_path.stat().st_mtime > extract_dir.stat().st_mtime:
+        print(f"Zip is newer than extract dir — re-extracting {zip_path.name}...")
+        import shutil as _shutil
+        _shutil.rmtree(extract_dir)
+        _need_extract = True
+    if _need_extract:
         print(f"Extracting {zip_path.name}...")
         extract_dir.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(zip_path, "r") as zf:
@@ -319,7 +361,15 @@ def train(args: argparse.Namespace) -> None:
         print(f"Available extracted attack dirs: {available_attack_dirs}")
 
     clean_dir = extract_dir / "clean"
-    checkpoint_path = extract_dir / "checkpoint" / "dpc_unet_final_golden.pt"
+    # Discover the checkpoint from the zip instead of assuming a fixed filename,
+    # so non-default --checkpoint exports are handled correctly.
+    _ckpt_candidates = sorted((extract_dir / "checkpoint").glob("*.pt"))
+    if not _ckpt_candidates:
+        print(f"ERROR: No *.pt file found in {extract_dir / 'checkpoint'}")
+        sys.exit(1)
+    checkpoint_path = _ckpt_candidates[0]
+    if len(_ckpt_candidates) > 1:
+        print(f"[warn] Multiple checkpoints found; using {checkpoint_path.name}")
 
     # Find attack directories
     adv_root = extract_dir / "adversarial"
@@ -388,9 +438,11 @@ def train(args: argparse.Namespace) -> None:
             # Move to device FIRST — criterion captures device via next(model.parameters()).device
             yolo_inner = yolo_inner.to(device)
             yolo_inner.criterion = yolo_inner.init_criterion()
-            yolo_inner.train()
+            # Freeze all parameters and put detector in eval mode so BatchNorm
+            # running stats do not drift during the DPC-UNet alignment pass.
             for p in yolo_inner.parameters():
                 p.requires_grad_(False)
+            yolo_inner.eval()
             for clean_path, adv_path, _ in full_ds.pairs:
                 lbl = labels_dir / (Path(clean_path).stem + ".txt")
                 if lbl.exists():
@@ -627,6 +679,7 @@ def main():
     parser.add_argument("--det-images-per-epoch", type=int, default=20,
                         help="Number of full images sampled per epoch for detector alignment pass.")
     args = parser.parse_args()
+    _apply_preset_defaults(args, sys.argv)
     train(args)
 
 

@@ -30,6 +30,11 @@ distinguish this canonical era from older legacy outputs.
 
 ## Setup
 
+Fresh-clone note: the repo intentionally does not track local model weights,
+COCO images, label folders, or your `.env`. Use
+[docs/FRESH_CLONE_SETUP.md](docs/FRESH_CLONE_SETUP.md) for the exact teammate
+bootstrap path and expected local file layout.
+
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
@@ -46,7 +51,7 @@ in `.env` or your shell. This env var is the source of truth for which
 DPC-UNet checkpoint is active:
 
 ```bash
-export DPC_UNET_CHECKPOINT_PATH=/absolute/path/to/dpc_unet_checkpoint.pt
+export DPC_UNET_CHECKPOINT_PATH=/absolute/path/to/dpc_unet_adversarial_finetuned.pt
 ```
 
 ## Canonical workflow

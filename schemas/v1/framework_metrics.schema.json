@@ -37,7 +37,28 @@
       "required": [
         "status",
         "enabled"
-      ]
+      ],
+      "properties": {
+        "status": {
+          "enum": ["missing", "partial", "complete", "error"]
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Optional per-phase wall-clock timing and timestamps.",
+      "properties": {
+        "started_at_utc": {"type": ["string", "null"]},
+        "finished_at_utc": {"type": ["string", "null"]},
+        "total_ms": {"type": ["number", "null"]},
+        "attack_ms": {"type": ["number", "null"]},
+        "defense_preprocess_ms": {"type": ["number", "null"]},
+        "image_write_ms": {"type": ["number", "null"]},
+        "predict_ms": {"type": ["number", "null"]},
+        "defense_postprocess_ms": {"type": ["number", "null"]},
+        "validation_ms": {"type": ["number", "null"]},
+        "artifact_write_ms": {"type": ["number", "null"]}
+      }
     }
   }
 }

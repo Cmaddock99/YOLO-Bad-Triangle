@@ -87,7 +87,10 @@ class PGDAttack(FGSMAttack):
     @staticmethod
     def _random_generator(seed: int | None) -> torch.Generator:
         generator = torch.Generator(device="cpu")
-        generator.manual_seed(torch.seed() if seed is None else int(seed))
+        # Use randint for a non-deterministic seed rather than torch.seed(), which
+        # perturbs the global RNG state and breaks reproducibility for callers.
+        random_seed = int(torch.randint(0, 2**31, (1,)).item())
+        generator.manual_seed(random_seed if seed is None else int(seed))
         return generator
 
     def _random_start_delta(
