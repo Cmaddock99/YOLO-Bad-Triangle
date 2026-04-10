@@ -228,3 +228,36 @@ docs/analysis/direction_a_closure_2026-04-XX.md
 - Dashboard or presentation layer
 - Generalization to non-YOLO models
 - Runner, reporting, or schema layer changes
+
+---
+
+## Phase 0–2 Execution Results (2026-04-09)
+
+### Timestep Sweep Results (100 images, deepfool epsilon=0.1 steps=50)
+
+| Variant | timestep / schedule | mAP50 (100 img) | run_summary present |
+|---|---|---|---|
+| ts10 | timestep=10.0 | 0.2676 | YES |
+| ts25 | timestep=25.0 | 0.2679 | YES |
+| ts7525 | schedule="75,25" | 0.2929 | YES |
+
+Reference: c_dog baseline (500 img) = 0.2238 | jpeg baseline = 0.3175
+
+### Full 500-Image Validation (ts7525)
+
+| Variant | timestep / schedule | mAP50 (500 img) | run_summary present |
+|---|---|---|---|
+| ts7525_full500 | schedule="75,25" | 0.2600 | YES |
+
+The 100-image result (0.2929) did not hold at 500 images (0.2600). The difference (0.033) exceeds
+the expected ±0.005 noise floor, indicating the 100-image sample over-estimated the improvement.
+
+### Final Verdict (overrides Phase 2 decision above)
+
+Best variant: ts7525 (schedule="75,25") — mAP50 0.2600 at 500 images.
+Gap to median (best classical on deepfool): 0.1056. Gap to jpeg: 0.0575.
+c_dog remains third on deepfool behind median (0.3656) and jpeg (0.3175).
+
+**Verdict: PAUSE c_dog — YOLOv8 scope closed.** Round 4 deepfool retraining not pursued;
+YOLOv8 model being superseded by YOLOv26. See `docs/analysis/direction_a_closure_20260409.md`
+for full evidence record and rationale.

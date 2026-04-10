@@ -1,6 +1,6 @@
 # Team Summary
 
-- Total discovered runs: **8**
+- Total discovered runs: **20**
 - Attack runs analyzed: **7**
 - Baseline run: `baseline_none`
 
