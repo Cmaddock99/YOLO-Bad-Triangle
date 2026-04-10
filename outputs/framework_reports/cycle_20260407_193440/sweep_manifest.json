@@ -1,0 +1,22 @@
+{
+  "aggregate": {
+    "failed": 0,
+    "ran": 0,
+    "reran_mismatch": 0,
+    "reran_partial": 0,
+    "skipped_exact": 0,
+    "total": 0,
+    "total_elapsed_ms": 8594.6
+  },
+  "config_fingerprint_sha256": "237113728e0146cdf266bb81f49ddb2996eadbe6d4cd2e2183acae760347b778",
+  "config_path": "/home/lurch/YOLO-Bad-Triangle/configs/default.yaml",
+  "generated_at": "2026-04-10T03:53:24.473748+00:00",
+  "requested_attacks": [
+    "none"
+  ],
+  "requested_defenses": [],
+  "runs": {},
+  "seed": 42,
+  "sweep_id": "cycle_20260407_193440",
+  "validation_enabled": false
+}

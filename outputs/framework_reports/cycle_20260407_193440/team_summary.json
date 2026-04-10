@@ -1,42 +1,9 @@
 {
   "attacks_ranked": [
     {
-      "attack": "square",
-      "avg_confidence": 0.7183249162303077,
-      "detection_drop": 0.82,
-      "interpretation": "Strong attack effect",
-      "map50": null,
-      "run_name": "attack_square",
-      "seed": 42.0,
-      "total_detections": 18.0,
-      "validation_status": "missing"
-    },
-    {
-      "attack": "deepfool",
-      "avg_confidence": 0.7270611757817476,
-      "detection_drop": 0.77,
-      "interpretation": "Strong attack effect",
-      "map50": null,
-      "run_name": "attack_deepfool",
-      "seed": 42.0,
-      "total_detections": 23.0,
-      "validation_status": "missing"
-    },
-    {
-      "attack": "dispersion_reduction",
-      "avg_confidence": 0.7951196084419886,
-      "detection_drop": 0.76,
-      "interpretation": "Strong attack effect",
-      "map50": null,
-      "run_name": "attack_dispersion_reduction",
-      "seed": 42.0,
-      "total_detections": 24.0,
-      "validation_status": "missing"
-    },
-    {
       "attack": "eot_pgd",
       "avg_confidence": 0.7927756839328342,
-      "detection_drop": 0.64,
+      "detection_drop": 0.9749478079331941,
       "interpretation": "Strong attack effect",
       "map50": null,
       "run_name": "attack_eot_pgd",
@@ -45,9 +12,20 @@
       "validation_status": "missing"
     },
     {
+      "attack": "dispersion_reduction",
+      "avg_confidence": 0.6760606226466951,
+      "detection_drop": 0.9707724425887265,
+      "interpretation": "Strong attack effect",
+      "map50": 0.2380632357706649,
+      "run_name": "validate_atk_dispersion_reduction",
+      "seed": 42.0,
+      "total_detections": 42.0,
+      "validation_status": "complete"
+    },
+    {
       "attack": "blur",
       "avg_confidence": 0.7566432789580463,
-      "detection_drop": 0.27,
+      "detection_drop": 0.9491997216423104,
       "interpretation": "Strong attack effect",
       "map50": null,
       "run_name": "attack_blur",
@@ -58,7 +36,7 @@
     {
       "attack": "fgsm",
       "avg_confidence": 0.7764275662692977,
-      "detection_drop": 0.19,
+      "detection_drop": 0.9436325678496869,
       "interpretation": "Strong attack effect",
       "map50": null,
       "run_name": "attack_fgsm",
@@ -69,34 +47,56 @@
     {
       "attack": "pgd",
       "avg_confidence": 0.7503096875937089,
-      "detection_drop": 0.08,
+      "detection_drop": 0.9359777313848295,
       "interpretation": "Moderate robustness",
       "map50": null,
       "run_name": "attack_pgd",
       "seed": 42.0,
       "total_detections": 92.0,
       "validation_status": "missing"
+    },
+    {
+      "attack": "square",
+      "avg_confidence": 0.7195091617734809,
+      "detection_drop": 0.9338900487125957,
+      "interpretation": "Strong attack effect",
+      "map50": 0.3629857701101147,
+      "run_name": "validate_atk_square",
+      "seed": 42.0,
+      "total_detections": 95.0,
+      "validation_status": "complete"
+    },
+    {
+      "attack": "deepfool",
+      "avg_confidence": 0.7548949544999137,
+      "detection_drop": 0.813500347947112,
+      "interpretation": "Strong attack effect",
+      "map50": 0.24215739469243813,
+      "run_name": "validate_atk_deepfool",
+      "seed": 42.0,
+      "total_detections": 268.0,
+      "validation_status": "complete"
     }
   ],
   "baseline": {
-    "avg_confidence": 0.7622534918785095,
+    "avg_confidence": 0.7647722675805301,
     "model": "yolo",
-    "run_name": "baseline_none",
+    "run_name": "validate_baseline",
     "seed": 42.0,
-    "total_detections": 100.0
+    "total_detections": 1437.0
   },
   "report_root": "/home/lurch/YOLO-Bad-Triangle/outputs/framework_reports/cycle_20260407_193440",
   "strongest_attack_by_detection_drop": {
-    "attack": "square",
-    "avg_confidence": 0.7183249162303077,
-    "detection_drop": 0.82,
+    "attack": "eot_pgd",
+    "avg_confidence": 0.7927756839328342,
+    "detection_drop": 0.9749478079331941,
     "interpretation": "Strong attack effect",
     "map50": null,
-    "run_name": "attack_square",
+    "run_name": "attack_eot_pgd",
     "seed": 42.0,
-    "total_detections": 18.0,
+    "total_detections": 36.0,
     "validation_status": "missing"
   },
   "total_attack_runs": 7,
-  "total_runs": 20
+  "total_runs": 114
 }
