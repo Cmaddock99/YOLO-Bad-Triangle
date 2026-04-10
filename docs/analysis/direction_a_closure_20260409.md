@@ -1,7 +1,7 @@
 # Direction A Closure Document (DRAFT)
-**Status:** INCOMPLETE — 500-image validation complete; awaiting Round 4 result or explicit verdict
+**Status:** COMPLETE — verdict written 2026-04-09
 **Date started:** 2026-04-09
-**Complete when:** Round 4 result lands OR decision made to defer/retire
+**Scope:** YOLOv8 only. All values are YOLOv8-specific and do not transfer to future model versions.
 
 ---
 
@@ -115,13 +115,42 @@ focus is required going forward.
 ## Verdict
 
 ```
-[TO BE FILLED IN]
+Verdict: PAUSE c_dog (YOLOv8 scope closed)
 
-Verdict: [CONTINUE c_dog / PAUSE c_dog / RETIRE c_dog]
+Rationale:
 
-Rationale: [fill after NUC sweep + Round 4 results]
+deepfool — ceiling confirmed. With optimal multi-pass schedule (ts7525),
+c_dog reaches 0.2600 on 500 images. The strongest classical baseline on
+deepfool is median_preprocess at 0.3656 — a gap of 0.1056. That gap is not
+closable in one or two rounds. The success criterion (c_dog > best classical
+by +0.005 in 2 consecutive Phase 4 cycles) cannot be met on deepfool with
+the current architecture and YOLOv8 as the detector. Not RETIRE: the
+scheduling finding (ts7525 +0.0362 improvement with no retraining) shows
+the architecture is not exhausted — it is mismatched to deepfool's
+high-frequency perturbation structure regardless of schedule.
 
-Next fortification direction: [fill after verdict]
+square — genuine positive signal, not pursued. Round 2 c_dog was the only
+defense with meaningful positive recovery on square (+0.0260). Round 3
+regressed due to multi-attack training dilution — a known-fixable problem.
+The architecture is well-suited to large-patch occlusion. However, with
+YOLOv8 being superseded, training c_dog further on YOLOv8 square pairs is
+compute that will not transfer. The square finding is archived here as a
+positive result: pursue c_dog square-focused training on the next model
+version from Phase 1.
+
+Not RETIRE: c_dog (DPC-UNet) showed genuine recovery on square (Round 2),
+identified a structural scheduling improvement on deepfool (ts7525), and
+its image-level denoising is architecture-sound. The YOLOv8 experiment is
+closed; the fortification hypothesis carries forward to the next model.
+
+Next fortification direction:
+  1. Complete YOLOv26 adapter and establish clean baseline
+  2. Re-characterize attacks on YOLOv26 from Phase 1 (attack params are
+     model-specific and do not transfer)
+  3. Restart c_dog fortification on YOLOv26 with square-only training focus
+     from the start — do not resume YOLOv8 checkpoint for training
+  4. Re-evaluate deepfool on YOLOv26 after characterization — the damage
+     profile and gradient structure may differ significantly
 ```
 
 ---
