@@ -1,7 +1,7 @@
 # Direction A Closure Document (DRAFT)
-**Status:** INCOMPLETE — awaiting 500-image ts7525 validation result and verdict
+**Status:** INCOMPLETE — 500-image validation complete; awaiting Round 4 result or explicit verdict
 **Date started:** 2026-04-09
-**Complete when:** 500-image ts7525 authoritative run completes + verdict written
+**Complete when:** Round 4 result lands OR decision made to defer/retire
 
 ---
 
@@ -70,7 +70,10 @@ Checkpoint round determined by file modification timestamp (Round 3 deployed 202
 - ts7525 sweep run failed on first attempt with TypeError (duplicate `passes` kwarg:
   `passes=passes_meta` explicit + `**stats` containing `passes` from multipass wrapper).
   Fixed: removed explicit kwarg, injected `stats["passes"]=1` for single-pass path.
-  Single-pass ts10/ts25 results unaffected. Fix applied in this commit.
+  Single-pass ts10/ts25 results unaffected. Fix applied in commits a9e5334 (Mac) / fca5603 (NUC).
+- 100-image ts7525 diagnostic (0.2929) did not hold at 500 images (0.2600). Delta of 0.033
+  exceeds ±0.005 noise floor — the 100-image sample over-estimated improvement. Gate decisions
+  should always use 500-image results as authoritative.
 
 ---
 
@@ -82,8 +85,8 @@ Checkpoint round determined by file modification timestamp (Round 3 deployed 202
 | Round 2 | deepfool + blur | Colab continued from R1 | similar to R1 | not measured |
 | Round 3 | deepfool + blur + square | multi-attack mix, Colab from R2 | no measurable improvement | regressed vs R2 |
 | Timestep sweep | deepfool | param tuning (ts10/ts25/ts7525) | ts7525 best: 0.2929 (+0.0745); single-pass variants flat at ~0.268 | not applicable |
-| 500-img ts7525 validation | deepfool | full-scale confirm of ts7525 result | [TBD] | not applicable |
-| Round 4 | [TBD — pending 500-img result + YOLOv26 timing] | [TBD] | [TBD] | [TBD] |
+| 500-img ts7525 validation | deepfool | full-scale confirm of ts7525 result | 0.2600 (+0.0362 vs R3 c_dog) | not applicable |
+| Round 4 | deepfool-only, ts7525 schedule | deepfool-focused Colab retrain from R3 checkpoint | [TBD — pending YOLOv26 timing decision] | [TBD] |
 
 **Pattern:** Multi-attack mixing (Round 3) caused regression on both targets. Single-attack
 focus is required going forward.
