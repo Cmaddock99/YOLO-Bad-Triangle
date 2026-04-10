@@ -193,9 +193,9 @@ class CDogDefenseAdapter(_BaseCDogAdapter):
             output = sharpen_image(output, alpha=float(self.sharpen_alpha))
         if schedule:
             # Multipass: timestep is meaningless (multiple values were used); report schedule instead.
+            # stats already contains "passes" from run_wrapper_multipass_on_bgr_image.
             timestep_meta: float | None = None
             schedule_meta: str | None = self.timestep_schedule or None
-            # stats already contains "passes" from run_wrapper_multipass_on_bgr_image
         else:
             timestep_meta = float(self.timestep)
             schedule_meta = None
