@@ -1,7 +1,7 @@
 model:
   name: yolo
   params:
-    model: yolo26n.pt
+    model: yolo11n.pt
 
 data:
   source_dir: coco/val2017_subset500/images
