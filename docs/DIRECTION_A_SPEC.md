@@ -228,3 +228,35 @@ docs/analysis/direction_a_closure_2026-04-XX.md
 - Dashboard or presentation layer
 - Generalization to non-YOLO models
 - Runner, reporting, or schema layer changes
+
+---
+
+## Phase 0–2 Execution Results (2026-04-09)
+
+### Timestep Sweep Results (100 images, deepfool epsilon=0.1 steps=50)
+
+| Variant | timestep / schedule | mAP50 (100 img) | run_summary present |
+|---|---|---|---|
+| ts10 | timestep=10.0 | 0.2676 | YES |
+| ts25 | timestep=25.0 | 0.2679 | YES |
+| ts7525 | schedule="75,25" | 0.2929 | YES |
+
+Reference: c_dog baseline (500 img) = 0.2238 | jpeg baseline = 0.3175
+
+### Full 500-Image Validation (ts7525)
+
+| Variant | timestep / schedule | mAP50 (500 img) | run_summary present |
+|---|---|---|---|
+| ts7525_full500 | schedule="75,25" | 0.2600 | YES |
+
+The 100-image result (0.2929) did not hold at 500 images (0.2600). The difference (0.033) exceeds the expected ±0.005 noise floor, indicating the 100-image sample over-estimated the improvement.
+
+### Phase 2 Decision
+
+Best variant: ts7525 (schedule="75,25")
+Best mAP50 at 500 images: 0.2600
+Gap to jpeg remaining: 0.0575
+
+Decision: PROCEED TO ROUND 4 RETRAINING — marginal improvement found; retrain with timestep_schedule="75,25"
+
+Next action: Deepfool-only Round 4 Colab retraining with the 75,25 two-pass schedule baked into the training loop. Resume from dpc_unet_adversarial_finetuned.pt. The 0.0362 improvement from timestep tuning alone (0.2238 → 0.2600) suggests the architecture can partially handle deepfool's frequency signature when given a coarse-to-fine denoising pass. Retraining with deepfool pairs at this schedule may close more of the remaining 0.0575 gap to jpeg.

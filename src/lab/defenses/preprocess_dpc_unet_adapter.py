@@ -195,17 +195,16 @@ class CDogDefenseAdapter(_BaseCDogAdapter):
             # Multipass: timestep is meaningless (multiple values were used); report schedule instead.
             timestep_meta: float | None = None
             schedule_meta: str | None = self.timestep_schedule or None
-            passes_meta: int = len(schedule)
+            # stats already contains "passes" from run_wrapper_multipass_on_bgr_image
         else:
             timestep_meta = float(self.timestep)
             schedule_meta = None
-            passes_meta = 1
+            stats["passes"] = 1  # single-pass: inject into stats
         return output, adapter_stage_metadata(
             self._stage_name, "preprocess",
             checkpoint_path=str(Path(self.checkpoint_path).expanduser()),
             timestep=timestep_meta,
             timestep_schedule=schedule_meta,
-            passes=passes_meta,
             sharpen_alpha=float(self.sharpen_alpha),
             color_order=self._cfg.color_order,
             scaling=self._cfg.scaling,
