@@ -1,5 +1,19 @@
 # Project State
 
+## Current Phase
+
+**YOLOv8 Direction A: COMPLETE** (verdict: PAUSE c_dog, 2026-04-09)
+- Closure record: `docs/analysis/direction_a_closure_20260409.md`
+- c_dog checkpoint (`dpc_unet_adversarial_finetuned.pt`) is YOLOv8-specific; do not use for YOLOv26 training
+
+**Next Phase: YOLOv26 Baseline Characterization**
+- YOLOv26 adapter implementation pending (`src/lab/models/yolov26_adapter.py`)
+- Phase 1 attack characterization required before any defense or fortification work
+- Attack parameters (deepfool epsilon, square n_queries) were tuned for YOLOv8 and do not transfer
+- Authoritative metric for YOLOv26: **mAP50-95** (mAP50 retained as diagnostic for historical comparison only)
+
+---
+
 Current architecture reference for the repository as it exists today.
 
 ## Canonical execution path
@@ -49,10 +63,12 @@ can distinguish this canonical era from older legacy outputs.
 
 - Location: `src/lab/models/`
 - Current adapters:
-  - `yolo`
+  - `yolo` (YOLOv8 via ultralytics==8.4.23) — **active for historical YOLOv8 runs**
   - `faster_rcnn` (alias: `torchvision_frcnn`)
+  - `yolo26` — **planned, not yet implemented**
 - `yolo` supports prediction and validation.
 - `faster_rcnn` supports prediction and returns a `not_supported` validation stub.
+- YOLOv26 adapter will follow the same `@register_model` pattern; auto-discovered from `src/lab/models/yolov26_adapter.py`.
 
 List live plugin names with:
 
