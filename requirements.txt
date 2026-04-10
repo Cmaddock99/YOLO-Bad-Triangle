@@ -4,7 +4,7 @@
 # For a reproducible install, use: pip freeze > requirements-lock.txt after installing.
 
 # Ultralytics YOLO implementation and training/inference tooling
-ultralytics==8.4.23
+ultralytics==8.4.36
 
 # PyTorch backend for model training/inference
 torch==2.5.1

@@ -86,7 +86,7 @@ Checkpoint round determined by file modification timestamp (Round 3 deployed 202
 | Round 3 | deepfool + blur + square | multi-attack mix, Colab from R2 | no measurable improvement | regressed vs R2 |
 | Timestep sweep | deepfool | param tuning (ts10/ts25/ts7525) | ts7525 best: 0.2929 (+0.0745); single-pass variants flat at ~0.268 | not applicable |
 | 500-img ts7525 validation | deepfool | full-scale confirm of ts7525 result | 0.2600 (+0.0362 vs R3 c_dog) | not applicable |
-| Round 4 | deepfool-only, ts7525 schedule | deepfool-focused Colab retrain from R3 checkpoint | [TBD — pending YOLOv26 timing decision] | [TBD] |
+| Round 4 | deepfool-only, ts7525 schedule | deepfool-focused Colab retrain from R3 checkpoint | [TBD — pending YOLOv11 timing decision] | [TBD] |
 
 **Pattern:** Multi-attack mixing (Round 3) caused regression on both targets. Single-attack
 focus is required going forward.
@@ -144,12 +144,12 @@ its image-level denoising is architecture-sound. The YOLOv8 experiment is
 closed; the fortification hypothesis carries forward to the next model.
 
 Next fortification direction:
-  1. Complete YOLOv26 adapter and establish clean baseline
-  2. Re-characterize attacks on YOLOv26 from Phase 1 (attack params are
+  1. Establish clean YOLOv11 baseline (no attack, no defense, 500 images)
+  2. Re-characterize attacks on YOLOv11 from Phase 1 (attack params are
      model-specific and do not transfer)
-  3. Restart c_dog fortification on YOLOv26 with square-only training focus
+  3. Restart c_dog fortification on YOLOv11 with square-only training focus
      from the start — do not resume YOLOv8 checkpoint for training
-  4. Re-evaluate deepfool on YOLOv26 after characterization — the damage
+  4. Re-evaluate deepfool on YOLOv11 after characterization — the damage
      profile and gradient structure may differ significantly
 ```
 
