@@ -249,14 +249,15 @@ Reference: c_dog baseline (500 img) = 0.2238 | jpeg baseline = 0.3175
 |---|---|---|---|
 | ts7525_full500 | schedule="75,25" | 0.2600 | YES |
 
-The 100-image result (0.2929) did not hold at 500 images (0.2600). The difference (0.033) exceeds the expected ±0.005 noise floor, indicating the 100-image sample over-estimated the improvement.
+The 100-image result (0.2929) did not hold at 500 images (0.2600). The difference (0.033) exceeds
+the expected ±0.005 noise floor, indicating the 100-image sample over-estimated the improvement.
 
-### Phase 2 Decision
+### Final Verdict (overrides Phase 2 decision above)
 
-Best variant: ts7525 (schedule="75,25")
-Best mAP50 at 500 images: 0.2600
-Gap to jpeg remaining: 0.0575
+Best variant: ts7525 (schedule="75,25") — mAP50 0.2600 at 500 images.
+Gap to median (best classical on deepfool): 0.1056. Gap to jpeg: 0.0575.
+c_dog remains third on deepfool behind median (0.3656) and jpeg (0.3175).
 
-Decision: PROCEED TO ROUND 4 RETRAINING — marginal improvement found; retrain with timestep_schedule="75,25"
-
-Next action: Deepfool-only Round 4 Colab retraining with the 75,25 two-pass schedule baked into the training loop. Resume from dpc_unet_adversarial_finetuned.pt. The 0.0362 improvement from timestep tuning alone (0.2238 → 0.2600) suggests the architecture can partially handle deepfool's frequency signature when given a coarse-to-fine denoising pass. Retraining with deepfool pairs at this schedule may close more of the remaining 0.0575 gap to jpeg.
+**Verdict: PAUSE c_dog — YOLOv8 scope closed.** Round 4 deepfool retraining not pursued;
+YOLOv8 model being superseded by YOLOv26. See `docs/analysis/direction_a_closure_20260409.md`
+for full evidence record and rationale.
