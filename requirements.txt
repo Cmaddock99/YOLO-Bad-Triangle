@@ -7,10 +7,10 @@
 ultralytics==8.4.36
 
 # PyTorch backend for model training/inference
-torch==2.5.1
+torch==2.6.0
 
-# TorchVision datasets, transforms, and model utilities aligned with torch 2.5.1
-torchvision==0.20.1
+# TorchVision datasets, transforms, and model utilities aligned with torch 2.6.0
+torchvision==0.21.0
 
 # Numerical operations and tensor/image array manipulation
 numpy>=1.23.5,<2.0.0

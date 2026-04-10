@@ -43,8 +43,8 @@ pip install -r requirements-dev.txt
 PYTHONPATH=src ./.venv/bin/python scripts/check_environment.py
 ```
 
-The supported local dev/test combo is Python 3.11.x with
-`ultralytics==8.4.36`, `torch==2.5.1`, and `torchvision==0.20.1`. **The project is
+The supported local dev/test combo is Python 3.11+ (3.13 on NUC) with
+`ultralytics==8.4.36`, `torch==2.6.0`, and `torchvision==0.21.0`. **The project is
 transitioning to YOLOv11** — see `PROJECT_STATE.md` for current phase status. No new
 model adapter is needed; set `model.params.model: yolo11n.pt` in config and ultralytics
 auto-downloads the weights on first run.
