@@ -1,5 +1,23 @@
 # YOLO-Bad-Triangle — Safe Remediation Plan
 _Generated: 2026-03-29 from full repository audit_
+_Status updated: 2026-04-09 — all Phase 1 (P0) and Phase 2 (P1) items verified CLOSED in code_
+
+## Status Summary (2026-04-09)
+
+All high-priority items have been applied in prior commits. The plan below reflects original
+wording; verified current code state is noted per item.
+
+| Item | Severity | Code Status |
+|---|---|---|
+| 1.1 save_state() atomic write | P0 | **DONE** — `os.replace()` at auto_cycle.py:321 |
+| 1.2 per_class key documentation | P0 | **DONE** — contracts.py documents str keys |
+| 2.1 Lock FD close on BlockingIOError | P1 | **DONE** — `lock_fd.close()` at auto_cycle.py:2219 |
+| 2.2 Training signal: trainable-only filter | P1 | **DONE** — `_trainable_pool()` at auto_cycle.py:1565 |
+| 2.3 EOT-PGD: assert → RuntimeError | P1 | **DONE** — RuntimeError at eot_pgd.py:182 |
+| 2.4 DR: hook registration validation | P1 | **DONE** — ValueError at dispersion_reduction_adapter.py:53 |
+| 2.5 _recovery() None propagation guard | P1 | **DONE** — returns None explicitly; callers handle it |
+| 3.1–3.3 Structural/P2 items | P2 | Deferred — no active bug risk |
+| 4.1–4.2 NUC ops | P3 | Deferred — NUC operator decision |
 
 ---
 

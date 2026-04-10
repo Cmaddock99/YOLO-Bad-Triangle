@@ -1,8 +1,9 @@
 # Direction A Spec: Evaluating c_dog as a Fortification Path
 
 **Date:** 2026-04-09
-**Status:** Active
-**Scope:** c_dog / DPC-UNet as one fortification candidate inside the attack-defend-fortify loop
+**Status:** CLOSED — YOLOv8 scope complete. Verdict: PAUSE c_dog (2026-04-09).
+**Scope:** c_dog / DPC-UNet as one fortification candidate inside the attack-defend-fortify loop (YOLOv8 only)
+**Closure record:** `docs/analysis/direction_a_closure_20260409.md`
 
 ---
 
@@ -261,3 +262,15 @@ c_dog remains third on deepfool behind median (0.3656) and jpeg (0.3175).
 **Verdict: PAUSE c_dog — YOLOv8 scope closed.** Round 4 deepfool retraining not pursued;
 YOLOv8 model being superseded by YOLOv26. See `docs/analysis/direction_a_closure_20260409.md`
 for full evidence record and rationale.
+
+---
+
+## Metric Authority for YOLOv26 Experiments
+
+For all YOLOv26 experiments and reporting, the primary authoritative metric is **mAP50-95**.
+mAP50 is retained as a diagnostic metric for historical comparison with YOLOv8 results only.
+
+YOLOv8 Direction A results (cycles 11–15, timestep sweep, 500-image validation) use mAP50
+as the authoritative metric and are **not directly comparable** to YOLOv26 mAP50-95 values.
+Any cross-version comparison must explicitly state which metric and which model version is
+being cited.

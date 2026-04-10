@@ -43,8 +43,13 @@ pip install -r requirements-dev.txt
 PYTHONPATH=src ./.venv/bin/python scripts/check_environment.py
 ```
 
-The supported local dev/test combo is Python 3.11.x with
-`ultralytics==8.4.23`, `torch==2.5.1`, and `torchvision==0.20.1`.
+The current YOLOv8 setup uses Python 3.11.x with `ultralytics==8.4.23`,
+`torch==2.5.1`, and `torchvision==0.20.1`. **The project is transitioning to
+YOLOv26** — see `PROJECT_STATE.md` for current phase status.
+
+> **YOLOv8 Direction A complete.** Analysis results and verdict are archived in
+> `docs/analysis/direction_a_closure_20260409.md`. The `dpc_unet_adversarial_finetuned.pt`
+> checkpoint is YOLOv8-specific and should not be used for YOLOv26 training.
 
 If you plan to use `c_dog` or `c_dog_ensemble`, set `DPC_UNET_CHECKPOINT_PATH`
 in `.env` or your shell. This env var is the source of truth for which
