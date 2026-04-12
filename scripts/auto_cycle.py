@@ -51,6 +51,7 @@ import fcntl
 import json
 import os
 import re
+import signal
 import shutil
 import subprocess
 import sys
@@ -562,12 +563,55 @@ def run_single(
     ]
     for assignment in assignments:
         cmd += ["--set", assignment]
+    if timeout_seconds is None:
+        result = subprocess.run(cmd, cwd=str(REPO), env=_env())
+        return result.returncode == 0
+
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(REPO),
+        env=_env(),
+        start_new_session=(os.name != "nt"),
+    )
     try:
-        result = subprocess.run(cmd, cwd=str(REPO), env=_env(), timeout=timeout_seconds)
+        return proc.wait(timeout=timeout_seconds) == 0
     except subprocess.TimeoutExpired:
         log(f"  timeout: {run_name} exceeded {timeout_seconds}s")
+        _terminate_timed_out_run(proc, run_name=run_name)
         return False
-    return result.returncode == 0
+
+
+def _terminate_timed_out_run(proc: subprocess.Popen, *, run_name: str, grace_seconds: int = 5) -> None:
+    """Terminate a timed-out run and its descendants.
+
+    `run_single()` launches timeout-bound runs in a new session so a group kill
+    reaps both the wrapper and the underlying experiment worker.
+    """
+    if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        proc.terminate()
+        try:
+            proc.wait(timeout=grace_seconds)
+        except subprocess.TimeoutExpired:
+            log(f"  timeout: {run_name} ignored SIGTERM; force killing wrapper")
+            proc.kill()
+            proc.wait(timeout=grace_seconds)
+        return
+
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        proc.wait(timeout=grace_seconds)
+    except subprocess.TimeoutExpired:
+        log(f"  timeout: {run_name} ignored SIGTERM; force killing process group")
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            return
+        proc.wait(timeout=grace_seconds)
 
 
 def generate_report(state: dict) -> None:
