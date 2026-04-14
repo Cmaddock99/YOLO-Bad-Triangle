@@ -306,8 +306,8 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
             "report_root": "outputs/framework_reports/test",
         }
         with mock.patch("scripts.auto_cycle.run_sweep", return_value=True) as run_sweep_mock, mock.patch(
-            "scripts.auto_cycle._rank_defenses",
-            return_value=["bit_depth"],
+            "scripts.auto_cycle._rank_defense_lists",
+            return_value=(["bit_depth"], ["bit_depth", "jpeg_preprocess"]),
         ):
             ok = auto_cycle.phase2(state)
 
@@ -316,6 +316,33 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
         self.assertEqual(kwargs["reporting_dataset_scope"], "smoke")
         self.assertEqual(kwargs["reporting_authority"], "diagnostic")
         self.assertEqual(kwargs["reporting_source_phase"], "phase2")
+        self.assertEqual(state["top_defenses"], ["bit_depth"])
+        self.assertEqual(state["phase4_defense_candidates"], ["bit_depth", "jpeg_preprocess"])
+
+    def test_phase4_supplements_single_top_defense_with_next_ranked_candidate(self) -> None:
+        state = {
+            "top_attacks": ["deepfool"],
+            "top_defenses": ["c_dog"],
+            "phase4_defense_candidates": ["c_dog", "bit_depth", "jpeg_preprocess"],
+            "best_attack_params": {"deepfool": {"attack.params.steps": 170}},
+            "best_defense_params": {"c_dog": {"defense.params.timestep": 10.0}},
+            "runs_root": "outputs/framework_runs/test",
+            "report_root": "outputs/framework_reports/test",
+        }
+        run_calls: list[dict[str, object]] = []
+
+        def capture_run_single(**kwargs: object) -> bool:
+            run_calls.append(dict(kwargs))
+            return True
+
+        with mock.patch("scripts.auto_cycle.run_single", side_effect=capture_run_single):
+            ok = auto_cycle.phase4(state)
+
+        self.assertTrue(ok)
+        defended_run_names = {c["run_name"] for c in run_calls if str(c.get("run_name")).startswith("validate_deepfool_")}
+        self.assertEqual(defended_run_names, {"validate_deepfool_c_dog", "validate_deepfool_bit_depth"})
+        bit_depth_call = next(c for c in run_calls if c.get("run_name") == "validate_deepfool_bit_depth")
+        self.assertEqual(bit_depth_call.get("overrides"), {"attack.params.steps": 170})
 
     def test_phase4_slow_attacks_run_locally_with_image_cap(self) -> None:
         # Slow attacks (including deepfool) must run locally in

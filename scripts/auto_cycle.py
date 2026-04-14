@@ -111,6 +111,7 @@ ALL_DEFENSES: list[str] = [
 
 TOP_N_ATTACKS = 3
 TOP_N_DEFENSES = 3   # bumped from 2 — catalogue now has 6 defenses
+MIN_PHASE4_DEFENSES = 2
 RANKING_SMOKE_MAX_IMAGES = 32
 
 # ── Adaptive tuning: parameter spaces ─────────────────────────────────────────
@@ -721,12 +722,13 @@ def phase2(state: dict) -> bool:
     if not ok:
         log("Phase 2 had errors — continuing with available data")
 
-    top = _rank_defenses(state)
+    top, ranked_all = _rank_defense_lists(state)
     if not top:
         log("Phase 2: no usable defense results")
         return False
 
     state["top_defenses"] = top
+    state["phase4_defense_candidates"] = ranked_all
     state["phase2_complete"] = True
     state["current_phase"] = 3
     log(f"Phase 2 done. Top defenses: {top}")
@@ -779,7 +781,7 @@ def _compute_phase4_demotions(validation_results: dict) -> list[str]:
     return demoted
 
 
-def _rank_defenses(state: dict) -> list[str]:
+def _rank_defense_lists(state: dict) -> tuple[list[str], list[str]]:
     runs_root = Path(state["runs_root"])
     baseline_m = read_metrics(runs_root / "baseline_none")
     baseline_conf = (get_avg_conf(baseline_m) or 0.0) if baseline_m else 0.0
@@ -813,6 +815,7 @@ def _rank_defenses(state: dict) -> list[str]:
         log(f"  {defense:25s}  avg_composite_recovery={avg:.3f}  (n={len(vals)})")
 
     avg_scores.sort(reverse=True)
+    ranked_all = [d for _, d in avg_scores]
 
     # Exclude defenses demoted by Phase 4 mAP50 evidence from the previous cycle.
     # PINNED_DEFENSES (c_dog) are never excluded regardless of demotion status.
@@ -840,6 +843,11 @@ def _rank_defenses(state: dict) -> list[str]:
                 f"Validate Phase 4 mAP50 before drawing conclusions."
             )
 
+    return top, ranked_all
+
+
+def _rank_defenses(state: dict) -> list[str]:
+    top, _ = _rank_defense_lists(state)
     return top
 
 
@@ -1378,6 +1386,7 @@ def phase4(state: dict) -> bool:
     runs_root = state["runs_root"]
     best_atk = state.get("best_attack_params", {})
     best_def = state.get("best_defense_params", {})
+    phase4_defenses = _phase4_validation_defenses(state)
     failed_runs: list[str] = []
 
     def _timeout_for_attack(attack_name: str) -> int:
@@ -1428,7 +1437,7 @@ def phase4(state: dict) -> bool:
     # Best attack × defense combos
     for attack in state["top_attacks"]:
         img_cap = PHASE4_MAX_IMAGES_BY_ATTACK.get(attack)
-        for defense in state["top_defenses"]:
+        for defense in phase4_defenses:
             merged = {**(best_atk.get(attack) or {}), **(best_def.get(defense) or {})}
             if not run_single(
                 attack=attack, defense=defense,
@@ -1456,6 +1465,39 @@ def phase4(state: dict) -> bool:
         log("[warn] Phase 4 had failed or timed-out runs: " + ", ".join(sorted(set(failed_runs))))
     log(f"Phase 4 done. Reports at: {state['report_root']}")
     return True
+
+
+def _phase4_validation_defenses(state: dict) -> list[str]:
+    """Return defenses to validate in Phase 4.
+
+    If Phase 2/3 narrowed the working set to a single defense, supplement with
+    the next-best smoke-ranked candidate so validation still compares at least
+    two defenses.
+    """
+    selected: list[str] = []
+    base_defenses = list(state.get("top_defenses") or [])
+    ranked_candidates = list(state.get("phase4_defense_candidates") or [])
+    target_count = 0 if not base_defenses else min(len(ALL_DEFENSES), max(len(base_defenses), MIN_PHASE4_DEFENSES))
+
+    for defense in base_defenses:
+        if defense not in selected:
+            selected.append(defense)
+    for defense in ranked_candidates:
+        if len(selected) >= target_count:
+            break
+        if defense not in selected:
+            selected.append(defense)
+    if len(selected) < target_count:
+        for defense in ALL_DEFENSES:
+            if len(selected) >= target_count:
+                break
+            if defense not in selected:
+                selected.append(defense)
+
+    added = [d for d in selected if d not in base_defenses]
+    if added:
+        log(f"  Phase 4: supplementing validation defenses with {added}")
+    return selected
 
 
 # ── Loop-mode helpers ─────────────────────────────────────────────────────────
