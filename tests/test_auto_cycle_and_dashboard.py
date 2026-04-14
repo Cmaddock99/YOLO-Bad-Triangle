@@ -318,7 +318,7 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
         self.assertEqual(kwargs["reporting_source_phase"], "phase2")
 
     def test_phase4_slow_attacks_run_locally_with_image_cap(self) -> None:
-        # Slow attacks (eot_pgd, square, dispersion_reduction) must run locally in
+        # Slow attacks (including deepfool) must run locally in
         # Phase 4 with a capped image count — not delegated/skipped.
         state = {
             "top_attacks": ["eot_pgd", "deepfool"],
@@ -348,12 +348,12 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
                 call.get("max_images_override"),
                 f"eot_pgd run_single call missing max_images_override: {call}",
             )
-        # deepfool (fast) should have no image cap override
-        fast_calls = [c for c in run_calls if c.get("attack") == "deepfool"]
-        for call in fast_calls:
-            self.assertIsNone(
+        deepfool_calls = [c for c in run_calls if c.get("attack") == "deepfool"]
+        self.assertTrue(len(deepfool_calls) > 0, "deepfool should have been run, not delegated")
+        for call in deepfool_calls:
+            self.assertIsNotNone(
                 call.get("max_images_override"),
-                f"deepfool should not have max_images_override: {call}",
+                f"deepfool run_single call missing max_images_override: {call}",
             )
         baseline_call = next(c for c in run_calls if c.get("run_name") == "validate_baseline")
         self.assertEqual(
