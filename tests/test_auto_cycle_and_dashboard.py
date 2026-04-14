@@ -1028,7 +1028,6 @@ class WS1ArtifactIntegrityTest(unittest.TestCase):
                 }
 
                 warnings_logged: list[str] = []
-                original_log = auto_cycle.log
 
                 def capturing_log(msg: str) -> None:
                     warnings_logged.append(msg)
@@ -1103,8 +1102,8 @@ class WS7DashboardNoPagesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             reports_root = Path(tmp) / "framework_reports"
             reports_root.mkdir()
-            output = Path(tmp) / "dashboard.html"
-            pages_path = Path(tmp) / "docs" / "index.html"
+            _output = Path(tmp) / "dashboard.html"
+            _pages_path = Path(tmp) / "docs" / "index.html"
             # Patch Path("docs/index.html").resolve() to point at our tmp path
             with mock.patch.object(
                 generate_dashboard, "generate",

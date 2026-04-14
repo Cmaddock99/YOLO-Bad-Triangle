@@ -45,12 +45,10 @@ from lab.runners.run_intent import (
     build_run_intent,
     build_defense_signature as _build_defense_signature,
     config_fingerprint_sha256,
-    normalized_config_for_output as _normalized_config_for_output,
     resolve_attack_instance,
     resolve_defense_instance,
     resolved_config_yaml_text,
     resolved_reporting_context as _resolved_reporting_context,
-    without_none_values as _without_none_values,
 )
 from lab.runners.cli_utils import apply_override, as_mapping, load_yaml_mapping, sanitize_segment
 

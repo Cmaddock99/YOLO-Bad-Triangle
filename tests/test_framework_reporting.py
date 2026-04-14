@@ -968,8 +968,6 @@ class WS1AtomicWriteTest(unittest.TestCase):
         (run_dir / "run_summary.json").write_text(
             json.dumps({
                 "model": {"name": "yolo", "params": {}},
-                "attack": {"name": attack, "params": {}},
-                "defense": {"name": "none", "params": {}},
                 "seed": 42,
                 "prediction_record_count": 1,
                 "pipeline": {
