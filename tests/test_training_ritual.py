@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 import tempfile
-import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -68,7 +66,7 @@ class TrainingRitualTest(unittest.TestCase):
         with self._patch_signal_path():
             with mock.patch.object(run_training_ritual, "_run_step", side_effect=fake_run_step):
                 with mock.patch.object(run_training_ritual, "_print_verdict"):
-                    rc = run_training_ritual.main([])
+                    run_training_ritual.main([])
 
         # Should have reached export step without failing at signal check
         self.assertTrue(any("export_training_data" in " ".join(c) for c in captured))
@@ -78,7 +76,7 @@ class TrainingRitualTest(unittest.TestCase):
         self._write_signal(age_hours=1)
         dry_run_flags: list[bool] = []
 
-        original = run_training_ritual._run_step
+
 
         def recording_run_step(label: str, cmd: list[str], *, dry_run: bool) -> None:
             dry_run_flags.append(dry_run)

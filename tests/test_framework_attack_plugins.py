@@ -217,7 +217,6 @@ class WS4AttackCorrectnessTest(unittest.TestCase):
 
     def test_fgsm_uses_contract_objective_constants(self) -> None:
         """FGSM loss function must branch on contract constants, not raw string literals."""
-        from lab.config.contracts import ATTACK_OBJECTIVE_TARGET_CLASS, ATTACK_OBJECTIVE_CLASS_HIDE
         import lab.attacks.fgsm_adapter as fgsm_mod
         import inspect
         source = inspect.getsource(fgsm_mod.FGSMAttack._compute_loss)

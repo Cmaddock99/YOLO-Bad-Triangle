@@ -15,9 +15,9 @@ from lab.config.contracts import PIXEL_MAX
 # Intentionally low so weak detections are still counted against the adversary.
 _DETECTION_CONF_THRESHOLD = 0.1
 
-from .base_attack import BaseAttack
-from .fgsm_adapter import FGSMAttack
-from .framework_registry import register_attack_plugin
+from .base_attack import BaseAttack  # noqa: E402
+from .fgsm_adapter import FGSMAttack  # noqa: E402
+from .framework_registry import register_attack_plugin  # noqa: E402
 
 
 LOGGER = logging.getLogger(__name__)
