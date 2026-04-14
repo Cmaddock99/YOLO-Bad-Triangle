@@ -437,10 +437,16 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
 
     def test_run_single_timeout_is_non_fatal_and_returns_false(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch(
-                "scripts.auto_cycle.subprocess.run",
-                side_effect=auto_cycle.subprocess.TimeoutExpired(cmd=["python"], timeout=10),
-            ):
+            proc = mock.Mock()
+            proc.pid = 4321
+            proc.poll.return_value = None
+            proc.wait.side_effect = [
+                auto_cycle.subprocess.TimeoutExpired(cmd=["python"], timeout=10),
+                0,
+            ]
+            with mock.patch("scripts.auto_cycle.subprocess.Popen", return_value=proc) as popen_mock, mock.patch(
+                "scripts.auto_cycle.os.killpg"
+            ) as killpg_mock:
                 ok = auto_cycle.run_single(
                     attack="deepfool",
                     defense="none",
@@ -451,6 +457,11 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
                     timeout_seconds=10,
                 )
             self.assertFalse(ok)
+            self.assertEqual(popen_mock.call_args.kwargs["start_new_session"], auto_cycle.os.name != "nt")
+            if auto_cycle.os.name != "nt":
+                killpg_mock.assert_called_once_with(proc.pid, auto_cycle.signal.SIGTERM)
+            else:
+                killpg_mock.assert_not_called()
 
     def test_run_single_passes_reporting_context_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
