@@ -45,6 +45,7 @@ from lab.runners.run_intent import (
     build_run_intent,
     build_defense_signature as _build_defense_signature,
     config_fingerprint_sha256,
+    normalized_config_for_output as _normalized_config_for_output,  # noqa: F401 — re-exported for tests
     resolve_attack_instance,
     resolve_defense_instance,
     resolved_config_yaml_text,
