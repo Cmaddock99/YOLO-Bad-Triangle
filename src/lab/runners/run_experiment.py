@@ -27,6 +27,7 @@ from lab.config.contracts import (
     FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
     PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
 )
+from lab.config.profiles import resolve_framework_config
 from lab.attacks.framework_registry import list_available_attack_plugins
 from lab.attacks.utils import iter_images
 from lab.defenses.framework_registry import list_available_defense_plugins
@@ -641,6 +642,9 @@ class UnifiedExperimentRunner:
         checkpoint_fingerprint = run_intent.get("checkpoint_fingerprint_sha256")
         checkpoint_source = run_intent.get("checkpoint_fingerprint_source")
         defense_checkpoint_provenance = list(run_intent.get("defense_checkpoints") or defense_checkpoint_provenance)
+        pipeline_profile = run_intent.get("pipeline_profile")
+        authoritative_metric = run_intent.get("authoritative_metric")
+        profile_compatibility = run_intent.get("profile_compatibility")
         attack_signature = str(
             run_intent.get("attack_signature")
             or _build_attack_signature(
@@ -659,6 +663,9 @@ class UnifiedExperimentRunner:
         predictions_file = run_dir / "predictions.jsonl"
         metrics_file = run_dir / "metrics.json"
         summary_file = run_dir / "run_summary.json"
+        metrics_payload["provenance"]["pipeline_profile"] = pipeline_profile
+        metrics_payload["provenance"]["authoritative_metric"] = authoritative_metric
+        metrics_payload["provenance"]["profile_compatibility"] = profile_compatibility
 
         run_summary = {
             "schema_version": FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
@@ -696,6 +703,9 @@ class UnifiedExperimentRunner:
             "validation": metrics_payload["validation"],
             "metrics_path": str(metrics_file),
             "seed": seed,
+            "pipeline_profile": pipeline_profile,
+            "authoritative_metric": authoritative_metric,
+            "profile_compatibility": profile_compatibility,
             "reproducibility": {
                 "seed": seed,
                 "torch_version": torch.__version__,
@@ -767,10 +777,15 @@ class UnifiedExperimentRunner:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Unified framework runner.")
-    parser.add_argument(
+    config_group = parser.add_mutually_exclusive_group()
+    config_group.add_argument(
         "--config",
         default="configs/default.yaml",
         help="Path to framework config YAML.",
+    )
+    config_group.add_argument(
+        "--profile",
+        help="Named pipeline profile from configs/pipeline_profiles.yaml.",
     )
     parser.add_argument(
         "--dry-run",
@@ -806,8 +821,12 @@ def main() -> None:
             print(json.dumps(payload, indent=2))
             return
 
-        config_path = Path(args.config).expanduser().resolve()
-        runner = UnifiedExperimentRunner.from_yaml(config_path)
+        config_path_arg = None if args.profile else Path(args.config).expanduser().resolve()
+        resolved_config, resolved_path = resolve_framework_config(
+            config_path=config_path_arg,
+            profile_name=args.profile,
+        )
+        runner = UnifiedExperimentRunner(config=resolved_config, config_path=resolved_path)
 
         overrides = list(args.set)
         overrides.extend(item for item in unknown if "=" in item)

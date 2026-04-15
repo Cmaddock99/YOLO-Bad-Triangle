@@ -1,0 +1,55 @@
+profiles:
+  yolo11n_lab_v1:
+    description: Canonical YOLO11n lab profile for the one real pipeline v1.
+    model:
+      name: yolo
+      params:
+        model: yolo11n.pt
+    data:
+      source_dir: coco/val2017_subset500/images
+    predict:
+      conf: 0.5
+      iou: 0.7
+      imgsz: 640
+    validation:
+      enabled: false
+      dataset: configs/coco_subset500.yaml
+      params: {}
+    summary:
+      enabled: false
+    runner:
+      seed: 42
+      max_images: 8
+      output_root: outputs/framework_runs
+    attacks:
+      canonical:
+        - fgsm
+        - pgd
+        - deepfool
+        - eot_pgd
+        - dispersion_reduction
+        - blur
+        - square
+      manual_only:
+        - cw
+        - fgsm_center_mask
+        - fgsm_edge_mask
+        - jpeg_attack
+    defenses:
+      canonical:
+        - bit_depth
+        - jpeg_preprocess
+        - median_preprocess
+      manual_only:
+        - c_dog
+        - c_dog_ensemble
+        - confidence_filter
+        - random_resize
+    authoritative_metric: mAP50
+    fortify_mode:
+      name: cycle_rank_tune_validate
+      description: Attack/defense ranking, parameter tuning, and authoritative validation stay inside auto_cycle.
+    learned_defense:
+      trainable: false
+      default_defense: c_dog
+      reason: yolo11n_lab_v1 keeps learned-defense retraining outside the canonical v1 loop; c_dog evaluation remains manual-only until a trainable YOLO11 path is approved.

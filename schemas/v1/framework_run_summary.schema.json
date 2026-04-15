@@ -32,6 +32,35 @@
         "name"
       ]
     },
+    "pipeline_profile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "authoritative_metric": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "profile_compatibility": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "status": {"type": "string"},
+        "model_status": {"type": "string"},
+        "attack_status": {"type": "string"},
+        "defense_status": {"type": "string"},
+        "reasons": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": true
+    },
     "reporting_context": {
       "type": "object",
       "properties": {

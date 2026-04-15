@@ -36,6 +36,27 @@ class RunUnifiedTest(unittest.TestCase):
             ],
         )
 
+    def test_build_run_experiment_command_accepts_profile(self) -> None:
+        command = cli_utils.build_run_experiment_command(
+            Path("/repo"),
+            None,
+            ["attack.name=fgsm"],
+            profile="yolo11n_lab_v1",
+            python_bin="python",
+        )
+
+        self.assertEqual(
+            command,
+            [
+                "python",
+                "/repo/src/lab/runners/run_experiment.py",
+                "--profile",
+                "yolo11n_lab_v1",
+                "--set",
+                "attack.name=fgsm",
+            ],
+        )
+
     def test_build_repo_python_command_targets_requested_script(self) -> None:
         command = cli_utils.build_repo_python_command(
             Path("/repo"),
@@ -124,6 +145,90 @@ class RunUnifiedTest(unittest.TestCase):
 
         self.assertEqual(len(captured), 1)
         self.assertIn("runner.seed=11", " ".join(captured[0]))
+
+    def test_run_one_profile_forwards_profile_flag(self) -> None:
+        captured: list[list[str]] = []
+
+        def _fake_run(command: list[str], *, component: str, env: dict[str, str] | None = None) -> int:
+            del component, env
+            captured.append(command)
+            return 0
+
+        argv = [
+            "run_unified.py",
+            "run-one",
+            "--profile",
+            "yolo11n_lab_v1",
+            "--seed",
+            "11",
+        ]
+        with patch("sys.argv", argv):
+            with patch("scripts.run_unified.resolve_python_bin", return_value="python"):
+                with patch("scripts.run_unified.with_src_pythonpath", return_value={}):
+                    with patch("scripts.run_unified._run", side_effect=_fake_run):
+                        with self.assertRaises(SystemExit) as exit_ctx:
+                            run_unified.main()
+                        self.assertEqual(int(exit_ctx.exception.code), 0)
+
+        self.assertEqual(len(captured), 1)
+        rendered = " ".join(captured[0])
+        self.assertIn("--profile yolo11n_lab_v1", rendered)
+        self.assertIn("runner.seed=11", rendered)
+
+    def test_sweep_profile_forwards_profile_flag(self) -> None:
+        captured: list[list[str]] = []
+
+        def _fake_run(command: list[str], *, component: str, env: dict[str, str] | None = None) -> int:
+            del component, env
+            captured.append(command)
+            return 0
+
+        argv = [
+            "run_unified.py",
+            "sweep",
+            "--profile",
+            "yolo11n_lab_v1",
+            "--attacks",
+            "fgsm,pgd",
+        ]
+        with patch("sys.argv", argv):
+            with patch("scripts.run_unified.resolve_python_bin", return_value="python"):
+                with patch("scripts.run_unified.with_src_pythonpath", return_value={}):
+                    with patch("scripts.run_unified._run", side_effect=_fake_run):
+                        with self.assertRaises(SystemExit) as exit_ctx:
+                            run_unified.main()
+                        self.assertEqual(int(exit_ctx.exception.code), 0)
+
+        self.assertEqual(len(captured), 1)
+        self.assertIn("--profile yolo11n_lab_v1", " ".join(captured[0]))
+
+    def test_run_one_rejects_profile_and_config_together(self) -> None:
+        argv = [
+            "run_unified.py",
+            "run-one",
+            "--config",
+            "configs/default.yaml",
+            "--profile",
+            "yolo11n_lab_v1",
+        ]
+        with patch("sys.argv", argv):
+            with self.assertRaises(SystemExit) as exit_ctx:
+                run_unified.main()
+        self.assertEqual(int(exit_ctx.exception.code), 2)
+
+    def test_sweep_rejects_profile_and_config_together(self) -> None:
+        argv = [
+            "run_unified.py",
+            "sweep",
+            "--config",
+            "configs/default.yaml",
+            "--profile",
+            "yolo11n_lab_v1",
+        ]
+        with patch("sys.argv", argv):
+            with self.assertRaises(SystemExit) as exit_ctx:
+                run_unified.main()
+        self.assertEqual(int(exit_ctx.exception.code), 2)
 
 
 if __name__ == "__main__":

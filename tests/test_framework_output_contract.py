@@ -254,6 +254,9 @@ class FrameworkOutputContractTests(unittest.TestCase):
             for key in ("run_dir", "metrics_path", "processed_image_count", "prediction_record_count"):
                 self.assertIn(key, run_summary)
             self.assertNotIn("reporting_context", run_summary)
+            self.assertIn("pipeline_profile", run_summary)
+            self.assertIn("authoritative_metric", run_summary)
+            self.assertIn("profile_compatibility", run_summary)
             self.assertIn("runtime", run_summary)
             self.assertIn("pipeline", run_summary)
             self.assertEqual(
@@ -264,6 +267,9 @@ class FrameworkOutputContractTests(unittest.TestCase):
             self.assertIn("signature", run_summary["attack"])
             self.assertIn("signature", run_summary["defense"])
             self.assertIn("provenance", metrics)
+            self.assertIn("pipeline_profile", metrics["provenance"])
+            self.assertIn("authoritative_metric", metrics["provenance"])
+            self.assertIn("profile_compatibility", metrics["provenance"])
             self.assertEqual(
                 metrics["provenance"]["transform_order"],
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],

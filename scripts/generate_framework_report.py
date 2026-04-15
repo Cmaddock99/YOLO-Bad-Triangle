@@ -17,6 +17,21 @@ from pathlib import Path
 from lab.reporting import discover_framework_runs, render_markdown_report, write_summary_csv
 
 
+def _assert_consistent_profile(records: list[object]) -> None:
+    profile_pairs = {
+        (
+            getattr(record, "pipeline_profile", None),
+            getattr(record, "authoritative_metric", None),
+        )
+        for record in records
+    }
+    if len(profile_pairs) > 1:
+        raise ValueError(
+            "Mixed pipeline profiles or authoritative metrics detected under one runs-root. "
+            "Generate reports from a single profile-consistent run set."
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate comparison summaries from framework run artifacts."
@@ -38,6 +53,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     records = discover_framework_runs(runs_root)
+    _assert_consistent_profile(records)
     csv_path = output_dir / "framework_run_summary.csv"
     md_path = output_dir / "framework_run_report.md"
 

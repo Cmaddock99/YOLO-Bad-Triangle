@@ -70,15 +70,19 @@ def build_repo_python_command(
 
 def build_run_experiment_command(
     project_root: Path,
-    config: Path | str,
+    config: Path | str | None,
     overrides: list[str],
     *,
+    profile: str | None = None,
     python_bin: str | None = None,
 ) -> list[str]:
+    if (config is None) == (profile is None):
+        raise ValueError("Choose exactly one of config or profile.")
+    config_args = ["--profile", profile] if profile is not None else ["--config", str(config)]
     command = build_repo_python_command(
         project_root,
         "src/lab/runners/run_experiment.py",
-        ["--config", str(config)],
+        config_args,
         python_bin=python_bin,
     )
     for override in overrides:

@@ -10,6 +10,11 @@ The repository is framework-first:
 - Canonical single-run entrypoint: `scripts/run_unified.py run-one`
 - Canonical sweep entrypoint: `scripts/sweep_and_report.py`
 - Closed-loop automation: `scripts/auto_cycle.py --loop`
+- Canonical v1 profile: `yolo11n_lab_v1` in `configs/pipeline_profiles.yaml`
+
+`YOLO-Bad-Triangle` is the only canonical runtime surface for the attack-defend-fortify
+pipeline. The separate `Adversarial_Patch` repository is research/artifact input only;
+it is not a second orchestrator and it is not required to execute the v1 pipeline.
 
 ## What the project does
 
@@ -44,16 +49,16 @@ PYTHONPATH=src ./.venv/bin/python scripts/check_environment.py
 ```
 
 The supported local dev/test combo is Python 3.11+ (3.13 on NUC) with
-`ultralytics==8.4.36`, `torch==2.6.0`, and `torchvision==0.21.0`. **The project is
-transitioning to YOLOv11** — see `PROJECT_STATE.md` for current phase status. No new
-model adapter is needed; set `model.params.model: yolo11n.pt` in config and ultralytics
-auto-downloads the weights on first run.
+`ultralytics==8.4.36`, `torch==2.6.0`, and `torchvision==0.21.0`. The canonical
+v1 runtime profile is `yolo11n_lab_v1`, which resolves to `yolo11n.pt`,
+`configs/coco_subset500.yaml`, and the canonical v1 attack/defense catalogs.
 
 > **YOLOv8 Direction A complete.** Analysis results and verdict are archived in
 > `docs/analysis/direction_a_closure_20260409.md`. The `dpc_unet_adversarial_finetuned.pt`
 > checkpoint is YOLOv8-specific and should not be used for YOLOv11 training.
 
-If you plan to use `c_dog` or `c_dog_ensemble`, set `DPC_UNET_CHECKPOINT_PATH`
+If you plan to run manual-only learned defenses such as `c_dog` or `c_dog_ensemble`,
+set `DPC_UNET_CHECKPOINT_PATH`
 in `.env` or your shell. This env var is the source of truth for which
 DPC-UNet checkpoint is active:
 
@@ -63,11 +68,11 @@ export DPC_UNET_CHECKPOINT_PATH=/absolute/path/to/dpc_unet_adversarial_finetuned
 
 ## Canonical workflow
 
-### 1. Dry-run the config
+### 1. Dry-run the canonical profile
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
-  --config configs/default.yaml \
+  --profile yolo11n_lab_v1 \
   --dry-run
 ```
 
@@ -75,7 +80,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
-  --config configs/default.yaml \
+  --profile yolo11n_lab_v1 \
   --set attack.name=fgsm \
   --set runner.run_name=smoke_fgsm
 ```
@@ -84,12 +89,14 @@ PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
-  --attacks fgsm,pgd,deepfool \
-  --defenses c_dog,median_preprocess \
+  --profile yolo11n_lab_v1 \
   --preset full \
   --workers 1 \
   --validation-enabled
 ```
+
+If you omit `--attacks` and `--defenses` while using `--profile`, the sweep uses the
+profile's canonical attack and defense catalogs automatically.
 
 `--workers auto` uses `os.cpu_count()`, but each worker launches a full YOLO
 job. On a single GPU or memory-constrained machine, `--workers 1` is usually
@@ -104,7 +111,9 @@ PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py --list-plugins
 ### 5. Run the closed-loop cycle
 
 ```bash
-PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py --loop
+PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py \
+  --profile yolo11n_lab_v1 \
+  --loop
 ```
 
 Use the loop only after a smoke run and a regular sweep are working.
@@ -126,6 +135,12 @@ Single-run artifacts land in `outputs/framework_runs/<run_name>/`:
 - `run_summary.json`
 - `resolved_config.yaml`
 - `experiment_summary.json` when `summary.enabled=true`
+
+Canonical v1 runs also stamp shared provenance into `run_summary.json` and `metrics.json`:
+
+- `pipeline_profile`
+- `authoritative_metric`
+- `profile_compatibility`
 
 Sweep and report artifacts land in `outputs/framework_reports/<sweep_id>/`:
 
@@ -160,11 +175,15 @@ files, transfer bundles, and other local-only artifacts should not be tracked.
 - `scripts/` - user-facing orchestration and reporting scripts
 - `tests/` - unit and integration coverage
 
-## Registered vs active defenses
+## Canonical vs manual-only defenses
 
-The plugin registry includes `c_dog_ensemble`, but the current auto-cycle
-catalog excludes it. The active auto-cycle defense set is narrower than the full
-registered defense list by design.
+The registry includes more defenses than the canonical v1 profile.
+For `yolo11n_lab_v1`:
+
+- Canonical defenses: `bit_depth`, `jpeg_preprocess`, `median_preprocess`
+- Manual-only defenses: `c_dog`, `c_dog_ensemble`, `confidence_filter`, `random_resize`
+
+The v1 auto-cycle and ranked reports use only the canonical profile-approved set.
 
 ## Reporting note
 
@@ -172,6 +191,9 @@ When both authoritative Phase 4 rows and diagnostic smoke rows exist for the
 same comparison, reporting and warning generation prefer the authoritative rows.
 Diagnostic-only smoke sweeps still produce valid diagnostic summaries; they do
 not by themselves imply that validation is missing.
+
+For `yolo11n_lab_v1`, the authoritative metric remains `mAP50`. `mAP50-95`
+is retained as diagnostic output only and a future pivot, not the v1 gate.
 
 ## Documentation
 

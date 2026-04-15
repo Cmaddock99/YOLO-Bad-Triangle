@@ -12,6 +12,11 @@ import yaml
 
 from lab.attacks.framework_registry import build_attack_plugin
 from lab.config.contracts import REPORTING_CONTEXT_KEYS
+from lab.config.profiles import (
+    authoritative_metric as resolved_authoritative_metric,
+    pipeline_profile_name,
+    resolve_profile_compatibility,
+)
 from lab.defenses.framework_registry import build_defense_plugin
 from lab.runners.cli_utils import as_mapping
 
@@ -135,6 +140,9 @@ def load_run_resume_fingerprint(run_dir: Path) -> dict[str, object] | None:
         "defense_checkpoint_shas": defense_shas,
         "seed": payload.get("seed"),
         "validation_enabled": validation.get("enabled"),
+        "pipeline_profile": payload.get("pipeline_profile"),
+        "authoritative_metric": payload.get("authoritative_metric"),
+        "profile_compatibility": payload.get("profile_compatibility"),
         "reporting_context": dict(reporting_context),
     }
 
@@ -159,6 +167,9 @@ def normalize_intended_fingerprint(intent: dict[str, object]) -> dict[str, objec
         "defense_checkpoint_shas": defense_shas,
         "seed": intent.get("seed"),
         "validation_enabled": intent.get("validation_enabled"),
+        "pipeline_profile": intent.get("pipeline_profile"),
+        "authoritative_metric": intent.get("authoritative_metric"),
+        "profile_compatibility": intent.get("profile_compatibility"),
         "reporting_context": dict(reporting_context),
     }
 
@@ -313,6 +324,7 @@ def build_run_intent(
         model_params,
         cwd=cwd,
     )
+    profile_compatibility = resolve_profile_compatibility(normalized)
 
     return {
         "config_fingerprint_sha256": config_fingerprint_sha256(normalized),
@@ -330,5 +342,8 @@ def build_run_intent(
         "defense_checkpoints": defense_checkpoint_provenance,
         "seed": int(runner_cfg.get("seed", 42)),
         "validation_enabled": bool(validation_cfg.get("enabled", False)),
+        "pipeline_profile": pipeline_profile_name(normalized),
+        "authoritative_metric": resolved_authoritative_metric(normalized),
+        "profile_compatibility": profile_compatibility,
         "reporting_context": resolved_reporting_context(normalized),
     }

@@ -12,6 +12,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from lab.config.profiles import (
+    authoritative_metric as resolved_authoritative_metric,
+    build_profile_config,
+    learned_defense_compatibility,
+    resolve_profile_compatibility,
+)
 from lab.runners.cli_utils import build_repo_python_command, with_src_pythonpath
 from lab.runners.run_intent import sha256_file
 
@@ -138,6 +144,7 @@ def main() -> None:
     parser.add_argument("--clean-images", type=int, default=500)
     parser.add_argument("--attack-images", type=int, default=100)
     parser.add_argument("--python-bin", default="./.venv/bin/python")
+    parser.add_argument("--profile", default=None)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -166,6 +173,19 @@ def main() -> None:
     worst_attack_params = signal.get("worst_attack_params")
     if not isinstance(worst_attack_params, dict):
         worst_attack_params = {}
+    learned_defense_status: dict[str, Any] | None = None
+    active_defense = "c_dog"
+    authoritative_metric: str | None = None
+    profile_compatibility: dict[str, Any] | None = None
+    if args.profile:
+        learned_defense_status = learned_defense_compatibility(args.profile)
+        active_defense = str(learned_defense_status.get("default_defense") or "c_dog")
+        profile_config = build_profile_config(args.profile)
+        profile_config["attack"]["name"] = worst_attack
+        profile_config["attack"]["params"] = dict(worst_attack_params)
+        profile_config["defense"]["name"] = active_defense
+        profile_compatibility = resolve_profile_compatibility(profile_config)
+        authoritative_metric = resolved_authoritative_metric(profile_config)
 
     manifest: dict[str, Any] = {
         "cycle_id": cycle_id,
@@ -174,6 +194,11 @@ def main() -> None:
         "signal_payload": signal,
         "training_zip_path": str(training_zip_path),
         "training_args": [],
+        "pipeline_profile": args.profile,
+        "authoritative_metric": authoritative_metric,
+        "profile_compatibility": profile_compatibility,
+        "learned_defense_compatibility": learned_defense_status,
+        "resolved_attack_params": worst_attack_params,
         "baseline_checkpoint": {
             "path": str(checkpoint_a),
             "sha256": sha256_file(checkpoint_a),
@@ -190,12 +215,17 @@ def main() -> None:
         "attack_gate": {
             "attack": worst_attack,
             "attack_params": worst_attack_params,
+            "defense": active_defense,
             "result_path": str(attack_gate_result_path),
             "delta_mAP50": None,
             "verdict": "not_run",
         },
         "final_verdict": "run_failed",
     }
+    if args.profile and learned_defense_status and not bool(learned_defense_status.get("trainable", False)):
+        manifest["final_verdict"] = "profile_incompatible"
+        _write_manifest(manifest_path, manifest)
+        raise SystemExit(2)
 
     export_command = build_repo_python_command(
         REPO,
@@ -235,7 +265,7 @@ def main() -> None:
             "--attack",
             "none",
             "--defense",
-            "c_dog",
+            active_defense,
             "--images",
             str(args.clean_images),
             "--output-json",
@@ -251,12 +281,15 @@ def main() -> None:
         "--attack",
         worst_attack,
         "--defense",
-        "c_dog",
+        active_defense,
         "--images",
         str(args.attack_images),
         "--output-json",
         str(attack_gate_result_path),
     ]
+    if args.profile:
+        clean_gate_command[2:2] = ["--profile", args.profile]
+        attack_gate_args[0:0] = ["--profile", args.profile]
     if worst_attack_params:
         attack_gate_args.append("--attack-params")
         attack_gate_args.extend(

@@ -6,8 +6,7 @@ generates a comparison report under outputs/framework_reports/<sweep_id>/.
 
 Usage:
     PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \\
-        --attacks fgsm,pgd,deepfool \\
-        --defenses c_dog,median_preprocess \\
+        --profile yolo11n_lab_v1 \\
         --preset full \\
         --workers auto \\
         --validation-enabled
@@ -31,11 +30,16 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+from lab.config.profiles import (
+    authoritative_metric as resolved_authoritative_metric,
+    profile_canonical_attacks,
+    profile_canonical_defenses,
+    resolve_framework_config,
+)
 from lab.runners.cli_utils import (
     apply_override,
     build_repo_python_command,
     build_run_experiment_command,
-    load_yaml_mapping,
     with_src_pythonpath,
 )
 from lab.runners.run_intent import build_run_intent, check_run_resume
@@ -264,7 +268,8 @@ def _experiment_overrides(
 def _experiment_command(
     *,
     python_bin: str,
-    config: Path,
+    config: Path | None,
+    profile: str | None,
     output_root: Path,
     run_name: str,
     attack_name: str,
@@ -300,6 +305,7 @@ def _experiment_command(
         REPO_ROOT,
         config,
         overrides,
+        profile=profile,
         python_bin=python_bin,
     )
 
@@ -369,18 +375,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run baseline + attack sweep (+ optional defense sweep) and generate reports."
     )
-    parser.add_argument("--config", default="configs/default.yaml")
+    config_group = parser.add_mutually_exclusive_group()
+    config_group.add_argument("--config", default="configs/default.yaml")
+    config_group.add_argument("--profile")
     parser.add_argument("--python-bin", default="./.venv/bin/python")
     parser.add_argument("--runs-root", help="Optional output root for framework runs.")
     parser.add_argument("--report-root", help="Optional output root for report artifacts.")
     parser.add_argument(
         "--attacks",
-        default=",".join(DEFAULT_ATTACKS),
+        default=None,
         help="Comma-separated attack names, or 'all' to run every registered attack plugin.",
     )
     parser.add_argument(
         "--defenses",
-        default=",".join(DEFAULT_DEFENSES),
+        default=None,
         help="Comma-separated defenses to sweep against each attack. "
              "Use 'none' to skip the defense sweep, or 'all' for every registered defense plugin.",
     )
@@ -497,19 +505,29 @@ def main() -> None:
             if args.report_root
             else Path(f"outputs/framework_reports/{runs_root.name}").resolve()
         )
-        config = Path(args.config).expanduser().resolve()
-        if not config.is_file():
-            raise FileNotFoundError(f"Config not found: {config}")
-        base_config = load_yaml_mapping(config)
+        config = None if args.profile else Path(args.config).expanduser().resolve()
+        base_config, config_path = resolve_framework_config(
+            config_path=config,
+            profile_name=args.profile,
+        )
         python_bin_path = Path(args.python_bin).expanduser()
         if not python_bin_path.is_file():
             raise FileNotFoundError(f"Python binary not found: {python_bin_path}")
 
         phases = _parse_phases(args.phases)
         max_images = args.max_images if args.max_images is not None else _default_max_images(args.preset)
-        attacks = _parse_attacks(args.attacks)
-        raw_defenses = _parse_defenses(args.defenses)
+        attacks_arg = args.attacks
+        defenses_arg = args.defenses
+        if args.profile and attacks_arg is None:
+            attacks = profile_canonical_attacks(args.profile)
+        else:
+            attacks = _parse_attacks(attacks_arg or ",".join(DEFAULT_ATTACKS))
+        if args.profile and defenses_arg is None:
+            raw_defenses = profile_canonical_defenses(args.profile)
+        else:
+            raw_defenses = _parse_defenses(defenses_arg or ",".join(DEFAULT_DEFENSES))
         defenses = [d for d in raw_defenses if d.lower() != "none"]
+        authoritative_metric = resolved_authoritative_metric(base_config)
 
         runs_root.mkdir(parents=True, exist_ok=True)
         report_root.mkdir(parents=True, exist_ok=True)
@@ -520,6 +538,10 @@ def main() -> None:
         print(f"[{_now()}] Sweep starting")
         print(f"  Runs root:    {runs_root}")
         print(f"  Reports root: {report_root}")
+        if args.profile:
+            print(f"  Profile:      {args.profile}")
+        if authoritative_metric:
+            print(f"  Authority:    {authoritative_metric}")
         print(f"  Attacks:      {attacks}")
         if defenses:
             print(f"  Defenses:     {defenses}")
@@ -614,6 +636,7 @@ def main() -> None:
                         REPO_ROOT,
                         config,
                         baseline_overrides,
+                        profile=args.profile,
                         python_bin=args.python_bin,
                     ),
                     dry_run=args.dry_run,
@@ -671,6 +694,7 @@ def main() -> None:
                     REPO_ROOT,
                     config,
                     attack_overrides,
+                    profile=args.profile,
                     python_bin=args.python_bin,
                 ),
                 dry_run=args.dry_run,
@@ -757,6 +781,7 @@ def main() -> None:
                     REPO_ROOT,
                     config,
                     defense_overrides,
+                    profile=args.profile,
                     python_bin=args.python_bin,
                 ),
                 dry_run=args.dry_run,
@@ -862,7 +887,9 @@ def main() -> None:
         manifest = {
             "sweep_id": runs_root.name,
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "config_path": str(config),
+            "config_path": str(config_path) if config_path is not None else None,
+            "pipeline_profile": args.profile,
+            "authoritative_metric": authoritative_metric,
             "config_fingerprint_sha256": build_run_intent(base_config, cwd=REPO_ROOT)["config_fingerprint_sha256"],
             "requested_attacks": attacks,
             "requested_defenses": defenses,

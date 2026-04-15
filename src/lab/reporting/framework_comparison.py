@@ -59,6 +59,9 @@ class FrameworkRunRecord:
     dataset_scope: str | None
     authority: str | None
     source_phase: str | None
+    pipeline_profile: str | None
+    authoritative_metric: str | None
+    profile_compatibility_status: str | None
 
 
 def _stable_json_signature(payload: Any) -> str:
@@ -233,6 +236,9 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
             transform_order=transform_order,
         )
         reporting_context = _reporting_context_from_summary(summary)
+        profile_compatibility = summary.get("profile_compatibility")
+        if not isinstance(profile_compatibility, dict):
+            profile_compatibility = {}
 
         records.append(
             FrameworkRunRecord(
@@ -262,6 +268,9 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
                 dataset_scope=reporting_context["dataset_scope"],
                 authority=reporting_context["authority"],
                 source_phase=reporting_context["source_phase"],
+                pipeline_profile=str(summary.get("pipeline_profile") or "").strip() or None,
+                authoritative_metric=str(summary.get("authoritative_metric") or "").strip() or None,
+                profile_compatibility_status=str(profile_compatibility.get("status") or "").strip() or None,
             )
         )
 
@@ -295,6 +304,7 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
         "run_name", "run_dir", "model", "attack", "defense", "seed",
         "semantic_order",
         "run_role", "dataset_scope", "authority", "source_phase",
+        "pipeline_profile", "authoritative_metric", "profile_compatibility_status",
         "objective_mode", "target_class", "attack_roi",
         "prediction_count", "images_with_detections", "total_detections",
         "avg_confidence", "validation_status", "precision", "recall",
@@ -317,6 +327,9 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
                 "dataset_scope": record.dataset_scope,
                 "authority": record.authority,
                 "source_phase": record.source_phase,
+                "pipeline_profile": record.pipeline_profile,
+                "authoritative_metric": record.authoritative_metric,
+                "profile_compatibility_status": record.profile_compatibility_status,
                 "objective_mode": record.objective_mode,
                 "target_class": record.target_class,
                 "attack_roi": record.attack_roi,
@@ -519,6 +532,18 @@ def render_markdown_report(records: list[FrameworkRunRecord]) -> str:
     if not records:
         lines.append("No framework runs found.")
         return "\n".join(lines)
+
+    profile_pairs = {
+        (record.pipeline_profile, record.authoritative_metric)
+        for record in records
+    }
+    if len(profile_pairs) == 1 and next(iter(profile_pairs)) != (None, None):
+        pipeline_profile, authoritative_metric = next(iter(profile_pairs))
+        if pipeline_profile:
+            lines.append(f"Pipeline profile: `{pipeline_profile}`")
+        if authoritative_metric:
+            lines.append(f"Authoritative metric: `{authoritative_metric}`")
+        lines.append("")
 
     semantic_counts = _semantic_order_counts(records)
     discovered_semantics = {record.semantic_order for record in records}

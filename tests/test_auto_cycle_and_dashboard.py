@@ -21,6 +21,8 @@ class AutoCycleTrainingSignalTest(unittest.TestCase):
                 state = {
                     "cycle_id": "cycle_test",
                     "finished_at": "2026-03-26T10:00:00",
+                    "pipeline_profile": "yolo11n_lab_v1",
+                    "authoritative_metric": "mAP50",
                     "best_attack_params": {
                         "deepfool": {"attack.params.epsilon": 0.1},
                         "eot_pgd": {"attack.params.epsilon": 0.25},
@@ -64,6 +66,8 @@ class AutoCycleTrainingSignalTest(unittest.TestCase):
                 self.assertEqual(signal["ranking_source"], "phase4_map50")
                 self.assertEqual(signal["worst_attack"], "deepfool")
                 self.assertEqual(signal["worst_attack_params"], {"attack.params.epsilon": 0.1})
+                self.assertEqual(signal["pipeline_profile"], "yolo11n_lab_v1")
+                self.assertEqual(signal["authoritative_metric"], "mAP50")
             finally:
                 auto_cycle.OUTPUTS = original_outputs
 
@@ -251,6 +255,64 @@ class DashboardSelectionTest(unittest.TestCase):
         html = generate_dashboard._summary_cards_html(sweeps)
         self.assertIn("NO_EFFECTIVE_ATTACK", html)
         self.assertIn("all attacks had 0.0% drop", html)
+
+
+class AutoCycleProfileTest(unittest.TestCase):
+    def test_set_active_runtime_profile_swaps_catalogs(self) -> None:
+        original_attacks = list(auto_cycle.ALL_ATTACKS)
+        original_defenses = list(auto_cycle.ALL_DEFENSES)
+        original_pinned = list(auto_cycle.PINNED_DEFENSES)
+        original_profile = auto_cycle.ACTIVE_PIPELINE_PROFILE
+        original_authority = auto_cycle.ACTIVE_AUTHORITATIVE_METRIC
+        original_config_arg = auto_cycle.ACTIVE_CONFIG_ARG
+        original_config_path = auto_cycle.ACTIVE_CONFIG_PATH
+        try:
+            auto_cycle._set_active_runtime_profile("yolo11n_lab_v1", None)
+            self.assertEqual(
+                auto_cycle.ALL_ATTACKS,
+                ["fgsm", "pgd", "deepfool", "eot_pgd", "dispersion_reduction", "blur", "square"],
+            )
+            self.assertEqual(
+                auto_cycle.ALL_DEFENSES,
+                ["bit_depth", "jpeg_preprocess", "median_preprocess"],
+            )
+            self.assertEqual(auto_cycle.ACTIVE_PIPELINE_PROFILE, "yolo11n_lab_v1")
+            self.assertEqual(auto_cycle.ACTIVE_AUTHORITATIVE_METRIC, "mAP50")
+            self.assertEqual(auto_cycle.PINNED_DEFENSES, [])
+        finally:
+            auto_cycle.ALL_ATTACKS = original_attacks
+            auto_cycle.ALL_DEFENSES = original_defenses
+            auto_cycle.PINNED_DEFENSES = original_pinned
+            auto_cycle.ACTIVE_PIPELINE_PROFILE = original_profile
+            auto_cycle.ACTIVE_AUTHORITATIVE_METRIC = original_authority
+            auto_cycle.ACTIVE_CONFIG_ARG = original_config_arg
+            auto_cycle.ACTIVE_CONFIG_PATH = original_config_path
+
+    def test_run_single_uses_profile_flag_when_active(self) -> None:
+        original_profile = auto_cycle.ACTIVE_PIPELINE_PROFILE
+        original_authority = auto_cycle.ACTIVE_AUTHORITATIVE_METRIC
+        original_config_arg = auto_cycle.ACTIVE_CONFIG_ARG
+        original_config_path = auto_cycle.ACTIVE_CONFIG_PATH
+        try:
+            auto_cycle._set_active_runtime_profile("yolo11n_lab_v1", None)
+            with tempfile.TemporaryDirectory() as tmp:
+                with mock.patch("scripts.auto_cycle.subprocess.run") as run_mock:
+                    run_mock.return_value.returncode = 0
+                    ok = auto_cycle.run_single(
+                        attack="deepfool",
+                        defense="none",
+                        run_name="profile_case",
+                        runs_root=tmp,
+                    )
+            self.assertTrue(ok)
+            command = run_mock.call_args.kwargs["args"] if "args" in run_mock.call_args.kwargs else run_mock.call_args[0][0]
+            self.assertIn("--profile", command)
+            self.assertIn("yolo11n_lab_v1", command)
+        finally:
+            auto_cycle.ACTIVE_PIPELINE_PROFILE = original_profile
+            auto_cycle.ACTIVE_AUTHORITATIVE_METRIC = original_authority
+            auto_cycle.ACTIVE_CONFIG_ARG = original_config_arg
+            auto_cycle.ACTIVE_CONFIG_PATH = original_config_path
 
 
 class AutoCyclePhaseTwoDesignTest(unittest.TestCase):

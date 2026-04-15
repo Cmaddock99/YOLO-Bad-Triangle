@@ -30,6 +30,7 @@ OUTPUTS = REPO / "outputs"
 SIGNAL_PATH = OUTPUTS / "cycle_training_signal.json"
 
 from lab.runners.cli_utils import build_repo_python_command, resolve_python_bin  # noqa: E402
+from lab.config.profiles import learned_defense_compatibility  # noqa: E402
 
 
 def _now() -> datetime:
@@ -129,6 +130,10 @@ def main(argv: list[str] | None = None) -> int:
         metavar="PATH",
         help="Python interpreter to use for subprocesses. Defaults to venv discovery.",
     )
+    parser.add_argument(
+        "--profile",
+        help="Optional pipeline profile. When set, learned-defense training must be compatible with it.",
+    )
     args = parser.parse_args(argv)
 
     python_bin = args.python_bin or resolve_python_bin(REPO)
@@ -141,6 +146,15 @@ def main(argv: list[str] | None = None) -> int:
     cycle_id = signal.get("cycle_id", "unknown")
     worst_attack = signal.get("worst_attack", "unknown")
     print(f"[ritual] Signal OK — cycle_id={cycle_id}, worst_attack={worst_attack}")
+    if args.profile:
+        compatibility = learned_defense_compatibility(args.profile)
+        if not bool(compatibility.get("trainable", False)):
+            reason = str(compatibility.get("reason") or f"{args.profile} does not support learned-defense training.")
+            print(
+                f"[ritual] Non-promotable: profile '{args.profile}' blocks learned-defense training. {reason}",
+                file=sys.stderr,
+            )
+            return 2
 
     # Step 2: export training data
     export_cmd = build_repo_python_command(
@@ -164,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
     train_cmd = build_repo_python_command(
         REPO,
         "scripts/train_from_signal.py",
-        [],
+        (["--profile", args.profile] if args.profile else []),
         python_bin=python_bin,
     )
     try:

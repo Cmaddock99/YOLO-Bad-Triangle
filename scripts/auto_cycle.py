@@ -32,8 +32,8 @@ Lock:    outputs/.cycle.lock   (prevents concurrent execution)
 Log:     logs/auto_cycle.log
 
 Usage:
-  PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py          # run / resume
-  PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py --loop   # run continuously
+  PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py --profile yolo11n_lab_v1
+  PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py --profile yolo11n_lab_v1 --loop
   PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py --status # show state
   PYTHONPATH=src ./.venv/bin/python scripts/auto_cycle.py --reset  # start fresh
 
@@ -59,6 +59,13 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from lab.config.profiles import (
+    authoritative_metric as resolved_authoritative_metric,
+    build_profile_config,
+    learned_defense_compatibility,
+    profile_canonical_attacks,
+    profile_canonical_defenses,
+)
 from lab.runners.cli_utils import apply_override, load_yaml_mapping
 from lab.runners.run_intent import (
     REQUIRED_RUN_ARTIFACTS,
@@ -79,6 +86,10 @@ LOG_DIR = REPO / "logs"
 PYTHON = REPO / ".venv" / "bin" / "python"
 RUN_SINGLE_CONFIG_REL = "configs/default.yaml"
 RUN_SINGLE_CONFIG = REPO / RUN_SINGLE_CONFIG_REL
+ACTIVE_CONFIG_ARG = RUN_SINGLE_CONFIG_REL
+ACTIVE_CONFIG_PATH = RUN_SINGLE_CONFIG
+ACTIVE_PIPELINE_PROFILE: str | None = None
+ACTIVE_AUTHORITATIVE_METRIC: str | None = None
 _REQUIRED_RUN_ARTIFACTS = REQUIRED_RUN_ARTIFACTS
 CURRENT_PIPELINE_SEMANTICS = "attack_then_defense"
 LEGACY_PIPELINE_SEMANTICS = "defense_then_attack"
@@ -98,16 +109,18 @@ LEGACY_PIPELINE_TRANSFORM_ORDER = (
 
 # ── Attack / defense catalogues ───────────────────────────────────────────────
 
-ALL_ATTACKS: list[str] = [
+DEFAULT_ALL_ATTACKS = [
     "blur", "deepfool", "dispersion_reduction", "eot_pgd", "fgsm", "pgd", "square",
     # jpeg_attack temporarily removed — no-op behavior under current defaults
 ]
-ALL_DEFENSES: list[str] = [
+DEFAULT_ALL_DEFENSES = [
     "bit_depth", "c_dog", "jpeg_preprocess",
     # c_dog_ensemble temporarily removed — underperforming single c_dog
     "median_preprocess",
     # random_resize removed — inherent mAP50 cost (−0.25) exceeds any attack-recovery benefit
 ]
+ALL_ATTACKS: list[str] = list(DEFAULT_ALL_ATTACKS)
+ALL_DEFENSES: list[str] = list(DEFAULT_ALL_DEFENSES)
 
 TOP_N_ATTACKS = 3
 TOP_N_DEFENSES = 3   # bumped from 2 — catalogue now has 6 defenses
@@ -232,7 +245,8 @@ FLAGGED_DEFENSES: set[str] = set()
 # Defenses always included in top-N selection regardless of ranking.
 # Ensures the learned denoiser (c_dog) is always tuned and validated
 # so the retraining loop can measure improvement across cycles.
-PINNED_DEFENSES: list[str] = ["c_dog"]
+DEFAULT_PINNED_DEFENSES = ["c_dog"]
+PINNED_DEFENSES: list[str] = list(DEFAULT_PINNED_DEFENSES)
 
 # Populated at startup from the warm-start file. Defenses that had negative
 # average mAP50 recovery across all measured attacks in the previous cycle's
@@ -309,6 +323,8 @@ def init_state() -> dict:
         "best_attack_params": {},   # {attack_name: {set_key: value, ...}}
         "best_defense_params": {},  # {defense_name: {set_key: value, ...}}
         "checkpoint_fingerprint": None,
+        "pipeline_profile": ACTIVE_PIPELINE_PROFILE,
+        "authoritative_metric": ACTIVE_AUTHORITATIVE_METRIC,
     }
 
 
@@ -323,6 +339,49 @@ def save_state(state: dict) -> None:
     tmp = STATE_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2))
     os.replace(tmp, STATE_FILE)
+
+
+def _active_base_config() -> dict:
+    if ACTIVE_PIPELINE_PROFILE:
+        return build_profile_config(ACTIVE_PIPELINE_PROFILE)
+    return load_yaml_mapping(ACTIVE_CONFIG_PATH)
+
+
+def _active_run_selector_args() -> list[str]:
+    if ACTIVE_PIPELINE_PROFILE:
+        return ["--profile", ACTIVE_PIPELINE_PROFILE]
+    return ["--config", ACTIVE_CONFIG_ARG]
+
+
+def _set_active_runtime_profile(profile_name: str | None, config_path: Path | None) -> None:
+    global ACTIVE_PIPELINE_PROFILE
+    global ACTIVE_AUTHORITATIVE_METRIC
+    global ACTIVE_CONFIG_ARG
+    global ACTIVE_CONFIG_PATH
+    global ALL_ATTACKS
+    global ALL_DEFENSES
+    global PINNED_DEFENSES
+
+    if profile_name:
+        ACTIVE_PIPELINE_PROFILE = profile_name
+        ACTIVE_AUTHORITATIVE_METRIC = resolved_authoritative_metric(build_profile_config(profile_name))
+        ALL_ATTACKS = list(profile_canonical_attacks(profile_name))
+        ALL_DEFENSES = list(profile_canonical_defenses(profile_name))
+        compatibility = learned_defense_compatibility(profile_name)
+        if bool(compatibility.get("trainable", False)):
+            default_defense = str(compatibility.get("default_defense") or "").strip()
+            PINNED_DEFENSES = [default_defense] if default_defense else list(DEFAULT_PINNED_DEFENSES)
+        else:
+            PINNED_DEFENSES = []
+        return
+
+    ACTIVE_PIPELINE_PROFILE = None
+    ACTIVE_AUTHORITATIVE_METRIC = None
+    ACTIVE_CONFIG_PATH = config_path or RUN_SINGLE_CONFIG
+    ACTIVE_CONFIG_ARG = str(ACTIVE_CONFIG_PATH)
+    ALL_ATTACKS = list(DEFAULT_ALL_ATTACKS)
+    ALL_DEFENSES = list(DEFAULT_ALL_DEFENSES)
+    PINNED_DEFENSES = list(DEFAULT_PINNED_DEFENSES)
 
 
 # ── Metrics helpers ───────────────────────────────────────────────────────────
@@ -447,6 +506,7 @@ def run_sweep(
     """Call sweep_and_report.py and return True on success."""
     cmd = [
         str(PYTHON), "scripts/sweep_and_report.py",
+        *_active_run_selector_args(),
         "--attacks", ",".join(attacks),
         "--defenses", ",".join(defenses),
         "--runs-root", runs_root,
@@ -511,7 +571,7 @@ def _run_single_override_assignments(
 
 
 def _build_run_single_intended_intent(assignments: list[str]) -> dict[str, object]:
-    config = load_yaml_mapping(RUN_SINGLE_CONFIG)
+    config = _active_base_config()
     for assignment in assignments:
         apply_override(config, assignment)
     return build_run_intent(config, cwd=REPO)
@@ -562,7 +622,7 @@ def run_single(
 
     cmd = [
         str(PYTHON), "scripts/run_unified.py", "run-one",
-        "--config", RUN_SINGLE_CONFIG_REL,
+        *_active_run_selector_args(),
     ]
     for assignment in assignments:
         cmd += ["--set", assignment]
@@ -1542,6 +1602,8 @@ def save_cycle_history(state: dict) -> None:
         "started_at":        state.get("started_at"),
         "finished_at":       state.get("finished_at"),
         "pipeline_semantics": cycle_pipeline_semantics,
+        "pipeline_profile": state.get("pipeline_profile"),
+        "authoritative_metric": state.get("authoritative_metric"),
         "top_attacks":       state.get("top_attacks", []),
         "top_defenses":      state.get("top_defenses", []),
         "best_attack_params":state.get("best_attack_params", {}),
@@ -1748,6 +1810,8 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
                 "cycle_id": state["cycle_id"],
                 "runs_root": str(state.get("runs_root", "")),
                 "generated_at": state.get("finished_at"),
+                "pipeline_profile": state.get("pipeline_profile"),
+                "authoritative_metric": state.get("authoritative_metric"),
                 "ranking_source": "phase4_map50",
                 "worst_attack": worst_attack,
                 "worst_attack_params": state.get("best_attack_params", {}).get(worst_attack, {}),
@@ -1814,6 +1878,8 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
             "cycle_id": state["cycle_id"],
             "runs_root": str(state.get("runs_root", "")),
             "generated_at": state.get("finished_at"),
+            "pipeline_profile": state.get("pipeline_profile"),
+            "authoritative_metric": state.get("authoritative_metric"),
             "ranking_source": "phase4_detection_recovery",
             "worst_attack": worst_attack,
             "worst_attack_params": state.get("best_attack_params", {}).get(worst_attack, {}),
@@ -1935,6 +2001,8 @@ def _write_cycle_status(state: dict, phase_num: int) -> Path:
         f"cycle_id   : {state['cycle_id']}",
         f"phase      : {phase_num}/4 complete",
         f"updated_at : {datetime.now().isoformat()}",
+        f"profile    : {state.get('pipeline_profile') or 'none'}",
+        f"authority  : {state.get('authoritative_metric') or 'none'}",
         "",
         f"top_attacks  : {state.get('top_attacks', [])}",
         f"top_defenses : {state.get('top_defenses', [])}",
@@ -2275,6 +2343,16 @@ def cmd_reset() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
+    config_group = parser.add_mutually_exclusive_group()
+    config_group.add_argument(
+        "--config",
+        default=RUN_SINGLE_CONFIG_REL,
+        help="Framework config used for single-run validation calls when no profile is selected.",
+    )
+    config_group.add_argument(
+        "--profile",
+        help="Named pipeline profile used as the canonical attack/defense catalog and run surface.",
+    )
     parser.add_argument("--status", action="store_true",
                         help="Print current cycle state and exit")
     parser.add_argument("--reset", action="store_true",
@@ -2296,6 +2374,11 @@ def main() -> None:
 
     OUTPUTS.mkdir(parents=True, exist_ok=True)
 
+    config_path = None if args.profile else Path(args.config).expanduser().resolve()
+    if config_path is not None and not config_path.is_file():
+        raise FileNotFoundError(f"Config not found: {config_path}")
+    _set_active_runtime_profile(args.profile, config_path)
+
     # Apply warm-start params from previous run (survives process restarts)
     load_warm_start()
 
@@ -2313,6 +2396,13 @@ def main() -> None:
         while True:
             cycle_num += 1
             state = load_state()
+            state.setdefault("pipeline_profile", ACTIVE_PIPELINE_PROFILE)
+            state.setdefault("authoritative_metric", ACTIVE_AUTHORITATIVE_METRIC)
+            if not state.get("complete") and state.get("pipeline_profile") != ACTIVE_PIPELINE_PROFILE:
+                raise ValueError(
+                    "Existing auto-cycle state was created for a different pipeline profile. "
+                    "Reset the cycle state or resume with the matching profile."
+                )
             save_state(state)
 
             log(f"Cycle #{cycle_num}: {state['cycle_id']}  phase={state['current_phase']}"

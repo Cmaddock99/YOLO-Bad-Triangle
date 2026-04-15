@@ -41,6 +41,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+from lab.config.profiles import (
+    authoritative_metric as resolved_authoritative_metric,
+    build_profile_config,
+    resolve_profile_compatibility,
+)
+
 REPO = Path(__file__).parent.parent
 PYTHON = REPO / ".venv" / "bin" / "python"
 
@@ -66,6 +72,8 @@ def _run_validation(
     run_name: str,
     runs_root: Path,
     max_images: int,
+    config: str | None = None,
+    profile: str | None = None,
     attack_params: list[str] | None = None,
     python_bin: Path | None = None,
 ) -> dict | None:
@@ -77,7 +85,6 @@ def _run_validation(
     if not metrics_file.exists():
         cmd = [
             _python, "scripts/run_unified.py", "run-one",
-            "--config", "configs/default.yaml",
             "--set", f"attack.name={attack}",
             "--set", f"defense.name={defense}",
             "--set", f"runner.run_name={run_name}",
@@ -85,6 +92,10 @@ def _run_validation(
             "--set", f"runner.max_images={max_images}",
             "--set", "validation.enabled=true",
         ]
+        if profile:
+            cmd[3:3] = ["--profile", profile]
+        else:
+            cmd[3:3] = ["--config", str(config or "configs/default.yaml")]
         for param in (attack_params or []):
             cmd += ["--set", param]
         result = subprocess.run(
@@ -120,6 +131,8 @@ def evaluate(
     defense: str,
     images: int,
     output_json: Path | None,
+    config: str | None = None,
+    profile: str | None = None,
     attack_params: list[str] | None = None,
     python_bin: Path | None = None,
 ) -> int:
@@ -155,6 +168,8 @@ def evaluate(
             run_name="eval_a",
             runs_root=runs_root,
             max_images=images,
+            config=config,
+            profile=profile,
             attack_params=attack_params,
             python_bin=python_bin,
         )
@@ -168,6 +183,8 @@ def evaluate(
             run_name="eval_b",
             runs_root=runs_root,
             max_images=images,
+            config=config,
+            profile=profile,
             attack_params=attack_params,
             python_bin=python_bin,
         )
@@ -194,6 +211,13 @@ def evaluate(
         "defense": defense,
         "images_evaluated": images,
     }
+    if profile:
+        profile_config = build_profile_config(profile)
+        profile_config["attack"]["name"] = attack
+        profile_config["defense"]["name"] = defense
+        result["pipeline_profile"] = profile
+        result["authoritative_metric"] = resolved_authoritative_metric(profile_config)
+        result["profile_compatibility"] = resolve_profile_compatibility(profile_config)
 
     print()
     print("─" * 50)
@@ -228,6 +252,16 @@ def evaluate(
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="A/B compare two DPC-UNet checkpoints via mAP50 validation."
+    )
+    config_group = parser.add_mutually_exclusive_group()
+    config_group.add_argument(
+        "--config",
+        default="configs/default.yaml",
+        help="Framework config to use when launching validation runs.",
+    )
+    config_group.add_argument(
+        "--profile",
+        help="Named pipeline profile to use when launching validation runs.",
     )
     parser.add_argument(
         "--checkpoint-a", required=True,
@@ -281,6 +315,8 @@ def main() -> None:
             defense=args.defense,
             images=args.images,
             output_json=Path(args.output_json) if args.output_json else None,
+            config=None if args.profile else args.config,
+            profile=args.profile,
             attack_params=args.attack_params or [],
             python_bin=python_bin,
         )

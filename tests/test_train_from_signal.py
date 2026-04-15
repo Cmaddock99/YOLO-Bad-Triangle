@@ -302,6 +302,24 @@ class TrainFromSignalTest(unittest.TestCase):
         self.assertIn("evaluate_checkpoint.py", stdout)
         self.assertFalse(self.manifest_path.exists())
 
+    def test_profile_incompatible_writes_manifest_and_exits_nonzero(self) -> None:
+        exit_code, _, _, run_mock = self._run_cli(
+            "--signal-path",
+            str(self.signal_path),
+            "--checkpoint-a",
+            str(self.baseline_checkpoint),
+            "--profile",
+            "yolo11n_lab_v1",
+        )
+
+        self.assertEqual(exit_code, 2)
+        self.assertFalse(run_mock.called)
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["pipeline_profile"], "yolo11n_lab_v1")
+        self.assertEqual(manifest["authoritative_metric"], "mAP50")
+        self.assertEqual(manifest["final_verdict"], "profile_incompatible")
+        self.assertEqual(manifest["learned_defense_compatibility"]["status"], "incompatible")
+
 
 class WS2GateAndManifestTest(unittest.TestCase):
     """WS2 tests: gate threshold, manifest completeness, atomic manifest writes."""

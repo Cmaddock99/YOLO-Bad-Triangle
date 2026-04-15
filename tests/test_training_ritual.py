@@ -132,6 +132,16 @@ class TrainingRitualTest(unittest.TestCase):
 
         self.assertNotEqual(rc, 0)
 
+    def test_profile_incompatible_fails_before_running_steps(self) -> None:
+        self._write_signal(age_hours=1)
+
+        with self._patch_signal_path():
+            with mock.patch.object(run_training_ritual, "_run_step") as run_step_mock:
+                rc = run_training_ritual.main(["--profile", "yolo11n_lab_v1"])
+
+        self.assertEqual(rc, 2)
+        run_step_mock.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

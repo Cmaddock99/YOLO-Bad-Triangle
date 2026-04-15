@@ -82,6 +82,7 @@ class SweepAndReportScriptTest(unittest.TestCase):
         command = sweep_and_report._experiment_command(
             python_bin="./.venv/bin/python",
             config=Path("configs/default.yaml"),
+            profile=None,
             output_root=Path("outputs/framework_runs/sweep_x"),
             run_name="attack_fgsm",
             attack_name="fgsm",
@@ -268,6 +269,40 @@ class SweepAndReportScriptTest(unittest.TestCase):
         self.assertIn("Attacks:      ['pgd', 'blur']", output)
         self.assertIn("Total runs:   2", output)
         self.assertEqual(manifest["aggregate"]["total"], 2)
+
+    def test_profile_defaults_to_canonical_catalogs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            runs_root = Path(tmp) / "runs"
+            report_root = Path(tmp) / "report"
+            argv = [
+                "sweep_and_report.py",
+                "--profile",
+                "yolo11n_lab_v1",
+                "--python-bin",
+                sys.executable,
+                "--runs-root",
+                str(runs_root),
+                "--report-root",
+                str(report_root),
+                "--phases",
+                "2",
+                "--dry-run",
+            ]
+            with patch.object(sys, "argv", argv):
+                sweep_and_report.main()
+
+            manifest = json.loads((report_root / "sweep_manifest.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(manifest["pipeline_profile"], "yolo11n_lab_v1")
+        self.assertEqual(manifest["authoritative_metric"], "mAP50")
+        self.assertEqual(
+            manifest["requested_attacks"],
+            ["fgsm", "pgd", "deepfool", "eot_pgd", "dispersion_reduction", "blur", "square"],
+        )
+        self.assertEqual(
+            manifest["requested_defenses"],
+            ["bit_depth", "jpeg_preprocess", "median_preprocess"],
+        )
 
 
 class WS7SweepNoPagesTest(unittest.TestCase):

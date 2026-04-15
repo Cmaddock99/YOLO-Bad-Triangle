@@ -3,13 +3,14 @@
 
 Usage (single run):
     PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \\
-        --config configs/default.yaml \\
+        --profile yolo11n_lab_v1 \\
         --set attack.name=fgsm \\
         --set runner.run_name=my_run
 
 Usage (sweep, forwarded to sweep_and_report.py):
     PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py sweep \\
-        --attacks fgsm,pgd --defenses c_dog --preset smoke
+        --profile yolo11n_lab_v1 \\
+        --attacks fgsm,pgd --preset smoke
 """
 from __future__ import annotations
 
@@ -52,7 +53,9 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="mode", required=True)
 
     run_one = subparsers.add_parser("run-one", help="Run one framework experiment.")
-    run_one.add_argument("--config", default="configs/default.yaml")
+    run_one_config = run_one.add_mutually_exclusive_group()
+    run_one_config.add_argument("--config", default="configs/default.yaml")
+    run_one_config.add_argument("--profile")
     run_one.add_argument(
         "--set",
         dest="overrides",
@@ -66,7 +69,9 @@ def main() -> None:
         help="Random seed (overrides config). Shorthand for --set runner.seed=N.")
 
     sweep = subparsers.add_parser("sweep", help="Run baseline + attack sweep with reports.")
-    sweep.add_argument("--config", default="configs/default.yaml")
+    sweep_config = sweep.add_mutually_exclusive_group()
+    sweep_config.add_argument("--config", default="configs/default.yaml")
+    sweep_config.add_argument("--profile")
     sweep.add_argument("--runs-root", default=None)
     sweep.add_argument("--report-root", default=None)
     sweep.add_argument("--attacks", default=None)
@@ -93,8 +98,9 @@ def main() -> None:
             overrides.append(f"runner.seed={args.seed}")
         command = build_run_experiment_command(
             ROOT,
-            args.config,
+            None if args.profile else args.config,
             overrides,
+            profile=args.profile,
             python_bin=python_bin,
         )
         if args.dry_run:
@@ -106,7 +112,7 @@ def main() -> None:
     command = build_repo_python_command(
         ROOT,
         "scripts/sweep_and_report.py",
-        ["--config", str(args.config)],
+        ["--profile", str(args.profile)] if args.profile else ["--config", str(args.config)],
         python_bin=python_bin,
     )
     if args.runs_root:

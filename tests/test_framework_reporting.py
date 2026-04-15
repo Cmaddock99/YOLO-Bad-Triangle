@@ -27,7 +27,11 @@ from lab.reporting.warnings import (
     WARN_NO_VALIDATION,
     evaluate_warnings,
 )
-from scripts import generate_failure_gallery, print_summary as print_summary_cli
+from scripts import (
+    generate_failure_gallery,
+    generate_framework_report,
+    print_summary as print_summary_cli,
+)
 
 
 class FrameworkReportingTest(unittest.TestCase):
@@ -54,6 +58,9 @@ class FrameworkReportingTest(unittest.TestCase):
         source_dir: str | None = None,
         summary_provenance: dict[str, object] | None = None,
         prediction_rows: list[dict[str, object]] | None = None,
+        pipeline_profile: str | None = None,
+        authoritative_metric: str | None = None,
+        profile_compatibility_status: str | None = None,
     ) -> None:
         run_dir = root / run_name
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -93,6 +100,12 @@ class FrameworkReportingTest(unittest.TestCase):
             run_summary["source_dir"] = source_dir
         if summary_provenance is not None:
             run_summary["provenance"] = summary_provenance
+        if pipeline_profile is not None:
+            run_summary["pipeline_profile"] = pipeline_profile
+        if authoritative_metric is not None:
+            run_summary["authoritative_metric"] = authoritative_metric
+        if profile_compatibility_status is not None:
+            run_summary["profile_compatibility"] = {"status": profile_compatibility_status}
         (run_dir / "run_summary.json").write_text(
             json.dumps(run_summary),
             encoding="utf-8",
@@ -441,12 +454,90 @@ class FrameworkReportingTest(unittest.TestCase):
     def test_markdown_render(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self._write_run(root, "baseline_run", attack="none", map50=0.6)
+            self._write_run(
+                root,
+                "baseline_run",
+                attack="none",
+                map50=0.6,
+                pipeline_profile="yolo11n_lab_v1",
+                authoritative_metric="mAP50",
+            )
             records = discover_framework_runs(root)
             report = render_markdown_report(records)
             self.assertIn("# Framework Run Comparison Report", report)
             self.assertIn("baseline_run", report)
             self.assertIn("attack_then_defense", report)
+            self.assertIn("Pipeline profile: `yolo11n_lab_v1`", report)
+            self.assertIn("Authoritative metric: `mAP50`", report)
+
+    def test_generate_framework_report_rejects_mixed_profiles(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "runs"
+            output = Path(tmp) / "report"
+            self._write_run(
+                root,
+                "baseline_a",
+                attack="none",
+                map50=0.6,
+                pipeline_profile="yolo11n_lab_v1",
+                authoritative_metric="mAP50",
+            )
+            self._write_run(
+                root,
+                "baseline_b",
+                attack="none",
+                map50=0.6,
+                pipeline_profile="legacy_profile",
+                authoritative_metric="mAP50-95",
+            )
+
+            with self.assertRaises(ValueError):
+                generate_framework_report._assert_consistent_profile(discover_framework_runs(root))
+
+    def test_generate_framework_report_rejects_profiled_plus_legacy_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "runs"
+            output = Path(tmp) / "report"
+            self._write_run(
+                root,
+                "legacy_run",
+                attack="none",
+                map50=0.6,
+            )
+            self._write_run(
+                root,
+                "profiled_run",
+                attack="none",
+                map50=0.6,
+                pipeline_profile="yolo11n_lab_v1",
+                authoritative_metric="mAP50",
+            )
+
+            with self.assertRaises(ValueError):
+                generate_framework_report._assert_consistent_profile(discover_framework_runs(root))
+
+    def test_markdown_render_omits_profile_banner_for_mixed_profile_states(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_run(
+                root,
+                "legacy_run",
+                attack="none",
+                map50=0.6,
+            )
+            self._write_run(
+                root,
+                "profiled_run",
+                attack="fgsm",
+                map50=0.4,
+                pipeline_profile="yolo11n_lab_v1",
+                authoritative_metric="mAP50",
+            )
+
+            report = render_markdown_report(discover_framework_runs(root))
+
+            self.assertNotIn("Pipeline profile:", report)
+            self.assertNotIn("Authoritative metric:", report)
 
     def test_legacy_defended_runs_are_marked_incomparable(self) -> None:
         from lab.reporting.framework_comparison import build_defense_recovery_rows
