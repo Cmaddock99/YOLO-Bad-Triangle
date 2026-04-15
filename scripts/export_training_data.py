@@ -35,6 +35,7 @@ SIGNAL_PATH_DEFAULT = "outputs/cycle_training_signal.json"
 DEFAULT_ATTACKS = ["fgsm", "pgd", "deepfool", "blur"]
 PRESET_ATTACKS: dict[str, list[str]] = {
     "square_retention": ["deepfool", "blur", "square"],
+    "deepfool_dr": ["deepfool", "dispersion_reduction"],
 }
 
 
