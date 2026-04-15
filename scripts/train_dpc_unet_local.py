@@ -316,21 +316,29 @@ def _load_yolo_labels(label_file: Path, device: torch.device):
 # ── Feature-loss helpers ──────────────────────────────────────────────────────
 
 def _discover_c2f_names(yolo_wrapper) -> list[str]:
-    """Return named_modules() keys for C2f-family blocks in a YOLO backbone.
+    """Return named_modules() keys for C2f/C3k2-family blocks in a YOLO backbone.
 
-    Mirrors DispersionReductionAdapter._resolve_layer_indices() for the string
-    key space used by YOLOFeatureExtractor.  Relies on the YOLO sequential
-    backbone naming convention where top-level child names are bare integers
-    ('0', '1', '2', …) — consistent with DispersionReductionAdapter.
+    Uses the same two-level unwrap as YOLOFeatureExtractor so that returned
+    names are valid keys in YOLOFeatureExtractor.model.named_modules():
+
+      YOLO wrapper → ._model → .model → inner (DetectionModel)
+      inner.named_modules() yields "model.2", "model.4", … for YOLO11n
+
+    Block types by generation:
+      YOLOv8:  C2f, C2fAttn, C2fPSA, C2fCIB
+      YOLO11:  C3k2 (replaces C2f backbone blocks), C2PSA (attention neck)
+    The DR attack targets these same blocks via _resolve_layer_indices().
     """
     model_obj = getattr(yolo_wrapper, "_model", yolo_wrapper)
     inner = getattr(model_obj, "model", model_obj)
-    c2f_types = {"C2f", "C2fAttn", "C2fPSA", "C2fCIB"}
+    # inner.named_modules() is the exact namespace YOLOFeatureExtractor hooks into.
+    # Direct children of inner's backbone Sequential have exactly one dot ("model.2").
+    feature_block_types = {"C2f", "C2fAttn", "C2fPSA", "C2fCIB", "C3k2", "C2PSA"}
     names = [
         name for name, mod in inner.named_modules()
-        if type(mod).__name__ in c2f_types and "." not in name
+        if type(mod).__name__ in feature_block_types and name.count(".") == 1
     ]
-    return names if names else ["2", "4", "6"]  # safe fallback for yolo11n
+    return names if names else ["model.2", "model.4", "model.6"]  # fallback
 
 
 def _resolve_feature_yolo_model(args_model: str) -> Path:
@@ -648,10 +656,11 @@ def train(args: argparse.Namespace) -> None:
         model.train()
         ep_loss = ep_pixel = ep_edge = ep_feat = 0.0
 
-        for adv_imgs, clean_imgs in train_loader:
+        for batch_idx, (adv_imgs, clean_imgs) in enumerate(train_loader):
             adv_imgs = adv_imgs.to(device, non_blocking=True)
             clean_imgs = clean_imgs.to(device, non_blocking=True)
             t = random.uniform(args.timestep_min, args.timestep_max)
+            _use_feat = feat_extractor is not None and (batch_idx % args.feature_every_n == 0)
 
             optimizer.zero_grad(set_to_none=True)
 
@@ -662,7 +671,7 @@ def train(args: argparse.Namespace) -> None:
                         yolo_feature_matching_loss(
                             extractor=feat_extractor, denoised=output, clean=clean_imgs
                         )
-                        if feat_extractor is not None else None
+                        if _use_feat else None
                     )
                     loss, breakdown = composite_denoising_loss(
                         denoised=output, clean=clean_imgs,
@@ -680,7 +689,7 @@ def train(args: argparse.Namespace) -> None:
                     yolo_feature_matching_loss(
                         extractor=feat_extractor, denoised=output, clean=clean_imgs
                     )
-                    if feat_extractor is not None else None
+                    if _use_feat else None
                 )
                 loss, breakdown = composite_denoising_loss(
                     denoised=output, clean=clean_imgs,
@@ -874,6 +883,17 @@ def main():
             "Path to the YOLO model used for feature extraction (relative to repo root). "
             "Auto-discovers from configs/default.yaml 'model' field, "
             "then falls back to yolo11n.pt in the repo root."
+        ),
+    )
+    parser.add_argument(
+        "--feature-every-n",
+        type=int,
+        default=1,
+        dest="feature_every_n",
+        help=(
+            "Compute feature loss every N batches (default=1, every batch). "
+            "Use 2–4 to reduce overhead when feature_weight > 0; "
+            "pixel+edge loss still fires every batch."
         ),
     )
     parser.add_argument("--det-loss-weight", type=float, default=0.0,
