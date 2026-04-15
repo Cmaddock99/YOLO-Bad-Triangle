@@ -48,6 +48,16 @@ from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# Feature-loss imports — only resolved when feature_weight > 0, but imported
+# unconditionally so missing dependencies surface at startup, not mid-training.
+from lab.defenses.training.feature_loss import (  # noqa: E402
+    FeatureLossConfig,
+    YOLOFeatureExtractor,
+    yolo_feature_matching_loss,
+)
+from lab.defenses.training.losses import CompositeLossWeights, composite_denoising_loss  # noqa: E402
+
 DEFAULT_TRAINING_ZIP = "outputs/training_exports/training_data.zip"
 DEFAULT_OUTPUT = "dpc_unet_adversarial_finetuned.pt"
 DEFAULT_RESUME = "outputs/dpc_unet_training_resume.pt"
@@ -303,24 +313,54 @@ def _load_yolo_labels(label_file: Path, device: torch.device):
     return torch.tensor(rows, dtype=torch.float32, device=device) if rows else None
 
 
-# ── Loss ─────────────────────────────────────────────────────────────────────
+# ── Feature-loss helpers ──────────────────────────────────────────────────────
 
-def sobel_edges(x: torch.Tensor) -> torch.Tensor:
-    kx = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32, device=x.device)
-    ky = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32, device=x.device)
-    C = x.shape[1]
-    kx = kx.view(1, 1, 3, 3).expand(C, 1, 3, 3)
-    ky = ky.view(1, 1, 3, 3).expand(C, 1, 3, 3)
-    gx = F.conv2d(x, kx, padding=1, groups=C)
-    gy = F.conv2d(x, ky, padding=1, groups=C)
-    return torch.sqrt(gx**2 + gy**2 + 1e-8)
+def _discover_c2f_names(yolo_wrapper) -> list[str]:
+    """Return named_modules() keys for C2f-family blocks in a YOLO backbone.
+
+    Mirrors DispersionReductionAdapter._resolve_layer_indices() for the string
+    key space used by YOLOFeatureExtractor.  Relies on the YOLO sequential
+    backbone naming convention where top-level child names are bare integers
+    ('0', '1', '2', …) — consistent with DispersionReductionAdapter.
+    """
+    model_obj = getattr(yolo_wrapper, "_model", yolo_wrapper)
+    inner = getattr(model_obj, "model", model_obj)
+    c2f_types = {"C2f", "C2fAttn", "C2fPSA", "C2fCIB"}
+    names = [
+        name for name, mod in inner.named_modules()
+        if type(mod).__name__ in c2f_types and "." not in name
+    ]
+    return names if names else ["2", "4", "6"]  # safe fallback for yolo11n
 
 
-def denoising_loss(output: torch.Tensor, target: torch.Tensor, edge_weight: float = 0.15):
-    pixel = F.l1_loss(output, target)
-    edge = F.l1_loss(sobel_edges(output), sobel_edges(target))
-    total = pixel + edge_weight * edge
-    return total, pixel.item(), edge.item()
+def _resolve_feature_yolo_model(args_model: str) -> Path:
+    """Resolve the YOLO model path used for feature extraction.
+
+    Priority:
+      1. --feature-yolo-model CLI argument
+      2. 'model' key in configs/default.yaml (relative to repo root)
+      3. yolo11n.pt in repo root
+
+    Raises FileNotFoundError with a clear message if nothing is found.
+    """
+    if args_model:
+        return ROOT / args_model
+    config_path = ROOT / "configs" / "default.yaml"
+    if config_path.exists():
+        import yaml  # lazy import — only needed when feature_weight > 0
+        cfg = yaml.safe_load(config_path.read_text())
+        if "model" in cfg:
+            candidate = ROOT / cfg["model"]
+            if candidate.exists():
+                return candidate
+    fallback = ROOT / "yolo11n.pt"
+    if fallback.exists():
+        return fallback
+    raise FileNotFoundError(
+        "Cannot locate YOLO model for feature loss. "
+        "Pass --feature-yolo-model, or add 'model: <path>' to configs/default.yaml, "
+        "or place yolo11n.pt in the repo root."
+    )
 
 
 # ── Training ─────────────────────────────────────────────────────────────────
@@ -530,6 +570,26 @@ def train(args: argparse.Namespace) -> None:
     print(f"Train: {len(train_ds):>5} pairs  ({len(train_loader)} batches/epoch)")
     print(f"Val:   {len(val_ds):>5} pairs  ({len(val_loader)} batches)")
 
+    # ── YOLO feature extractor (optional) ────────────────────────────────────
+    # Two YOLO forward passes are added per training batch (denoised + clean),
+    # which increases wall time by ~20-30% on NUC CUDA.  Disable with
+    # --feature-weight 0 (default) if not needed.
+    feat_extractor: YOLOFeatureExtractor | None = None
+    if args.feature_weight > 0.0:
+        yolo_path = _resolve_feature_yolo_model(args.feature_yolo_model)
+        print(f"\nFeature loss: weight={args.feature_weight}, model={yolo_path.name}")
+        from ultralytics import YOLO as _YOLO
+        _yolo_wrapper = _YOLO(str(yolo_path))
+        c2f_names = _discover_c2f_names(_yolo_wrapper)
+        print(f"  C2f layer names discovered: {c2f_names}")
+        feat_extractor = YOLOFeatureExtractor(
+            _yolo_wrapper,
+            config=FeatureLossConfig(layer_names=tuple(c2f_names)),
+        )
+        # Move the frozen YOLO backbone to the same device as the UNet.
+        # YOLOFeatureExtractor already froze params and set eval mode.
+        feat_extractor.model.to(device)
+
     # Model
     model = DPCUNet().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -541,7 +601,7 @@ def train(args: argparse.Namespace) -> None:
 
     start_epoch = 1
     best_val_loss = float("inf")
-    history: dict[str, list] = {"train": [], "val": [], "pixel": [], "edge": []}
+    history: dict[str, list] = {"train": [], "val": [], "pixel": [], "edge": [], "feature": []}
 
     # Resume or fresh start
     if resume_path.is_file() and not args.fresh:
@@ -555,6 +615,7 @@ def train(args: argparse.Namespace) -> None:
         start_epoch = ckpt["epoch"] + 1
         best_val_loss = ckpt["best_val_loss"]
         history = ckpt["history"]
+        history.setdefault("feature", [])  # forward-compat: old checkpoints lack this key
         print(f"  Resuming from epoch {start_epoch}/{args.epochs}  (best val: {best_val_loss:.4f})")
     else:
         state_dict = torch.load(str(checkpoint_path), map_location="cpu", weights_only=True)
@@ -567,10 +628,16 @@ def train(args: argparse.Namespace) -> None:
 
     t_start = time.time()
 
+    _loss_weights = CompositeLossWeights(
+        pixel_weight=1.0,
+        edge_weight=args.edge_weight,
+        feature_weight=args.feature_weight,
+    )
+
     for epoch in range(start_epoch, args.epochs + 1):
         # ── Train ──
         model.train()
-        ep_loss = ep_pixel = ep_edge = 0.0
+        ep_loss = ep_pixel = ep_edge = ep_feat = 0.0
 
         for adv_imgs, clean_imgs in train_loader:
             adv_imgs = adv_imgs.to(device, non_blocking=True)
@@ -582,7 +649,17 @@ def train(args: argparse.Namespace) -> None:
             if use_amp:
                 with torch.autocast("cuda"):
                     output = torch.clamp(model(adv_imgs, timestep=t), 0.0, 1.0)
-                    loss, pixel_l, edge_l = denoising_loss(output, clean_imgs, args.edge_weight)
+                    feat_loss = (
+                        yolo_feature_matching_loss(
+                            extractor=feat_extractor, denoised=output, clean=clean_imgs
+                        )
+                        if feat_extractor is not None else None
+                    )
+                    loss, breakdown = composite_denoising_loss(
+                        denoised=output, clean=clean_imgs,
+                        yolo_feature_loss=feat_loss,
+                        weights=_loss_weights,
+                    )
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
@@ -590,19 +667,31 @@ def train(args: argparse.Namespace) -> None:
                 scaler.update()
             else:
                 output = torch.clamp(model(adv_imgs, timestep=t), 0.0, 1.0)
-                loss, pixel_l, edge_l = denoising_loss(output, clean_imgs, args.edge_weight)
+                feat_loss = (
+                    yolo_feature_matching_loss(
+                        extractor=feat_extractor, denoised=output, clean=clean_imgs
+                    )
+                    if feat_extractor is not None else None
+                )
+                loss, breakdown = composite_denoising_loss(
+                    denoised=output, clean=clean_imgs,
+                    yolo_feature_loss=feat_loss,
+                    weights=_loss_weights,
+                )
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
                 optimizer.step()
 
-            ep_loss += loss.item()
-            ep_pixel += pixel_l
-            ep_edge += edge_l
+            ep_loss += breakdown["total_loss"]
+            ep_pixel += breakdown["pixel_loss"]
+            ep_edge += breakdown["edge_loss"]
+            ep_feat += breakdown["feature_loss"]
 
         n_batches = len(train_loader)
         train_loss = ep_loss / n_batches
         train_pixel = ep_pixel / n_batches
         train_edge = ep_edge / n_batches
+        train_feat = ep_feat / n_batches
 
         # ── Validate ──
         model.eval()
@@ -612,7 +701,11 @@ def train(args: argparse.Namespace) -> None:
                 adv_imgs = adv_imgs.to(device, non_blocking=True)
                 clean_imgs = clean_imgs.to(device, non_blocking=True)
                 output = torch.clamp(model(adv_imgs, timestep=50.0), 0.0, 1.0)
-                loss, _, _ = denoising_loss(output, clean_imgs, args.edge_weight)
+                loss, _ = composite_denoising_loss(
+                    denoised=output, clean=clean_imgs,
+                    yolo_feature_loss=None,
+                    weights=_loss_weights,
+                )
                 val_loss += loss.item()
         val_loss /= len(val_loader)
 
@@ -658,6 +751,7 @@ def train(args: argparse.Namespace) -> None:
         history["val"].append(val_loss)
         history["pixel"].append(train_pixel)
         history["edge"].append(train_edge)
+        history["feature"].append(train_feat)
 
         # Save best
         is_best = val_loss < best_val_loss
@@ -683,13 +777,17 @@ def train(args: argparse.Namespace) -> None:
         eta = elapsed / (epoch - start_epoch + 1) * (args.epochs - epoch) if epoch > start_epoch else 0
         print(
             f"Epoch {epoch:02d}/{args.epochs}  "
-            f"train={train_loss:.4f} (px={train_pixel:.4f} edge={train_edge:.4f})  "
-            f"val={val_loss:.4f}  "
+            f"train={train_loss:.4f} (px={train_pixel:.4f} edge={train_edge:.4f}"
+            + (f" feat={train_feat:.4f}" if feat_extractor is not None else "")
+            + f")  val={val_loss:.4f}  "
             + (f"det={det_loss_val:.4f}  " if yolo_inner is not None else "")
             + f"lr={lr_now:.1e}  "
             f"[{elapsed:.0f}s elapsed, ~{eta:.0f}s remaining]"
             + ("  ← best" if is_best else "")
         )
+
+    if feat_extractor is not None:
+        feat_extractor.close()
 
     total_time = time.time() - t_start
     print(f"\nTraining complete in {total_time:.0f}s ({total_time/60:.1f} min).")
@@ -748,6 +846,25 @@ def main():
             "Probability of applying DePatch block erasing to each training sample. "
             "Zeroes one block of the perturbation (adv−clean) to prevent texture memorisation. "
             "0 = disabled. Recommended: 0.5."
+        ),
+    )
+    parser.add_argument(
+        "--feature-weight",
+        type=float,
+        default=0.0,
+        help=(
+            "Weight of the YOLO C2f feature-matching loss term. "
+            "0 = disabled (default). Recommended: 0.3. "
+            "Adds 2 YOLO forward passes per batch (~20-30%% extra wall time on CUDA)."
+        ),
+    )
+    parser.add_argument(
+        "--feature-yolo-model",
+        default="",
+        help=(
+            "Path to the YOLO model used for feature extraction (relative to repo root). "
+            "Auto-discovers from configs/default.yaml 'model' field, "
+            "then falls back to yolo11n.pt in the repo root."
         ),
     )
     parser.add_argument("--det-loss-weight", type=float, default=0.0,
