@@ -65,6 +65,18 @@ PRESET_CONFIGS: dict[str, dict[str, object]] = {
         "edge_weight": 0.15,
         "fresh": True,
     },
+    "deepfool_dr": {
+        "training_zip": "outputs/training_exports/deepfool_dr_training_data.zip",
+        "output": "dpc_unet_deepfool_dr.pt",
+        "resume": "outputs/dpc_unet_training_resume_deepfool_dr.pt",
+        "epochs": 80,
+        "batch_size": 8,
+        "lr": 2e-5,
+        "edge_weight": 0.15,
+        "fresh": True,
+        "perturb_erase_prob": 0.5,
+        "feature_weight": 0.3,
+    },
 }
 
 
@@ -159,16 +171,59 @@ class DPCUNet(nn.Module):
         return self.final(up1)
 
 
+# ── Perturbation augmentation ─────────────────────────────────────────────────
+
+def _block_erase_perturbation(
+    perturb: torch.Tensor,
+    prob: float = 0.5,
+    n_blocks: int = 3,
+) -> torch.Tensor:
+    """DePatch (Cheng 2024) adapted to perturbation space.
+
+    Randomly zeroes one cell of an n_blocks×n_blocks grid on the perturbation
+    tensor (adv − clean).  Prevents the UNet from memorising specific
+    perturbation textures without touching clean-image content.
+
+    Adapted from Adversarial_Patch/experiments/ultralytics_patch.py:block_erase().
+    Uses Python stdlib random instead of numpy; adds max(1, …) guard for
+    sub-n_blocks patches.
+    """
+    if prob <= 0.0 or random.random() > prob:
+        return perturb
+    p = perturb.clone()
+    _, ph, pw = p.shape
+    bh = max(1, ph // n_blocks)
+    bw = max(1, pw // n_blocks)
+    bi = random.randint(0, n_blocks - 1)
+    bj = random.randint(0, n_blocks - 1)
+    p[:, bi * bh : (bi + 1) * bh, bj * bw : (bj + 1) * bw] = 0.0
+    return p
+
+
 # ── Dataset ──────────────────────────────────────────────────────────────────
 
 class AdvPairDataset(Dataset):
-    def __init__(self, pairs: list, patch_size: int = 192, augment: bool = True):
+    def __init__(
+        self,
+        pairs: list,
+        patch_size: int = 192,
+        augment: bool = True,
+        perturb_erase_prob: float = 0.0,
+    ):
         self.pairs = pairs
         self.patch_size = patch_size
         self.augment = augment
+        self.perturb_erase_prob = perturb_erase_prob
 
     @classmethod
-    def from_dirs(cls, clean_dir: Path, adv_dirs: dict, patch_size: int = 192, augment: bool = True):
+    def from_dirs(
+        cls,
+        clean_dir: Path,
+        adv_dirs: dict,
+        patch_size: int = 192,
+        augment: bool = True,
+        perturb_erase_prob: float = 0.0,
+    ):
         clean_paths = sorted(Path(clean_dir).glob("*.jpg"))
         pairs = []
         for clean_path in clean_paths:
@@ -177,14 +232,14 @@ class AdvPairDataset(Dataset):
                 if adv_path.exists():
                     pairs.append((str(clean_path), str(adv_path), attack_name))
         print(f"  {len(clean_paths)} images × {len(adv_dirs)} attacks = {len(pairs)} pairs")
-        return cls(pairs, patch_size=patch_size, augment=augment)
+        return cls(pairs, patch_size=patch_size, augment=augment, perturb_erase_prob=perturb_erase_prob)
 
     def split(self, val_frac: float = 0.10, seed: int = 42):
         pairs = self.pairs.copy()
         random.Random(seed).shuffle(pairs)
         n_val = max(1, int(len(pairs) * val_frac))
-        val_ds = AdvPairDataset(pairs[:n_val], self.patch_size, augment=False)
-        train_ds = AdvPairDataset(pairs[n_val:], self.patch_size, augment=True)
+        val_ds = AdvPairDataset(pairs[:n_val], self.patch_size, augment=False, perturb_erase_prob=0.0)
+        train_ds = AdvPairDataset(pairs[n_val:], self.patch_size, augment=True, perturb_erase_prob=self.perturb_erase_prob)
         return train_ds, val_ds
 
     def __len__(self) -> int:
@@ -225,7 +280,13 @@ class AdvPairDataset(Dataset):
             if random.random() < 0.3:
                 clean_bgr = cv2.flip(clean_bgr, 0)
                 adv_bgr = cv2.flip(adv_bgr, 0)
-        return self._to_tensor(adv_bgr), self._to_tensor(clean_bgr)
+        clean_t = self._to_tensor(clean_bgr)
+        adv_t = self._to_tensor(adv_bgr)
+        if self.augment and self.perturb_erase_prob > 0.0:
+            perturb = adv_t - clean_t
+            perturb = _block_erase_perturbation(perturb, self.perturb_erase_prob)
+            adv_t = (clean_t + perturb).clamp(0.0, 1.0)
+        return adv_t, clean_t
 
 
 # ── YOLO label loader (for detector-aligned loss) ────────────────────────────
@@ -406,7 +467,12 @@ def train(args: argparse.Namespace) -> None:
 
     # Build dataset
     print("\nBuilding dataset...")
-    full_ds = AdvPairDataset.from_dirs(clean_dir, adv_dirs, patch_size=args.patch_size, augment=True)
+    full_ds = AdvPairDataset.from_dirs(
+        clean_dir, adv_dirs,
+        patch_size=args.patch_size,
+        augment=True,
+        perturb_erase_prob=args.perturb_erase_prob,
+    )
     train_ds, val_ds = full_ds.split(val_frac=0.10, seed=args.seed)
 
     # ── Detector-aligned loss setup ───────────────────────────────────────────
@@ -672,6 +738,16 @@ def main():
             "Comma-separated ATTACK:N pairs to oversample new attack dirs, "
             "e.g. deepfool_strong:4,eot_pgd:4. Repeats those pairs N times "
             "in the dataset to counteract low sample counts."
+        ),
+    )
+    parser.add_argument(
+        "--perturb-erase-prob",
+        type=float,
+        default=0.0,
+        help=(
+            "Probability of applying DePatch block erasing to each training sample. "
+            "Zeroes one block of the perturbation (adv−clean) to prevent texture memorisation. "
+            "0 = disabled. Recommended: 0.5."
         ),
     )
     parser.add_argument("--det-loss-weight", type=float, default=0.0,
