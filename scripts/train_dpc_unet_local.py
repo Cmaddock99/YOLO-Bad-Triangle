@@ -349,8 +349,17 @@ def _resolve_feature_yolo_model(args_model: str) -> Path:
     if config_path.exists():
         import yaml  # lazy import — only needed when feature_weight > 0
         cfg = yaml.safe_load(config_path.read_text())
-        if "model" in cfg:
-            candidate = ROOT / cfg["model"]
+        model_cfg = cfg.get("model", {})
+        # Support both flat string ("model: yolo11n.pt") and nested dict
+        # ("model: {name: yolo, params: {model: yolo11n.pt}}")
+        if isinstance(model_cfg, str):
+            yolo_model_name = model_cfg
+        elif isinstance(model_cfg, dict):
+            yolo_model_name = model_cfg.get("params", {}).get("model", "")
+        else:
+            yolo_model_name = ""
+        if yolo_model_name:
+            candidate = ROOT / yolo_model_name
             if candidate.exists():
                 return candidate
     fallback = ROOT / "yolo11n.pt"
