@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import numpy as np
+from PIL import Image
 import torch
 
 from lab.attacks.framework_registry import build_attack_plugin, list_available_attack_plugins
@@ -13,6 +16,18 @@ class _DummyGradModel(torch.nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Keep shape >= 3 dims and last dim >= 5 for FGSM/PGD confidence proxy.
         return x
+
+
+def _write_patch_artifact(
+    path: Path,
+    *,
+    size: tuple[int, int],
+    color_rgb: tuple[int, int, int],
+) -> None:
+    height, width = size
+    rgb = np.zeros((height, width, 3), dtype=np.uint8)
+    rgb[:, :] = np.asarray(color_rgb, dtype=np.uint8)
+    Image.fromarray(rgb, mode="RGB").save(path)
 
 
 class FrameworkAttackPluginTest(unittest.TestCase):
@@ -64,6 +79,142 @@ class FrameworkAttackPluginTest(unittest.TestCase):
         self.assertEqual(meta["objective_mode"], "class_conditional_hiding")
         self.assertEqual(meta["target_class"], 1)
         self.assertEqual(meta["attack_roi"], [0.25, 0.25, 0.5, 0.5])
+
+    def test_pretrained_patch_registered_with_alias(self) -> None:
+        available = set(list_available_attack_plugins())
+        self.assertIn("pretrained_patch", available)
+        self.assertIn("adv_patch", available)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact = Path(tmp) / "patch.png"
+            _write_patch_artifact(artifact, size=(8, 6), color_rgb=(255, 0, 0))
+            canonical = build_attack_plugin("pretrained_patch", artifact_path=str(artifact))
+            alias = build_attack_plugin("adv_patch", artifact_path=str(artifact))
+
+        self.assertEqual(type(canonical), type(alias))
+
+
+class _StubBoxes:
+    def __init__(self, xyxy: list[list[float]], cls: list[float] | None = None) -> None:
+        self.xyxy = np.asarray(xyxy, dtype=np.float32)
+        classes = cls if cls is not None else [0.0] * len(xyxy)
+        self.cls = np.asarray(classes, dtype=np.float32)
+
+
+class _StubResult:
+    def __init__(self, boxes: _StubBoxes) -> None:
+        self.boxes = boxes
+
+
+class _StubInnerYOLO:
+    def __init__(self, xyxy: list[list[float]], cls: list[float] | None = None) -> None:
+        self._boxes = _StubBoxes(xyxy, cls=cls)
+        self.last_kwargs: dict[str, object] | None = None
+
+    def predict(self, **kwargs: object) -> list[_StubResult]:
+        self.last_kwargs = dict(kwargs)
+        return [_StubResult(self._boxes)]
+
+
+class _StubYOLOAdapter:
+    def __init__(self, xyxy: list[list[float]], cls: list[float] | None = None) -> None:
+        self._model = _StubInnerYOLO(xyxy, cls=cls)
+
+
+class PretrainedPatchAttackTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.image = np.full((64, 64, 3), 127, dtype=np.uint8)
+
+    def _build_attack(
+        self,
+        *,
+        size: tuple[int, int] = (10, 8),
+        color_rgb: tuple[int, int, int] = (255, 0, 0),
+        **kwargs: object,
+    ):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        artifact = Path(tmp.name) / "patch.png"
+        _write_patch_artifact(artifact, size=size, color_rgb=color_rgb)
+        return build_attack_plugin("pretrained_patch", artifact_path=str(artifact), **kwargs)
+
+    def test_pretrained_patch_output_shape_dtype_and_metadata_keys(self) -> None:
+        attack = self._build_attack()
+
+        attacked, meta = attack.apply(self.image, model=None, seed=7)
+
+        self.assertEqual(attacked.shape, self.image.shape)
+        self.assertEqual(attacked.dtype, np.uint8)
+        self.assertEqual(meta["attack"], "pretrained_patch")
+        self.assertEqual(
+            set(meta),
+            {
+                "attack",
+                "artifact_path",
+                "artifact_sha256",
+                "artifact_size",
+                "applied_patch_size",
+                "placement_mode",
+                "fallback_mode",
+                "clean_detect_conf",
+                "clean_detect_iou",
+                "prediction_metadata",
+            },
+        )
+
+    def test_pretrained_patch_is_deterministic(self) -> None:
+        attack = self._build_attack()
+
+        out_a, meta_a = attack.apply(self.image, model=None, seed=1)
+        out_b, meta_b = attack.apply(self.image, model=None, seed=999)
+
+        np.testing.assert_array_equal(out_a, out_b)
+        self.assertEqual(meta_a["prediction_metadata"], meta_b["prediction_metadata"])
+
+    def test_pretrained_patch_center_fallback_and_bgr_conversion(self) -> None:
+        attack = self._build_attack(size=(10, 8), color_rgb=(255, 0, 0))
+
+        attacked, meta = attack.apply(np.zeros((20, 20, 3), dtype=np.uint8), model=None)
+
+        prediction_meta = meta["prediction_metadata"]
+        self.assertEqual(prediction_meta["top"], 5)
+        self.assertEqual(prediction_meta["left"], 6)
+        self.assertFalse(prediction_meta["person_found"])
+        self.assertTrue(prediction_meta["fallback_used"])
+        np.testing.assert_array_equal(attacked[5, 6], np.array([0, 0, 255], dtype=np.uint8))
+
+    def test_pretrained_patch_placement_uses_largest_person_torso(self) -> None:
+        attack = self._build_attack(size=(20, 20), color_rgb=(0, 255, 0))
+        model = _StubYOLOAdapter([[100, 50, 200, 300], [5, 10, 15, 20]])
+        image = np.zeros((320, 320, 3), dtype=np.uint8)
+        image[:, :] = np.array([10, 20, 30], dtype=np.uint8)
+
+        attacked, meta = attack.apply(image, model=model)
+
+        prediction_meta = meta["prediction_metadata"]
+        self.assertEqual(prediction_meta["top"], 127)
+        self.assertEqual(prediction_meta["left"], 140)
+        self.assertTrue(prediction_meta["person_found"])
+        self.assertFalse(prediction_meta["fallback_used"])
+        np.testing.assert_array_equal(attacked[127, 140], np.array([0, 255, 0], dtype=np.uint8))
+
+        assert model._model.last_kwargs is not None
+        source = model._model.last_kwargs["source"]
+        self.assertIsInstance(source, np.ndarray)
+        np.testing.assert_array_equal(source[0, 0], np.array([30, 20, 10], dtype=np.uint8))
+
+    def test_pretrained_patch_downscales_to_fit_small_images(self) -> None:
+        attack = self._build_attack(size=(80, 120), color_rgb=(0, 0, 255))
+        image = np.zeros((40, 60, 3), dtype=np.uint8)
+
+        attacked, meta = attack.apply(image, model=None)
+
+        prediction_meta = meta["prediction_metadata"]
+        self.assertEqual(prediction_meta["applied_patch_size"], [40, 60])
+        self.assertEqual(prediction_meta["top"], 0)
+        self.assertEqual(prediction_meta["left"], 0)
+        np.testing.assert_array_equal(attacked[0, 0], np.array([255, 0, 0], dtype=np.uint8))
+        np.testing.assert_array_equal(attacked[-1, -1], np.array([255, 0, 0], dtype=np.uint8))
 
 
 class _DummyDetectionModel(torch.nn.Module):

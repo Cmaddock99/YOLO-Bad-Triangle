@@ -107,6 +107,42 @@ def _read_json_mapping(path: Path) -> dict[str, Any]:
     return cast(dict[str, Any], payload)
 
 
+def _split_attack_metadata_payload(attack_meta: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+    if not isinstance(attack_meta, dict):
+        return {}, {}
+    raw = dict(attack_meta)
+    prediction_metadata = raw.pop("prediction_metadata", {})
+    explicit_run_metadata = raw.pop("run_metadata", None)
+    run_metadata: dict[str, Any]
+    if isinstance(explicit_run_metadata, dict):
+        run_metadata = {**explicit_run_metadata, **raw}
+    else:
+        run_metadata = raw
+    if not isinstance(prediction_metadata, dict):
+        prediction_metadata = {}
+    return dict(run_metadata), dict(prediction_metadata)
+
+
+def _attach_attack_metadata_to_predictions(
+    predictions: list[PredictionRecord],
+    attack_prediction_metadata: dict[str, dict[str, Any]],
+) -> list[PredictionRecord]:
+    if not attack_prediction_metadata:
+        return predictions
+    for record in predictions:
+        image_id = str(record.get("image_id", "")).strip()
+        if not image_id:
+            continue
+        attack_meta = attack_prediction_metadata.get(image_id)
+        if not attack_meta:
+            continue
+        metadata = record.get("metadata")
+        merged_metadata = dict(metadata) if isinstance(metadata, dict) else {}
+        merged_metadata["attack"] = dict(attack_meta)
+        record["metadata"] = merged_metadata
+    return predictions
+
+
 def _is_none_name(name: str) -> bool:
     return name.strip().lower() in {"", "none", "identity"}
 
@@ -284,10 +320,11 @@ class UnifiedExperimentRunner:
         images: list[Path],
         seed: int,
         attack_name: str,
-    ) -> tuple[list[Path], int, int, dict[str, Any], dict[str, float]]:
+    ) -> tuple[list[Path], int, int, dict[str, Any], dict[str, dict[str, Any]], dict[str, float]]:
         """Apply attack and defense preprocessing, write results to images/.
 
-        Returns (prepared_paths, skipped_unreadable, failed_writes, attack_metadata, timing_ms).
+        Returns (prepared_paths, skipped_unreadable, failed_writes, attack_metadata,
+        attack_prediction_metadata, timing_ms).
         """
         prepared_dir = run_dir / "images"
         prepared_dir.mkdir(parents=True, exist_ok=True)
@@ -295,6 +332,7 @@ class UnifiedExperimentRunner:
         skipped_unreadable = 0
         failed_writes = 0
         attack_metadata: dict[str, Any] = {}
+        attack_prediction_metadata: dict[str, dict[str, Any]] = {}
         attack_elapsed = 0.0
         defense_preprocess_elapsed = 0.0
         image_write_elapsed = 0.0
@@ -306,6 +344,7 @@ class UnifiedExperimentRunner:
                 skipped_unreadable += 1
                 continue
             transformed = image
+            prediction_attack_meta: dict[str, Any] = {}
             if attack is not None:
                 attack_started = time.monotonic()
                 transformed, attack_meta = attack.apply(
@@ -314,8 +353,9 @@ class UnifiedExperimentRunner:
                     seed=int(seed) + index,
                 )
                 attack_elapsed += time.monotonic() - attack_started
-                if not attack_metadata:
-                    attack_metadata = cast(dict[str, Any], dict(attack_meta))
+                run_attack_meta, prediction_attack_meta = _split_attack_metadata_payload(attack_meta)
+                if run_attack_meta and not attack_metadata:
+                    attack_metadata = cast(dict[str, Any], dict(run_attack_meta))
             defense_started = time.monotonic()
             defended_image, _ = defense.preprocess(transformed, attack_hint=attack_name)
             defense_preprocess_elapsed += time.monotonic() - defense_started
@@ -327,13 +367,31 @@ class UnifiedExperimentRunner:
                 failed_writes += 1
                 continue
             prepared_paths.append(target)
+            if prediction_attack_meta:
+                attack_prediction_metadata[target.name] = dict(prediction_attack_meta)
         if not prepared_paths:
             raise ValueError(
                 "No images were prepared for inference. "
                 f"unreadable={skipped_unreadable}, failed_writes={failed_writes}, "
                 f"source_count={len(images)}"
             )
-        return prepared_paths, skipped_unreadable, failed_writes, attack_metadata, {
+        if attack_metadata and attack_prediction_metadata:
+            base_patch_size = attack_metadata.get("applied_patch_size")
+            attack_metadata = {
+                **attack_metadata,
+                "images_with_person_detection": sum(
+                    1 for meta in attack_prediction_metadata.values() if bool(meta.get("person_found"))
+                ),
+                "images_with_center_fallback": sum(
+                    1 for meta in attack_prediction_metadata.values() if bool(meta.get("fallback_used"))
+                ),
+                "images_with_patch_downscale": sum(
+                    1
+                    for meta in attack_prediction_metadata.values()
+                    if base_patch_size is not None and meta.get("applied_patch_size") != base_patch_size
+                ),
+            }
+        return prepared_paths, skipped_unreadable, failed_writes, attack_metadata, attack_prediction_metadata, {
             "attack_ms": round(attack_elapsed * 1000, 1),
             "defense_preprocess_ms": round(defense_preprocess_elapsed * 1000, 1),
             "image_write_ms": round(image_write_elapsed * 1000, 1),
@@ -346,6 +404,7 @@ class UnifiedExperimentRunner:
         prepared_paths: list[Path],
         predict_cfg: dict[str, Any],
         defense: Any,
+        attack_prediction_metadata: dict[str, dict[str, Any]] | None = None,
     ) -> tuple[list[PredictionRecord], dict[str, float]]:
         """Run model prediction and defense postprocessing."""
         predict_started = time.monotonic()
@@ -358,6 +417,10 @@ class UnifiedExperimentRunner:
             records, _ = defense.postprocess([record])
             defense_postprocess_elapsed += time.monotonic() - postprocess_started
             postprocessed.extend(records)
+        postprocessed = _attach_attack_metadata_to_predictions(
+            postprocessed,
+            attack_prediction_metadata or {},
+        )
         if prepared_paths and not postprocessed:
             raise RuntimeError(
                 "Model returned zero prediction records for non-empty prepared inputs. "
@@ -564,7 +627,14 @@ class UnifiedExperimentRunner:
             defense_params,
         )
 
-        prepared_paths, skipped_unreadable, failed_writes, attack_metadata, prepare_timing = self._prepare_images(
+        (
+            prepared_paths,
+            skipped_unreadable,
+            failed_writes,
+            attack_metadata,
+            attack_prediction_metadata,
+            prepare_timing,
+        ) = self._prepare_images(
             run_dir=run_dir,
             model=model,
             attack=attack,
@@ -586,6 +656,7 @@ class UnifiedExperimentRunner:
             prepared_paths=prepared_paths,
             predict_cfg=predict_cfg,
             defense=defense,
+            attack_prediction_metadata=attack_prediction_metadata,
         )
         runtime_metrics: dict[str, float | None] = {
             **prepare_timing,
@@ -666,6 +737,7 @@ class UnifiedExperimentRunner:
         metrics_payload["provenance"]["pipeline_profile"] = pipeline_profile
         metrics_payload["provenance"]["authoritative_metric"] = authoritative_metric
         metrics_payload["provenance"]["profile_compatibility"] = profile_compatibility
+        metrics_payload["provenance"]["attack_metadata"] = attack_metadata if attack_metadata else None
 
         run_summary = {
             "schema_version": FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
@@ -682,6 +754,7 @@ class UnifiedExperimentRunner:
                 "name": attack_name or "none",
                 "params": attack_params,
                 "signature": attack_signature,
+                "metadata": attack_metadata if attack_metadata else None,
                 "resolved_objective": {
                     "objective_mode": resolved_objective.get("objective_mode"),
                     "target_class": resolved_objective.get("target_class"),

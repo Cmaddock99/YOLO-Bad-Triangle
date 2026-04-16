@@ -35,6 +35,7 @@ profiles:
         - fgsm_center_mask
         - fgsm_edge_mask
         - jpeg_attack
+        - pretrained_patch
     defenses:
       canonical:
         - bit_depth

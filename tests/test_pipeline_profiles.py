@@ -40,6 +40,17 @@ class PipelineProfilesTest(unittest.TestCase):
         self.assertEqual(compatibility["status"], "manual_only")
         self.assertEqual(compatibility["defense_status"], "manual_only")
 
+    def test_profile_compatibility_marks_pretrained_patch_manual_only(self) -> None:
+        config = build_profile_config("yolo11n_lab_v1")
+        config["attack"]["name"] = "pretrained_patch"
+        config["defense"]["name"] = "none"
+
+        compatibility = resolve_profile_compatibility(config)
+
+        self.assertIsNotNone(compatibility)
+        self.assertEqual(compatibility["status"], "manual_only")
+        self.assertEqual(compatibility["attack_status"], "manual_only")
+
     def test_learned_defense_compatibility_is_incompatible_for_v1(self) -> None:
         compatibility = learned_defense_compatibility("yolo11n_lab_v1")
 

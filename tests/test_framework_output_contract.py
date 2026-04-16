@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import cv2
 import numpy as np
+from PIL import Image
 import yaml
 
 from lab.runners.run_experiment import UnifiedExperimentRunner, _assert_metrics_payload_contract
@@ -128,6 +129,18 @@ class _PassthroughDefense:
 
     def postprocess(self, records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         return list(records), {}
+
+
+def _write_patch_artifact(
+    path: Path,
+    *,
+    size: tuple[int, int],
+    color_rgb: tuple[int, int, int],
+) -> None:
+    height, width = size
+    rgb = np.zeros((height, width, 3), dtype=np.uint8)
+    rgb[:, :] = np.asarray(color_rgb, dtype=np.uint8)
+    Image.fromarray(rgb, mode="RGB").save(path)
 
 
 class FrameworkOutputContractTests(unittest.TestCase):
@@ -474,6 +487,65 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
             self.assertEqual(run_summary["pipeline"]["semantic_order"], "attack_then_defense")
+
+    def test_pretrained_patch_metadata_is_split_between_run_and_prediction_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.png")
+            artifact = root / "patch.png"
+            _write_patch_artifact(artifact, size=(12, 10), color_rgb=(255, 0, 0))
+            artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {
+                    "name": "pretrained_patch",
+                    "params": {"artifact_path": str(artifact)},
+                },
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "pretrained_patch_contract"},
+            }
+
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_dir = Path(summary["run_dir"])
+            run_summary = json.loads((run_dir / "run_summary.json").read_text(encoding="utf-8"))
+            metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
+            prediction_records = [
+                json.loads(line)
+                for line in (run_dir / "predictions.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+
+            attack_meta = run_summary["attack"]["metadata"]
+            self.assertEqual(metrics["provenance"]["attack_metadata"], attack_meta)
+            self.assertEqual(attack_meta["artifact_path"], str(artifact.resolve()))
+            self.assertEqual(attack_meta["artifact_sha256"], artifact_sha)
+            self.assertEqual(attack_meta["artifact_size"], [12, 10])
+            self.assertEqual(attack_meta["applied_patch_size"], [12, 10])
+            self.assertEqual(attack_meta["placement_mode"], "largest_person_torso")
+            self.assertEqual(attack_meta["fallback_mode"], "center")
+            self.assertEqual(attack_meta["images_with_person_detection"], 0)
+            self.assertEqual(attack_meta["images_with_center_fallback"], 1)
+            self.assertEqual(attack_meta["images_with_patch_downscale"], 0)
+            self.assertNotIn("top", attack_meta)
+            self.assertNotIn("left", attack_meta)
+            self.assertNotIn("person_found", attack_meta)
+
+            prediction_attack = prediction_records[0]["metadata"]["attack"]
+            self.assertEqual(prediction_attack["name"], "pretrained_patch")
+            self.assertEqual(prediction_attack["top"], 14)
+            self.assertEqual(prediction_attack["left"], 25)
+            self.assertFalse(prediction_attack["person_found"])
+            self.assertTrue(prediction_attack["fallback_used"])
+            self.assertEqual(prediction_attack["applied_patch_size"], [12, 10])
+            self.assertNotIn("artifact_path", prediction_attack)
 
     def test_runner_filters_none_params_before_plugin_build_and_persistence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
