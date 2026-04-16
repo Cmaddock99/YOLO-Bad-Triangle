@@ -66,6 +66,7 @@ CANONICAL_ATTACKS_ALL = (
     "fgsm_edge_mask",
     "jpeg_attack",
     "pgd",
+    "pretrained_patch",
     "square",
 )
 DEFAULT_ATTACKS = ("blur", "deepfool", "fgsm", "pgd")
@@ -237,8 +238,10 @@ def _experiment_overrides(
     reporting_dataset_scope: str | None = None,
     reporting_authority: str | None = None,
     reporting_source_phase: str | None = None,
+    extra_overrides: list[str] | None = None,
 ) -> list[str]:
-    overrides = [
+    overrides = list(extra_overrides or [])
+    overrides.extend([
         f"runner.output_root={output_root}",
         f"runner.run_name={run_name}",
         f"runner.seed={seed}",
@@ -247,7 +250,7 @@ def _experiment_overrides(
         f"defense.name={defense_name}",
         f"validation.enabled={str(validation_enabled).lower()}",
         "summary.enabled=false",
-    ]
+    ])
     if objective_mode:
         overrides.append(f"attack.params.objective_mode={objective_mode}")
     if target_class is not None:
@@ -284,6 +287,7 @@ def _experiment_command(
     reporting_dataset_scope: str | None = None,
     reporting_authority: str | None = None,
     reporting_source_phase: str | None = None,
+    extra_overrides: list[str] | None = None,
 ) -> list[str]:
     overrides = _experiment_overrides(
         output_root=output_root,
@@ -300,6 +304,7 @@ def _experiment_command(
         reporting_dataset_scope=reporting_dataset_scope,
         reporting_authority=reporting_authority,
         reporting_source_phase=reporting_source_phase,
+        extra_overrides=extra_overrides,
     )
     return build_run_experiment_command(
         REPO_ROOT,
@@ -402,6 +407,14 @@ def main() -> None:
         help="smoke=fast sanity defaults (8 images), full=all images.",
     )
     parser.add_argument("--validation-enabled", action="store_true")
+    parser.add_argument(
+        "--set",
+        dest="overrides",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Repeatable sweep-wide config override forwarded to every launched run.",
+    )
     parser.add_argument(
         "--reporting-dataset-scope",
         choices=("smoke", "tune", "full"),
@@ -614,6 +627,7 @@ def main() -> None:
                 reporting_dataset_scope=args.reporting_dataset_scope,
                 reporting_authority=args.reporting_authority,
                 reporting_source_phase=args.reporting_source_phase,
+                extra_overrides=args.overrides,
             )
             resume_action = "run"
             resume_reason = ""
@@ -676,6 +690,7 @@ def main() -> None:
                 reporting_dataset_scope=args.reporting_dataset_scope,
                 reporting_authority=args.reporting_authority,
                 reporting_source_phase=args.reporting_source_phase,
+                extra_overrides=args.overrides,
             )
             t0 = time.monotonic()
             resume_action = "run"
@@ -763,6 +778,7 @@ def main() -> None:
                 reporting_dataset_scope=args.reporting_dataset_scope,
                 reporting_authority=args.reporting_authority,
                 reporting_source_phase=args.reporting_source_phase,
+                extra_overrides=args.overrides,
             )
             t0 = time.monotonic()
             resume_action = "run"

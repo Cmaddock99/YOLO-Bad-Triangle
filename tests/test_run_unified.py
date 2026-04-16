@@ -119,6 +119,39 @@ class RunUnifiedTest(unittest.TestCase):
         self.assertIn("--resume", rendered)
         self.assertIn("--skip-errors", rendered)
 
+    def test_sweep_forwards_repeatable_set_overrides(self) -> None:
+        captured: list[list[str]] = []
+
+        def _fake_run(command: list[str], *, component: str, env: dict[str, str] | None = None) -> int:
+            del component, env
+            captured.append(command)
+            return 0
+
+        argv = [
+            "run_unified.py",
+            "sweep",
+            "--config",
+            "configs/default.yaml",
+            "--attacks",
+            "pretrained_patch",
+            "--set",
+            "attack.params.artifact_path=/tmp/patch.png",
+            "--set",
+            "attack.params.clean_detect_conf=0.6",
+        ]
+        with patch("sys.argv", argv):
+            with patch("scripts.run_unified.resolve_python_bin", return_value="python"):
+                with patch("scripts.run_unified.with_src_pythonpath", return_value={}):
+                    with patch("scripts.run_unified._run", side_effect=_fake_run):
+                        with self.assertRaises(SystemExit) as exit_ctx:
+                            run_unified.main()
+                        self.assertEqual(int(exit_ctx.exception.code), 0)
+
+        self.assertEqual(len(captured), 1)
+        rendered = " ".join(captured[0])
+        self.assertIn("--set attack.params.artifact_path=/tmp/patch.png", rendered)
+        self.assertIn("--set attack.params.clean_detect_conf=0.6", rendered)
+
     def test_run_one_adds_seed_override(self) -> None:
         captured: list[list[str]] = []
 

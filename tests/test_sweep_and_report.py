@@ -97,6 +97,29 @@ class SweepAndReportScriptTest(unittest.TestCase):
         self.assertIn("attack.name=fgsm", rendered)
         self.assertIn("summary.enabled=false", rendered)
 
+    def test_experiment_overrides_place_extra_overrides_before_generated_values(self) -> None:
+        overrides = sweep_and_report._experiment_overrides(
+            output_root=Path("outputs/framework_runs/sweep_x"),
+            run_name="attack_pretrained_patch",
+            attack_name="pretrained_patch",
+            defense_name="none",
+            seed=42,
+            max_images=8,
+            validation_enabled=False,
+            extra_overrides=[
+                "attack.params.artifact_path=/tmp/patch.png",
+                "runner.run_name=user_requested_name",
+            ],
+        )
+
+        self.assertEqual(overrides[0], "attack.params.artifact_path=/tmp/patch.png")
+        self.assertEqual(overrides[1], "runner.run_name=user_requested_name")
+        self.assertIn("runner.run_name=attack_pretrained_patch", overrides)
+        self.assertGreater(
+            overrides.index("runner.run_name=attack_pretrained_patch"),
+            overrides.index("runner.run_name=user_requested_name"),
+        )
+
     def test_repo_script_commands_use_shared_builder_paths(self) -> None:
         report_command = sweep_and_report._generate_framework_report_command(
             python_bin="python",
@@ -303,6 +326,41 @@ class SweepAndReportScriptTest(unittest.TestCase):
             manifest["requested_defenses"],
             ["bit_depth", "jpeg_preprocess", "median_preprocess"],
         )
+
+    def test_main_dry_run_forwards_repeatable_set_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            runs_root = Path(tmp) / "runs"
+            report_root = Path(tmp) / "report"
+            buffer = io.StringIO()
+            argv = [
+                "sweep_and_report.py",
+                "--config",
+                str(REPO_ROOT / "configs/default.yaml"),
+                "--python-bin",
+                sys.executable,
+                "--runs-root",
+                str(runs_root),
+                "--report-root",
+                str(report_root),
+                "--attacks",
+                "pretrained_patch",
+                "--defenses",
+                "none",
+                "--phases",
+                "2",
+                "--set",
+                "attack.params.artifact_path=/tmp/patch.png",
+                "--set",
+                "attack.params.clean_detect_conf=0.6",
+                "--dry-run",
+            ]
+            with patch.object(sys, "argv", argv):
+                with redirect_stdout(buffer):
+                    sweep_and_report.main()
+
+        output = buffer.getvalue()
+        self.assertIn("--set attack.params.artifact_path=/tmp/patch.png", output)
+        self.assertIn("--set attack.params.clean_detect_conf=0.6", output)
 
 
 class WS7SweepNoPagesTest(unittest.TestCase):

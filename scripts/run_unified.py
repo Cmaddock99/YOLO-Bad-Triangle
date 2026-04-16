@@ -83,6 +83,13 @@ def main() -> None:
     sweep.add_argument("--max-images", type=int, default=None)
     sweep.add_argument("--resume", action="store_true")
     sweep.add_argument("--skip-errors", action="store_true")
+    sweep.add_argument(
+        "--set",
+        dest="overrides",
+        action="append",
+        default=[],
+        help="Config override in key=value form. Can be repeated and is forwarded to sweep_and_report.py.",
+    )
     sweep.add_argument("--team-summary", dest="team_summary", action="store_true")
     sweep.add_argument("--no-team-summary", dest="team_summary", action="store_false")
     sweep.set_defaults(team_summary=None)
@@ -137,6 +144,8 @@ def main() -> None:
         command.append("--resume")
     if args.skip_errors:
         command.append("--skip-errors")
+    for override in args.overrides:
+        command.extend(["--set", override])
     if args.team_summary is True:
         command.append("--team-summary")
     if args.team_summary is False:
