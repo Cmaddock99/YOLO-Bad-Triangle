@@ -6,12 +6,14 @@
 - Closure record: `docs/analysis/direction_a_closure_20260409.md`
 - c_dog checkpoint (`dpc_unet_adversarial_finetuned.pt`) is YOLOv8-specific; do not use for YOLOv11 training
 
-**Next Phase: YOLOv11 Baseline Characterization**
-- YOLOv11 uses the existing `yolo` adapter — no new adapter needed (ultralytics handles all YOLO architectures)
-- Clean baseline run required (500-image, no attack, no defense) to establish reference mAP50-95
-- Phase 1 attack characterization required before any defense or fortification work
-- Attack parameters (deepfool epsilon, square n_queries) were tuned for YOLOv8 and do not transfer
-- Authoritative metric for YOLOv11: **mAP50-95** (mAP50 retained as diagnostic for historical comparison only)
+**One Real Pipeline v1: IMPLEMENTED**
+- Canonical runtime home: `YOLO-Bad-Triangle`
+- Canonical profile: `yolo11n_lab_v1`
+- Canonical model: `yolo11n.pt`
+- Canonical authority metric: **mAP50**
+- Canonical fortify mode: attack/defense ranking + parameter tuning + validation inside `scripts/auto_cycle.py`
+- Digital and printable patch work remain out of the canonical v1 ranked/tuned loop
+- Future patch support must enter as a profile-aware attack extension, not as a second runner
 
 ---
 
@@ -21,6 +23,7 @@ Current architecture reference for the repository as it exists today.
 
 ```text
 scripts/run_unified.py run-one
+  -> --profile yolo11n_lab_v1
   -> src/lab/runners/run_experiment.py
      -> attack registry
      -> defense registry
@@ -28,13 +31,22 @@ scripts/run_unified.py run-one
      -> metrics / reporting artifacts
 
 scripts/sweep_and_report.py
+  -> --profile yolo11n_lab_v1
   -> repeated run_experiment.py invocations
   -> framework report generation
   -> optional team summary generation
+
+scripts/auto_cycle.py
+  -> --profile yolo11n_lab_v1
+  -> profile-defined attack/defense catalogs
+  -> ranking / tuning / validation
 ```
 
 There is no root-level `run_experiment.py` compatibility shim in the current
 tree. Use `scripts/run_unified.py` and `scripts/sweep_and_report.py`.
+
+`Adversarial_Patch` is an external research/artifact workspace. It is not part
+of the canonical runtime surface and is not a second orchestration path.
 
 ## Current transform order
 
@@ -68,7 +80,7 @@ can distinguish this canonical era from older legacy outputs.
   - `faster_rcnn` (alias: `torchvision_frcnn`)
 - `yolo` supports prediction and validation.
 - `faster_rcnn` supports prediction and returns a `not_supported` validation stub.
-- YOLOv11 requires no new adapter — set `model.params.model: yolo11n.pt` in config. Ultralytics auto-downloads on first run.
+- YOLOv11 requires no new adapter — `yolo11n_lab_v1` resolves `model.params.model: yolo11n.pt`.
 
 List live plugin names with:
 
@@ -86,7 +98,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py --list-plugins
 `bit_depth`, `c_dog`, `c_dog_ensemble`, `confidence_filter`,
 `jpeg_preprocess`, `median_preprocess`, `none`, `random_resize`
 
-## Active auto-cycle catalogs
+## Canonical v1 profile catalogs
 
 ### Attacks
 
@@ -94,17 +106,18 @@ PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py --list-plugins
 
 ### Defenses
 
-`bit_depth`, `c_dog`, `jpeg_preprocess`, `median_preprocess`
+`bit_depth`, `jpeg_preprocess`, `median_preprocess`
 
-`c_dog_ensemble` remains registered but is currently excluded from
-`scripts/auto_cycle.py` ranking and tuning.
+Manual-only defenses under `yolo11n_lab_v1`:
+
+`c_dog`, `c_dog_ensemble`, `confidence_filter`, `random_resize`
 
 ## Important configs
 
 - `configs/default.yaml` - default single-run config
 - `configs/ci_demo.yaml` - tiny CI-safe run
 - `configs/coco_subset500.yaml` - validation dataset config
-- `configs/runtime_profiles.yaml` - profile aliases and runtime guardrails
+- `configs/pipeline_profiles.yaml` - canonical pipeline profiles and compatibility rules
 - `configs/defense_eval_sweep.yaml` - reference matrix config, not the canonical runner input
 
 ## Output contracts
@@ -116,6 +129,12 @@ Framework run outputs:
 - `outputs/framework_runs/<run_name>/run_summary.json`
 - `outputs/framework_runs/<run_name>/resolved_config.yaml`
 - `outputs/framework_runs/<run_name>/experiment_summary.json` when `summary.enabled=true`
+
+Run summaries now also carry:
+
+- `pipeline_profile`
+- `authoritative_metric`
+- `profile_compatibility`
 
 Report outputs:
 
@@ -140,3 +159,6 @@ Warnings and concise summaries prefer `reporting_context.authority=authoritative
 rows when both authoritative and diagnostic rows exist for the same comparison.
 Diagnostic-only smoke reports are still valid diagnostic artifacts; they should
 not be interpreted as proof that Phase 4 validation is missing.
+
+For `yolo11n_lab_v1`, authoritative rows are keyed to `mAP50`. `mAP50-95`
+remains diagnostic-only in v1.
