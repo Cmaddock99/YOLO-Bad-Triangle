@@ -1,0 +1,11 @@
+[    1185ms] [LOG] initializing data service @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:4819
+[    1187ms] [LOG] initializing config service @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:12418
+[    1192ms] [LOG] tabs component initializing @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:8106
+[    1212ms] [LOG] Angular is running in development mode. Call enableProdMode() to enable production mode. @ https://mitre-atlas.github.io/atlas-navigator/vendor-es2018.js:192514
+[  157864ms] [LOG] initializing ViewModel 'loading layer...' @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:10449
+[  157865ms] [LOG] retrieving data [https://raw.githubusercontent.com/mitre-atlas/atla…-data/main/dist/stix-atlas-attack-enterprise.json] @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:5051
+[  161024ms] [LOG] updating gradient @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:11476
+[  161025ms] [LOG] Sponge Attack on Public NLP API initializing technique VMs @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:10481
+[  175133ms] [LOG] settings changed @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:3174
+[  175636ms] [LOG] settings changed @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:3174
+[  175636ms] [LOG] building SVG @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:3186

@@ -1,0 +1,53 @@
+- generic [ref=e5]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - img [ref=e21] [cursor=pointer]
+      - navigation [ref=e9]:
+        - generic [ref=e12]:
+          - generic [ref=e24]:
+            - text: new tab
+            - img [ref=e26] [cursor=pointer]
+          - img [ref=e14] [cursor=pointer]
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - heading "MITRE ATT&CK® Navigator" [level=1] [ref=e32]:
+          - link "MITRE ATT&CK® Navigator" [ref=e33] [cursor=pointer]:
+            - /url: http://attack.mitre.org
+        - paragraph [ref=e35]: The ATT&CK Navigator is a web-based tool for annotating and exploring ATT&CK matrices. It can be used to visualize defensive coverage, red/blue team planning, the frequency of detected techniques, and more.
+        - generic [ref=e36]:
+          - button "help" [ref=e37] [cursor=pointer]: help
+          - button "changelog" [ref=e38] [cursor=pointer]: changelog
+          - button "theme ▾" [ref=e39] [cursor=pointer]:
+            - generic [ref=e40]:
+              - text: theme ▾
+              - combobox [ref=e41]
+      - generic [ref=e42]:
+        - button "Create New Layer Create a new empty layer" [ref=e44] [cursor=pointer]:
+          - generic [ref=e45]:
+            - generic [ref=e46]: Create New Layer
+            - generic [ref=e47]: Create a new empty layer
+        - generic [ref=e49]:
+          - button "Open Existing Layer Load a layer from your computer or a URL" [expanded] [active] [ref=e50] [cursor=pointer]:
+            - generic [ref=e51]:
+              - generic [ref=e52]: Open Existing Layer
+              - generic [ref=e53]: Load a layer from your computer or a URL
+          - region "Open Existing Layer Load a layer from your computer or a URL" [ref=e68]:
+            - table [ref=e70]:
+              - row "Upload from local OR Load from URL" [ref=e71]:
+                - cell "Upload from local" [ref=e72]:
+                  - button "Upload from local" [ref=e73] [cursor=pointer]: Upload from local
+                - cell "OR" [ref=e74]
+                - cell "Load from URL" [ref=e75]:
+                  - generic [ref=e79]:
+                    - textbox "Load from URL" [ref=e80]
+                    - generic:
+                      - generic: Load from URL
+        - button "Create Layer from other layers Choose layers to inherit properties from" [ref=e56] [cursor=pointer]:
+          - generic [ref=e57]:
+            - generic [ref=e58]: Create Layer from other layers
+            - generic [ref=e59]: Choose layers to inherit properties from
+        - button "Create Customized Navigator Create a hyperlink to a customized ATT&CK Navigator" [ref=e62] [cursor=pointer]:
+          - generic [ref=e63]:
+            - generic [ref=e64]: Create Customized Navigator
+            - generic [ref=e65]: Create a hyperlink to a customized ATT&CK Navigator
+  - button "MITRE ATT&CK® Navigator v4.6.4" [ref=e19]

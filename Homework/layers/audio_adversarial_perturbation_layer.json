@@ -1,0 +1,44 @@
+{
+  "versions": {
+    "layer": "4.3",
+    "navigator": "4.6.4"
+  },
+  "domain": "atlas-atlas",
+  "name": "Audio Adversarial Perturbation",
+  "description": "An attacker crafts an audio adversarial example that sounds like static to humans but causes a voice-authentication system to execute a fraudulent transfer, then delivers it through a spoofed phone call.",
+  "techniques": [
+    {
+      "techniqueID": "AML.T0043",
+      "showSubtechniques": false,
+      "tactic": "ai-attack-staging",
+      "color": "#C8E6C9"
+    },
+    {
+      "techniqueID": "AML.T0052",
+      "showSubtechniques": false,
+      "tactic": "initial-access",
+      "color": "#C8E6C9"
+    },
+    {
+      "techniqueID": "AML.T0015",
+      "showSubtechniques": false,
+      "tactic": "initial-access",
+      "color": "#C8E6C9"
+    },
+    {
+      "techniqueID": "AML.T0048.000",
+      "color": "#C8E6C9"
+    },
+    {
+      "techniqueID": "AML.T0048",
+      "showSubtechniques": true,
+      "tactic": "impact"
+    }
+  ],
+  "legendItems": [
+    {
+      "label": "Used in scenario",
+      "color": "#C8E6C9"
+    }
+  ]
+}

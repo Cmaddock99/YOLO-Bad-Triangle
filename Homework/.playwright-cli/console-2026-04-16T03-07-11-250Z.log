@@ -1,0 +1,17 @@
+[     587ms] [LOG] initializing data service @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:4819
+[     588ms] [LOG] initializing config service @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:12418
+[     590ms] [LOG] tabs component initializing @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:8106
+[     598ms] [LOG] Angular is running in development mode. Call enableProdMode() to enable production mode. @ https://mitre-atlas.github.io/atlas-navigator/vendor-es2018.js:192514
+[     603ms] [LOG] loading https://raw.githubusercontent.com/mitre-atlas/atlas-navigator-data/main/dist/default-navigator-layers/atlas_case_study_frequency.json true @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:8161
+[     812ms] [LOG] initializing ViewModel 'loading layer...' @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:10449
+[     812ms] [LOG] retrieving data [https://raw.githubusercontent.com/mitre-atlas/atla…-data/main/dist/stix-atlas-attack-enterprise.json] @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:5051
+[    1072ms] [LOG] updating gradient @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:11476
+[    1073ms] [LOG] ATLAS Case Study Frequency initializing technique VMs @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:10481
+[    1339ms] [LOG] loaded layer from https://raw.githubusercontent.com/mitre-atlas/atlas-navigator-data/main/dist/default-navigator-layers/atlas_case_study_frequency.json @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:8687
+[    1339ms] [LOG] done @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:8164
+[    1339ms] [LOG] loading https://raw.githubusercontent.com/mitre-atlas/atlas-navigator-data/main/dist/default-navigator-layers/atlas_layer_matrix.json false @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:8161
+[    1477ms] [LOG] initializing ViewModel 'loading layer...' @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:10449
+[    1482ms] [LOG] updating gradient @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:11476
+[    1483ms] [LOG] ATLAS Matrix initializing technique VMs @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:10481
+[    1484ms] [LOG] loaded layer from https://raw.githubusercontent.com/mitre-atlas/atlas-navigator-data/main/dist/default-navigator-layers/atlas_layer_matrix.json @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:8687
+[    1484ms] [LOG] done @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:8164

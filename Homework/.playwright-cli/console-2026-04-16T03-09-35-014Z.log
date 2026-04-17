@@ -1,0 +1,6 @@
+[     645ms] [LOG] initializing data service @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:4819
+[     647ms] [LOG] initializing config service @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:12418
+[     651ms] [LOG] tabs component initializing @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:8106
+[     660ms] [LOG] Angular is running in development mode. Call enableProdMode() to enable production mode. @ https://mitre-atlas.github.io/atlas-navigator/vendor-es2018.js:192514
+[     813ms] [ERROR] Access to XMLHttpRequest at 'http://127.0.0.1:8765/layers/audio_adversarial_perturbation_layer.json' from origin 'https://mitre-atlas.github.io' has been blocked by CORS policy: Permission was denied for this request to access the `loopback` address space. @ https://mitre-atlas.github.io/atlas-navigator/#layerURL=http://127.0.0.1:8765/layers/audio_adversarial_perturbation_layer.json:0
+[     814ms] [ERROR] HttpErrorResponse @ https://mitre-atlas.github.io/atlas-navigator/main-es2018.js:8698
