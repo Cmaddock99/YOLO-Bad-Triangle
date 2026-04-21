@@ -132,7 +132,10 @@ class of checks.
   - targeted `pytest`
   - relevant smoke or dry-run path
   - `ruff`
-  - `mypy` when the change touches typed orchestration or contracts
+  - `mypy` when the change touches typed orchestration or contracts.
+    Scope is currently limited to `src/lab/eval/`, `src/lab/reporting/`, and
+    `src/lab/runners/` (see `[tool.mypy].files` in `pyproject.toml`); changes
+    outside these paths are not type-checked by the gate.
 - CI/tooling changes:
   - exact contract tests for command shape
   - one real smoke invocation when possible
