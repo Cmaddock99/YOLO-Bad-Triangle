@@ -19,7 +19,13 @@ def _load_module():
     return import_module("scripts.automation.cleanup_stale_runs")
 
 
+def _run_main() -> None:
+    result = _load_module().main()
+    if isinstance(result, int):
+        raise SystemExit(result)
+
+
 if __name__ == "__main__":
-    raise SystemExit(_load_module().main())
+    _run_main()
 else:
     sys.modules[__name__] = _load_module()

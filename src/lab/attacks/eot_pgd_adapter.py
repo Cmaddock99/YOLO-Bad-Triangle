@@ -1,3 +1,8 @@
+"""Compatibility shim for ``lab.plugins.core.attacks.eot_pgd_adapter``.
+
+New code should prefer the moved plugin path. The public flat module path
+remains supported.
+"""
 from importlib import import_module
 import sys
 
