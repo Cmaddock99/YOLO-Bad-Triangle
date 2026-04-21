@@ -5,6 +5,7 @@ or ``lab.reporting.aggregate``. The public ``lab.reporting`` umbrella remains
 supported for existing imports.
 """
 
+from . import framework_comparison
 from .framework import (
     FrameworkRunRecord,
     build_comparison_rows,
@@ -38,4 +39,5 @@ __all__ = [
     "render_auto_summary_markdown",
     "write_auto_summary",
     "evaluate_warnings",
+    "framework_comparison",
 ]
