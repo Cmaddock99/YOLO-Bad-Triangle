@@ -228,6 +228,8 @@ def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
         except (ValueError, TypeError):
             continue
         drop = (baseline_det - det) / baseline_det if baseline_det else 0
+        source_phase = _normalize_text(row.get("source_phase"))
+        map50_authoritative = source_phase == "phase4"
         runs.append({
             "run_name": row["run_name"],
             "attack": row["attack"],
@@ -235,7 +237,8 @@ def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
             "total_detections": det,
             "avg_confidence": float(row["avg_confidence"]) if row.get("avg_confidence") else None,
             "detection_drop": round(drop * 100, 1),
-            "mAP50": float(row["mAP50"]) if row.get("mAP50") else None,
+            "mAP50": float(row["mAP50"]) if row.get("mAP50") and map50_authoritative else None,
+            "source_phase": source_phase or "unknown",
         })
 
     return {
@@ -250,6 +253,7 @@ def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
         "model": _shared_row_value(rows, "model"),
         "baseline_detections": baseline_det,
         "runs": runs,
+        "generated_at": _parse_generated_at(manifest.get("generated_at")),
     }
 
 
@@ -429,7 +433,13 @@ def generate_dashboard(
     attacks, defense_labels, z, text = _build_heatmap_data(latest)
     trend_traces = _build_trend_data(sweeps)
     attack_bars = _build_attack_bar_data(latest)
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    latest_generated_at = latest.get("generated_at")
+    if isinstance(latest_generated_at, datetime):
+        if latest_generated_at.tzinfo is None:
+            latest_generated_at = latest_generated_at.replace(tzinfo=timezone.utc)
+        generated_at = latest_generated_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    else:
+        generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     pipeline_profile = _shared_value([sweep.get("pipeline_profile") for sweep in sweeps])
     model_name = _shared_value([sweep.get("model") for sweep in sweeps])
 
