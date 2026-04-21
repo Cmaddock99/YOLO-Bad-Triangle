@@ -1365,8 +1365,8 @@ def phase3(state: dict) -> bool:
     if WARM_START_FILE.exists():
         try:
             warm = json.loads(WARM_START_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError) as exc:
+            log(f"  WARN: warm-start file unreadable ({WARM_START_FILE}): {exc}; ignoring")
 
     # ── Step 1: Tune each top attack (no defense) ─────────────────────────────
     for attack in state["top_attacks"]:
