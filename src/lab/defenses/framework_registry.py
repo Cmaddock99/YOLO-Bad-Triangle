@@ -13,6 +13,12 @@ get_defense_plugin = _registry.get
 list_defense_plugins = _registry.list
 
 # Runner uses these (triggers lazy adapter discovery on first call)
-_loader: AdapterLoader[BaseDefense] = AdapterLoader("lab.defenses", "defense", _registry)
+_loader: AdapterLoader[BaseDefense] = AdapterLoader(
+    ("lab.plugins.core.defenses", "lab.plugins.extra.defenses"),
+    "defense",
+    _registry,
+    core_package_names=("lab.plugins.core.defenses",),
+    extra_package_names=("lab.plugins.extra.defenses",),
+)
 build_defense_plugin = _loader.build
 list_available_defense_plugins = _loader.list_available

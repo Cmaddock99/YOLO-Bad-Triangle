@@ -18,6 +18,15 @@ class TorchvisionAdapterTest(unittest.TestCase):
         from lab.models.torchvision_adapter import FasterRCNNAdapter
         return FasterRCNNAdapter(**kwargs)
 
+    def test_core_only_model_list_excludes_torchvision_aliases(self) -> None:
+        from lab.models.framework_registry import list_available_models
+
+        available = set(list_available_models(include_extra=False))
+        self.assertIn("yolo", available)
+        self.assertIn("ultralytics_yolo", available)
+        self.assertNotIn("faster_rcnn", available)
+        self.assertNotIn("torchvision_frcnn", available)
+
     def test_adapter_registered_in_model_registry(self) -> None:
         from lab.models.framework_registry import list_available_models
         available = list_available_models()

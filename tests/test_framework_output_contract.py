@@ -3,10 +3,13 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 import hashlib
+import io
 import json
 import math
+import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -16,6 +19,7 @@ import numpy as np
 from PIL import Image
 import yaml
 
+from lab.runners import run_experiment
 from lab.runners.run_experiment import UnifiedExperimentRunner, _assert_metrics_payload_contract
 
 
@@ -205,6 +209,21 @@ class FrameworkOutputContractTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+
+    def test_list_plugins_json_adds_plugin_inventory_without_removing_raw_fields(self) -> None:
+        buffer = io.StringIO()
+        argv = ["run_experiment.py", "--list-plugins"]
+
+        with patch.object(sys, "argv", argv):
+            with redirect_stdout(buffer):
+                run_experiment.main()
+
+        payload = json.loads(buffer.getvalue())
+        self.assertIn("models", payload)
+        self.assertIn("attacks", payload)
+        self.assertIn("defenses", payload)
+        self.assertIn("plugin_inventory", payload)
+        self.assertEqual(payload["plugin_inventory"]["profile"], "yolo11n_lab_v1")
 
     def test_framework_run_writes_required_artifacts_and_schema_keys(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -561,6 +580,7 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 self.assertEqual(name, "pgd")
                 attack_build_kwargs.update(kwargs)
                 self.assertNotIn("epsilon", kwargs)
+                self.assertTrue(kwargs.get("include_extra"))
                 return _ResolvedAttackWithOptionalParam(
                     epsilon=0.016,
                     steps=int(kwargs.get("steps", 20)),
@@ -570,7 +590,7 @@ class FrameworkOutputContractTests(unittest.TestCase):
             def _build_defense(name: str, **kwargs: Any) -> _PassthroughDefense:
                 self.assertEqual(name, "median_preprocess")
                 defense_build_kwargs.update(kwargs)
-                self.assertEqual(kwargs, {})
+                self.assertEqual(kwargs, {"include_extra": True})
                 return _PassthroughDefense()
 
             config = {
@@ -590,8 +610,8 @@ class FrameworkOutputContractTests(unittest.TestCase):
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
-            self.assertEqual(attack_build_kwargs, {"steps": 4})
-            self.assertEqual(defense_build_kwargs, {})
+            self.assertEqual(attack_build_kwargs, {"include_extra": True, "steps": 4})
+            self.assertEqual(defense_build_kwargs, {"include_extra": True})
 
             run_summary = json.loads(
                 Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8")

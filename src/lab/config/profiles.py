@@ -230,6 +230,15 @@ def resolve_profile_compatibility(config: dict[str, Any]) -> dict[str, Any] | No
     }
 
 
+def should_include_extra_plugins(config: dict[str, Any]) -> bool:
+    if pipeline_profile_name(config) is None:
+        return True
+    compatibility = resolve_profile_compatibility(config)
+    if compatibility is None:
+        return True
+    return str(compatibility.get("status") or "").strip().lower() != "canonical"
+
+
 def learned_defense_compatibility(profile_name: str, *, profiles_path: Path | None = None) -> dict[str, Any]:
     profile = load_pipeline_profile(profile_name, profiles_path=profiles_path)
     learned_defense = _as_mapping(profile.get("learned_defense"), label=f"{profile_name}.learned_defense")
@@ -257,3 +266,18 @@ def profile_canonical_attacks(profile_name: str, *, profiles_path: Path | None =
 def profile_canonical_defenses(profile_name: str, *, profiles_path: Path | None = None) -> list[str]:
     profile = load_pipeline_profile(profile_name, profiles_path=profiles_path)
     return list(_as_mapping(profile.get("defenses"), label=f"{profile_name}.defenses").get("canonical") or [])
+
+
+def profile_manual_only_attacks(profile_name: str, *, profiles_path: Path | None = None) -> list[str]:
+    profile = load_pipeline_profile(profile_name, profiles_path=profiles_path)
+    return list(_as_mapping(profile.get("attacks"), label=f"{profile_name}.attacks").get("manual_only") or [])
+
+
+def profile_manual_only_defenses(profile_name: str, *, profiles_path: Path | None = None) -> list[str]:
+    profile = load_pipeline_profile(profile_name, profiles_path=profiles_path)
+    return list(_as_mapping(profile.get("defenses"), label=f"{profile_name}.defenses").get("manual_only") or [])
+
+
+def profile_model_name(profile_name: str, *, profiles_path: Path | None = None) -> str:
+    profile = load_pipeline_profile(profile_name, profiles_path=profiles_path)
+    return str(_as_mapping(profile.get("model"), label=f"{profile_name}.model").get("name") or "").strip()

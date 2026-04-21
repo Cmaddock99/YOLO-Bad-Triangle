@@ -6,6 +6,7 @@ pipeline and require the full environment including dataset + model weights.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import tempfile
@@ -195,7 +196,7 @@ class TestStageCheckReports(unittest.TestCase):
     def test_all_present_returns_0(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reports = Path(tmp)
-            for fname in ("framework_run_summary.csv", "framework_run_report.md", "team_summary.json"):
+            for fname in ("framework_run_summary.csv", "framework_run_report.md", "dashboard.html"):
                 (reports / fname).write_text("data", encoding="utf-8")
             code = run_demo.stage_check_reports(reports)
             self.assertEqual(code, run_demo.EXIT_SUCCESS)
@@ -204,17 +205,73 @@ class TestStageCheckReports(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             reports = Path(tmp)
             (reports / "framework_run_summary.csv").write_text("data", encoding="utf-8")
-            # framework_run_report.md and team_summary.json missing
+            # framework_run_report.md and dashboard.html missing
             code = run_demo.stage_check_reports(reports)
             self.assertEqual(code, run_demo.EXIT_ARTIFACT)
 
     def test_empty_report_exits_3(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             reports = Path(tmp)
-            for fname in ("framework_run_summary.csv", "framework_run_report.md", "team_summary.json"):
+            for fname in ("framework_run_summary.csv", "framework_run_report.md", "dashboard.html"):
                 (reports / fname).write_text("", encoding="utf-8")
             code = run_demo.stage_check_reports(reports)
             self.assertEqual(code, run_demo.EXIT_ARTIFACT)
+
+    def test_missing_dashboard_exits_3(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            reports = Path(tmp)
+            (reports / "framework_run_summary.csv").write_text("data", encoding="utf-8")
+            (reports / "framework_run_report.md").write_text("data", encoding="utf-8")
+            code = run_demo.stage_check_reports(reports)
+            self.assertEqual(code, run_demo.EXIT_ARTIFACT)
+
+
+class TestDemoCommandBuilders(unittest.TestCase):
+    def _args(self, *, max_images: int | None = None) -> argparse.Namespace:
+        return argparse.Namespace(
+            python_bin="./.venv/bin/python",
+            config="configs/demo.yaml",
+            attacks="fgsm,pgd",
+            defenses="median_preprocess",
+            seed=42,
+            max_images=max_images,
+        )
+
+    def test_stage3_command_uses_run_unified_sweep(self) -> None:
+        args = self._args(max_images=8)
+        command = run_demo._build_stage3_sweep_command(
+            args=args,
+            config_path=Path("/repo/configs/demo.yaml"),
+            runs_root=Path("/tmp/demo/runs"),
+            reports_root=Path("/tmp/demo/reports"),
+        )
+
+        self.assertEqual(command[:3], ["./.venv/bin/python", str(run_demo.REPO_ROOT / "scripts" / "run_unified.py"), "sweep"])
+        self.assertIn("--phases", command)
+        self.assertIn("1,2,3", command)
+        self.assertIn("--validation-enabled", command)
+        self.assertIn("--max-images", command)
+        self.assertNotIn("--no-team-summary", command)
+        self.assertNotIn("--no-failure-gallery", command)
+        self.assertNotIn("--no-compat-dashboard", command)
+
+    def test_stage3b_command_uses_run_unified_phase4_with_core_report_flags(self) -> None:
+        args = self._args(max_images=8)
+        command = run_demo._build_stage3b_report_regen_command(
+            args=args,
+            config_path=Path("/repo/configs/demo.yaml"),
+            runs_root=Path("/tmp/demo/runs"),
+            reports_root=Path("/tmp/demo/reports"),
+        )
+
+        self.assertEqual(command[:3], ["./.venv/bin/python", str(run_demo.REPO_ROOT / "scripts" / "run_unified.py"), "sweep"])
+        self.assertIn("--phases", command)
+        self.assertIn("4", command)
+        self.assertIn("--validation-enabled", command)
+        self.assertIn("--no-team-summary", command)
+        self.assertIn("--no-failure-gallery", command)
+        self.assertIn("--no-compat-dashboard", command)
+        self.assertNotIn("--max-images", command)
 
 
 class TestStageNoopCheck(unittest.TestCase):
@@ -414,6 +471,9 @@ class TestManifestWritten(unittest.TestCase):
             report_file = demo_root / "reports" / "framework_run_summary.csv"
             report_file.write_bytes(b"schema_version,run_name\n")
             expected_sha = run_demo._sha256_file(report_file)
+            dashboard_file = demo_root / "reports" / "dashboard.html"
+            dashboard_file.write_text("<html></html>", encoding="utf-8")
+            dashboard_sha = run_demo._sha256_file(dashboard_file)
             import time as _time
             run_demo.write_manifest(
                 demo_root=demo_root,
@@ -442,6 +502,45 @@ class TestManifestWritten(unittest.TestCase):
             checksums = data["artifacts"]["checksums"]
             self.assertIn("reports/framework_run_summary.csv", checksums)
             self.assertEqual(checksums["reports/framework_run_summary.csv"], expected_sha)
+            self.assertIn("reports/dashboard.html", checksums)
+            self.assertEqual(checksums["reports/dashboard.html"], dashboard_sha)
+
+    def test_manifest_source_files_track_canonical_sweep_surface(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            demo_root = Path(tmp) / "demo"
+            (demo_root / "runs").mkdir(parents=True)
+            (demo_root / "reports").mkdir()
+            (demo_root / "summary").mkdir()
+            import time as _time
+            run_demo.write_manifest(
+                demo_root=demo_root,
+                git_commit="abc123",
+                git_dirty=False,
+                args=MagicMock(seed=42),
+                config_path=Path("configs/demo.yaml"),
+                fingerprint="deadbeef",
+                model_name="yolo26n",
+                dataset_name="val2017_subset500",
+                dataset_path="/data/val",
+                images_count=4,
+                conf=0.25,
+                iou=0.45,
+                imgsz=640,
+                expected_runs=[],
+                validation_errors={},
+                noop_warnings=[],
+                failed_runs=[],
+                start_time_str="2026-03-29T14:00:00Z",
+                t0_wall=_time.monotonic() - 1.0,
+                exit_code=0,
+                exit_reason="success",
+            )
+            data = json.loads((demo_root / "demo_manifest.json").read_text())
+            source_files = data["source_files"]
+            self.assertIn("scripts/run_unified.py", source_files)
+            self.assertIn("scripts/sweep_and_report.py", source_files)
+            self.assertNotIn("scripts/generate_team_summary.py", source_files)
+            self.assertNotIn("scripts/generate_framework_report.py", source_files)
 
 
 class TestExitPriority(unittest.TestCase):

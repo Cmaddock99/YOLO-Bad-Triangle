@@ -1,22 +1,16 @@
 from __future__ import annotations
 
+import csv
 import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
 
-from lab.reporting import (
-    build_auto_summary_payload,
-    build_comparison_rows,
-    build_team_summary_payload,
-    discover_framework_runs,
-    generate_summary,
-    render_markdown_report,
-    write_team_summary,
-)
-from lab.reporting.framework_comparison import discover_framework_runs as _discover, write_summary_csv
-from lab.reporting.warnings import (
+from lab.reporting import aggregate as reporting_aggregate
+from lab.reporting import framework as reporting_framework
+from lab.reporting import local as reporting_local
+from lab.reporting.aggregate import (
     WARN_ATTACK_BELOW_NOISE,
     WARN_DEFENSE_DEGRADES_PERFORMANCE,
     WARN_DEFENSE_RECOVERY_UNDEFINED,
@@ -25,11 +19,32 @@ from lab.reporting.warnings import (
     WARN_MISSING_PER_CLASS,
     WARN_MULTIPLE_BASELINES,
     WARN_NO_VALIDATION,
+    build_auto_summary_payload,
     evaluate_warnings,
+    generate_dashboard as generate_dashboard_namespace,
 )
+from lab.reporting.framework import (
+    build_comparison_rows,
+    build_defense_recovery_rows,
+    discover_framework_runs,
+    discover_framework_runs as _discover,
+    generate_framework_report as generate_framework_report_namespace,
+    render_markdown_report,
+    write_summary_csv,
+)
+from lab.reporting.framework import report_bundle as generate_framework_report
+from lab.reporting.local import (
+    build_team_summary_payload,
+    generate_failure_gallery as generate_failure_gallery_namespace,
+    generate_summary,
+    write_team_summary,
+)
+from lab.reporting.local import failure_gallery as generate_failure_gallery
 from scripts import (
-    generate_failure_gallery,
-    generate_framework_report,
+    generate_dashboard as generate_dashboard_cli,
+    generate_failure_gallery as generate_failure_gallery_cli,
+    generate_framework_report as generate_framework_report_cli,
+    generate_team_summary as generate_team_summary_cli,
     print_summary as print_summary_cli,
 )
 
@@ -414,8 +429,6 @@ class FrameworkReportingTest(unittest.TestCase):
             self.assertIn(WARN_DEFENSE_DEGRADES_PERFORMANCE, codes)
 
     def test_defense_recovery_pairs_by_attack_signature_not_name_only(self) -> None:
-        from lab.reporting.framework_comparison import build_defense_recovery_rows
-
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_run(root, "baseline_run", attack="none", map50=0.7)
@@ -470,10 +483,48 @@ class FrameworkReportingTest(unittest.TestCase):
             self.assertIn("Pipeline profile: `yolo11n_lab_v1`", report)
             self.assertIn("Authoritative metric: `mAP50`", report)
 
+    def test_reporting_compatibility_facade_still_exports_render_markdown_report(self) -> None:
+        from lab.reporting import render_markdown_report as compat_render_markdown_report
+
+        self.assertIs(compat_render_markdown_report, render_markdown_report)
+
+    def test_framework_namespace_exports_stable_surface(self) -> None:
+        from lab.reporting import framework_comparison
+
+        self.assertIs(reporting_framework.render_markdown_report, render_markdown_report)
+        self.assertIs(reporting_framework.discover_framework_runs, discover_framework_runs)
+        self.assertIs(reporting_framework.build_defense_recovery_rows, build_defense_recovery_rows)
+        self.assertIs(reporting_framework.render_markdown_report, framework_comparison.render_markdown_report)
+        self.assertIs(reporting_framework.generate_framework_report, generate_framework_report_namespace)
+
+    def test_local_namespace_exports_stable_surface(self) -> None:
+        self.assertIs(reporting_local.generate_summary, generate_summary)
+        self.assertIs(reporting_local.write_team_summary, write_team_summary)
+        self.assertIs(reporting_local.generate_failure_gallery, generate_failure_gallery_namespace)
+
+    def test_aggregate_namespace_exports_stable_surface(self) -> None:
+        self.assertIs(reporting_aggregate.build_auto_summary_payload, build_auto_summary_payload)
+        self.assertIs(reporting_aggregate.evaluate_warnings, evaluate_warnings)
+        self.assertEqual(reporting_aggregate.WARN_LOW_CONFIDENCE_FLOOR, WARN_LOW_CONFIDENCE_FLOOR)
+        self.assertIs(reporting_aggregate.generate_dashboard, generate_dashboard_namespace)
+
+    def test_script_wrapper_compatibility_aliases_still_point_at_reporting_namespaces(self) -> None:
+        self.assertIs(
+            generate_framework_report_cli.generate_framework_report,
+            reporting_framework.generate_framework_report,
+        )
+        self.assertIs(
+            generate_failure_gallery_cli.generate_gallery,
+            reporting_local.generate_failure_gallery,
+        )
+        self.assertIs(
+            generate_dashboard_cli.generate,
+            reporting_aggregate.generate_dashboard,
+        )
+
     def test_generate_framework_report_rejects_mixed_profiles(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "runs"
-            output = Path(tmp) / "report"
             self._write_run(
                 root,
                 "baseline_a",
@@ -497,7 +548,6 @@ class FrameworkReportingTest(unittest.TestCase):
     def test_generate_framework_report_rejects_profiled_plus_legacy_runs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "runs"
-            output = Path(tmp) / "report"
             self._write_run(
                 root,
                 "legacy_run",
@@ -515,6 +565,41 @@ class FrameworkReportingTest(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 generate_framework_report._assert_consistent_profile(discover_framework_runs(root))
+
+    def test_generate_framework_report_helper_returns_paths_and_record_count(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runs_root = root / "runs"
+            report_root = root / "report"
+            self._write_run(
+                runs_root,
+                "baseline_none",
+                attack="none",
+                defense="none",
+                map50=0.6,
+                pipeline_profile="yolo11n_lab_v1",
+                authoritative_metric="mAP50",
+            )
+            self._write_run(
+                runs_root,
+                "validate_atk_fgsm",
+                attack="fgsm",
+                defense="none",
+                map50=0.2,
+                pipeline_profile="yolo11n_lab_v1",
+                authoritative_metric="mAP50",
+            )
+
+            csv_path, md_path, record_count = generate_framework_report.generate_framework_report(
+                runs_root=runs_root,
+                output_dir=report_root,
+            )
+
+            self.assertEqual(csv_path, report_root.resolve() / "framework_run_summary.csv")
+            self.assertEqual(md_path, report_root.resolve() / "framework_run_report.md")
+            self.assertEqual(record_count, 2)
+            self.assertTrue(csv_path.exists())
+            self.assertTrue(md_path.exists())
 
     def test_markdown_render_omits_profile_banner_for_mixed_profile_states(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -540,8 +625,6 @@ class FrameworkReportingTest(unittest.TestCase):
             self.assertNotIn("Authoritative metric:", report)
 
     def test_legacy_defended_runs_are_marked_incomparable(self) -> None:
-        from lab.reporting.framework_comparison import build_defense_recovery_rows
-
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._write_run(root, "baseline_run", attack="none", map50=0.7)
@@ -866,7 +949,7 @@ class FrameworkReportingTest(unittest.TestCase):
             self.assertIsNotNone(strongest)
             self.assertEqual(strongest["attack"], "blur")
 
-    def test_team_summary_markdown_includes_provenance_block(self) -> None:
+    def test_team_summary_markdown_includes_local_and_explicit_external_provenance_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             runs_root = root / "outputs" / "framework_runs" / "sweep_test"
@@ -924,15 +1007,47 @@ class FrameworkReportingTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            json_path, md_path = write_team_summary(report_root)
+            json_path, md_path = write_team_summary(
+                report_root,
+                external_clean_gate_path=clean_gate_path,
+            )
             md_text = md_path.read_text(encoding="utf-8")
             json_payload = json.loads(json_path.read_text(encoding="utf-8"))
 
-            self.assertIn("## Provenance", md_text)
+            self.assertIn("- Summary scope: local report root only", md_text)
+            self.assertIn("- Semantic status: `ranked_result`", md_text)
+            self.assertIn("## Local Provenance", md_text)
+            self.assertIn("## External Provenance", md_text)
             self.assertIn("`abc123def456`", md_text)
             self.assertIn("`fedcba987654`", md_text)
             self.assertIn("B is better — deploy", md_text)
             self.assertNotIn("provenance", json_payload)
+
+    def test_generate_team_summary_helper_returns_written_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_root = Path(tmp)
+            csv_path = report_root / "framework_run_summary.csv"
+            with csv_path.open("w", newline="", encoding="utf-8") as fh:
+                writer = csv.writer(fh)
+                writer.writerow([
+                    "run_name", "run_dir", "model", "attack", "defense", "seed",
+                    "prediction_count", "images_with_detections", "total_detections",
+                    "avg_confidence", "validation_status", "precision", "recall",
+                    "mAP50", "mAP50-95",
+                ])
+                writer.writerow([
+                    "baseline_none", str(report_root), "yolo", "none", "none", "42",
+                    "8", "8", "20", "0.8", "missing", "", "", "", "",
+                ])
+
+            json_path, md_path = generate_team_summary_cli.generate_team_summary(
+                report_root=report_root,
+            )
+
+            self.assertEqual(json_path, report_root.resolve() / "team_summary.json")
+            self.assertEqual(md_path, report_root.resolve() / "team_summary.md")
+            self.assertTrue(json_path.exists())
+            self.assertTrue(md_path.exists())
 
     def test_failure_gallery_handles_missing_image_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1037,6 +1152,202 @@ class FrameworkReportingTest(unittest.TestCase):
             self.assertIn("Prepared images were not available", html_text)
             self.assertNotIn("<img src=", html_text)
             self.assertLess(html_text.index("drop_big.jpg"), html_text.index("drop_small.jpg"))
+
+    def test_failure_gallery_excludes_legacy_defended_runs_and_warns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runs_root = root / "runs"
+
+            def _pred(image_id: str, count: int) -> dict[str, object]:
+                return {
+                    "image_id": image_id,
+                    "boxes": [[0, 0, 1, 1] for _ in range(count)],
+                    "scores": [0.9 for _ in range(count)],
+                    "class_ids": [0 for _ in range(count)],
+                    "metadata": {},
+                }
+
+            self._write_run(
+                runs_root,
+                "baseline_none",
+                attack="none",
+                defense="none",
+                map50=0.60,
+                total_detections=10,
+                prediction_rows=[_pred("a.jpg", 6), _pred("b.jpg", 4)],
+            )
+            self._write_run(
+                runs_root,
+                "attack_fgsm",
+                attack="fgsm",
+                defense="none",
+                map50=0.20,
+                total_detections=4,
+                prediction_rows=[_pred("a.jpg", 0), _pred("b.jpg", 4)],
+            )
+            self._write_run(
+                runs_root,
+                "defended_current",
+                attack="fgsm",
+                defense="bit_depth",
+                map50=0.35,
+                total_detections=7,
+                prediction_rows=[_pred("a.jpg", 3), _pred("b.jpg", 4)],
+            )
+            self._write_run(
+                runs_root,
+                "defended_legacy",
+                attack="fgsm",
+                defense="jpeg_preprocess",
+                map50=0.30,
+                total_detections=6,
+                semantic_order="defense_then_attack",
+                prediction_rows=[_pred("a.jpg", 2), _pred("b.jpg", 4)],
+            )
+
+            output_path = root / "report" / "failure_gallery.html"
+            generate_failure_gallery.generate_gallery(
+                runs_root=runs_root,
+                output_path=output_path,
+                max_images=5,
+            )
+
+            html_text = output_path.read_text(encoding="utf-8")
+            self.assertIn("Defended comparisons exclude legacy or unknown semantics", html_text)
+            self.assertIn("defense_then_attack=1", html_text)
+            self.assertIn("Defended: fgsm + bit_depth (defended_current)", html_text)
+            self.assertNotIn("Defended: fgsm + jpeg_preprocess (defended_legacy)", html_text)
+
+    def test_failure_gallery_matches_defended_runs_by_attack_signature_first(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runs_root = root / "runs"
+
+            def _pred(image_id: str, count: int) -> dict[str, object]:
+                return {
+                    "image_id": image_id,
+                    "boxes": [[0, 0, 1, 1] for _ in range(count)],
+                    "scores": [0.9 for _ in range(count)],
+                    "class_ids": [0 for _ in range(count)],
+                    "metadata": {},
+                }
+
+            self._write_run(
+                runs_root,
+                "baseline_none",
+                attack="none",
+                defense="none",
+                map50=0.60,
+                total_detections=20,
+                prediction_rows=[_pred("first.jpg", 10), _pred("second.jpg", 10)],
+            )
+            self._write_run(
+                runs_root,
+                "attack_fgsm_default",
+                attack="fgsm",
+                defense="none",
+                map50=0.30,
+                attack_params={"epsilon": 0.1},
+                prediction_rows=[_pred("first.jpg", 1), _pred("second.jpg", 10)],
+            )
+            self._write_run(
+                runs_root,
+                "attack_fgsm_alt",
+                attack="fgsm",
+                defense="none",
+                map50=0.25,
+                attack_params={"epsilon": 0.2},
+                prediction_rows=[_pred("first.jpg", 10), _pred("second.jpg", 1)],
+            )
+            self._write_run(
+                runs_root,
+                "defended_fgsm_alt_bit_depth",
+                attack="fgsm",
+                defense="bit_depth",
+                map50=0.40,
+                attack_params={"epsilon": 0.2},
+                prediction_rows=[_pred("first.jpg", 10), _pred("second.jpg", 5)],
+            )
+
+            output_path = root / "report" / "failure_gallery.html"
+            generate_failure_gallery.generate_gallery(
+                runs_root=runs_root,
+                output_path=output_path,
+                max_images=5,
+            )
+
+            html_text = output_path.read_text(encoding="utf-8")
+            section_start = html_text.index("Defended: fgsm + bit_depth (defended_fgsm_alt_bit_depth)")
+            second_index = html_text.index("second.jpg", section_start)
+            first_index = html_text.index("first.jpg", section_start)
+            self.assertLess(second_index, first_index)
+
+    def test_failure_gallery_falls_back_to_attack_name_when_signature_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            runs_root = root / "runs"
+
+            def _pred(image_id: str, count: int) -> dict[str, object]:
+                return {
+                    "image_id": image_id,
+                    "boxes": [[0, 0, 1, 1] for _ in range(count)],
+                    "scores": [0.9 for _ in range(count)],
+                    "class_ids": [0 for _ in range(count)],
+                    "metadata": {},
+                }
+
+            self._write_run(
+                runs_root,
+                "baseline_none",
+                attack="none",
+                defense="none",
+                map50=0.60,
+                total_detections=20,
+                prediction_rows=[_pred("first.jpg", 10), _pred("second.jpg", 10)],
+            )
+            self._write_run(
+                runs_root,
+                "attack_blur",
+                attack="blur",
+                defense="none",
+                map50=0.30,
+                prediction_rows=[_pred("first.jpg", 1), _pred("second.jpg", 10)],
+            )
+            self._write_run(
+                runs_root,
+                "defended_blur_bit_depth",
+                attack="blur",
+                defense="bit_depth",
+                map50=0.40,
+                prediction_rows=[_pred("first.jpg", 5), _pred("second.jpg", 10)],
+            )
+
+            real_discover = generate_failure_gallery.discover_framework_runs
+
+            def _discover_without_signatures(path: Path) -> list[object]:
+                records = real_discover(path)
+                for record in records:
+                    if record.run_name in {"attack_blur", "defended_blur_bit_depth"}:
+                        record.attack_signature = ""
+                return records
+
+            output_path = root / "report" / "failure_gallery.html"
+            with unittest.mock.patch.object(
+                generate_failure_gallery,
+                "discover_framework_runs",
+                side_effect=_discover_without_signatures,
+            ):
+                generate_failure_gallery.generate_gallery(
+                    runs_root=runs_root,
+                    output_path=output_path,
+                    max_images=5,
+                )
+
+            html_text = output_path.read_text(encoding="utf-8")
+            section_start = html_text.index("Defended: blur + bit_depth (defended_blur_bit_depth)")
+            first_index = html_text.index("first.jpg", section_start)
+            second_index = html_text.index("second.jpg", section_start)
+            self.assertLess(first_index, second_index)
 
     def test_build_comparison_rows_treats_identity_as_none_like(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

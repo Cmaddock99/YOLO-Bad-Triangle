@@ -1,38 +1,31 @@
 #!/usr/bin/env python3
-"""Generate team-facing summary JSON and markdown from framework report artifacts.
+"""Compatibility wrapper for ``scripts.reporting.generate_team_summary``.
 
-Reads the output of generate_framework_report.py and produces a condensed
-team_summary.json and team_summary.md showing run names, mAP50, and source
-provenance (direct measurement vs proxy).
-
-Usage:
-    PYTHONPATH=src ./.venv/bin/python scripts/generate_team_summary.py \\
-        --report-root outputs/framework_reports/sweep_20260320T220057Z
+New code should prefer ``scripts.reporting.generate_team_summary``. The public
+``scripts/generate_team_summary.py`` entrypoint remains supported.
 """
 from __future__ import annotations
 
-import argparse
+from importlib import import_module
 from pathlib import Path
+import sys
 
-from lab.reporting.team_summary import write_team_summary
+
+def _load_module():
+    repo_root = Path(__file__).resolve().parents[1]
+    repo_root_str = str(repo_root)
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+    return import_module("scripts.reporting.generate_team_summary")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Generate team-facing markdown + JSON summary from framework report artifacts."
-    )
-    parser.add_argument(
-        "--report-root",
-        required=True,
-        help="Directory containing framework_run_summary.csv and per-attack summary_*.txt files.",
-    )
-    args = parser.parse_args()
-
-    report_root = Path(args.report_root).expanduser().resolve()
-    json_path, md_path = write_team_summary(report_root)
-    print(f"Team summary JSON: {json_path}")
-    print(f"Team summary MD:   {md_path}")
+def _run_main() -> None:
+    result = _load_module().main()
+    if isinstance(result, int):
+        raise SystemExit(result)
 
 
 if __name__ == "__main__":
-    main()
+    _run_main()
+else:
+    sys.modules[__name__] = _load_module()
