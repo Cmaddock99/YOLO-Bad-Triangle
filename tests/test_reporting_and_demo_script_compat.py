@@ -32,6 +32,26 @@ class ReportingAndDemoScriptCompatTest(unittest.TestCase):
         new_mod = importlib.import_module("scripts.reporting.generate_framework_report")
         self.assertIs(old_mod, new_mod)
 
+    def test_old_and_new_generate_dashboard_modules_are_identical(self) -> None:
+        old_mod = importlib.import_module("scripts.generate_dashboard")
+        new_mod = importlib.import_module("scripts.reporting.generate_dashboard")
+        self.assertIs(old_mod, new_mod)
+
+    def test_old_and_new_generate_failure_gallery_modules_are_identical(self) -> None:
+        old_mod = importlib.import_module("scripts.generate_failure_gallery")
+        new_mod = importlib.import_module("scripts.reporting.generate_failure_gallery")
+        self.assertIs(old_mod, new_mod)
+
+    def test_old_and_new_generate_team_summary_modules_are_identical(self) -> None:
+        old_mod = importlib.import_module("scripts.generate_team_summary")
+        new_mod = importlib.import_module("scripts.reporting.generate_team_summary")
+        self.assertIs(old_mod, new_mod)
+
+    def test_old_and_new_print_summary_modules_are_identical(self) -> None:
+        old_mod = importlib.import_module("scripts.print_summary")
+        new_mod = importlib.import_module("scripts.reporting.print_summary")
+        self.assertIs(old_mod, new_mod)
+
     def test_old_paths_still_expose_expected_symbols(self) -> None:
         from scripts.generate_auto_summary import _parse_args
         from scripts.generate_cycle_report import generate_reports
@@ -49,6 +69,10 @@ class ReportingAndDemoScriptCompatTest(unittest.TestCase):
             ("scripts/generate_auto_summary.py", "--runs-root"),
             ("scripts/generate_cycle_report.py", "--history-dir"),
             ("scripts/generate_framework_report.py", "--output-dir"),
+            ("scripts/generate_dashboard.py", "--reports-root"),
+            ("scripts/generate_failure_gallery.py", "--runs-root"),
+            ("scripts/generate_team_summary.py", "--report-root"),
+            ("scripts/print_summary.py", "--baseline"),
         )
 
         env = os.environ.copy()

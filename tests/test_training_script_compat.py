@@ -27,6 +27,21 @@ class TrainingScriptCompatTest(unittest.TestCase):
         new_mod = importlib.import_module("scripts.training.export_training_data")
         self.assertIs(old_mod, new_mod)
 
+    def test_old_and_new_evaluate_checkpoint_modules_are_identical(self) -> None:
+        old_mod = importlib.import_module("scripts.evaluate_checkpoint")
+        new_mod = importlib.import_module("scripts.training.evaluate_checkpoint")
+        self.assertIs(old_mod, new_mod)
+
+    def test_old_and_new_train_dpc_unet_local_modules_are_identical(self) -> None:
+        old_mod = importlib.import_module("scripts.train_dpc_unet_local")
+        new_mod = importlib.import_module("scripts.training.train_dpc_unet_local")
+        self.assertIs(old_mod, new_mod)
+
+    def test_old_and_new_train_dpc_unet_feature_loss_modules_are_identical(self) -> None:
+        old_mod = importlib.import_module("scripts.train_dpc_unet_feature_loss")
+        new_mod = importlib.import_module("scripts.training.train_dpc_unet_feature_loss")
+        self.assertIs(old_mod, new_mod)
+
     def test_old_paths_still_expose_expected_symbols(self) -> None:
         from scripts.export_training_data import _resolve_runs_root
         from scripts.run_training_ritual import _check_signal
@@ -42,6 +57,8 @@ class TrainingScriptCompatTest(unittest.TestCase):
             ("scripts/train_from_signal.py", "--checkpoint-a"),
             ("scripts/export_training_data.py", "--from-signal"),
             ("scripts/evaluate_checkpoint.py", "--checkpoint-b"),
+            ("scripts/train_dpc_unet_local.py", "--training-zip"),
+            ("scripts/train_dpc_unet_feature_loss.py", "--feature-weight"),
         )
 
         env = os.environ.copy()
