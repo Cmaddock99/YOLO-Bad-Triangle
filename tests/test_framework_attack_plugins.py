@@ -245,6 +245,14 @@ class PretrainedPatchAttackTest(unittest.TestCase):
         np.testing.assert_array_equal(attacked[0, 0], np.array([255, 0, 0], dtype=np.uint8))
         np.testing.assert_array_equal(attacked[-1, -1], np.array([255, 0, 0], dtype=np.uint8))
 
+    def test_pretrained_patch_surfaces_predict_failures(self) -> None:
+        attack = self._build_attack()
+        model = _StubYOLOAdapter([[100, 50, 200, 300]])
+
+        with mock.patch.object(model._model, "predict", side_effect=RuntimeError("detect failed")):
+            with self.assertRaisesRegex(RuntimeError, "detect failed"):
+                attack.apply(self.image, model=model)
+
 
 class _DummyDetectionModel(torch.nn.Module):
     """Returns a fixed high-confidence detection tensor for any input."""

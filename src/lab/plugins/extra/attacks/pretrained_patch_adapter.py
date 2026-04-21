@@ -97,17 +97,14 @@ class PretrainedPatchAttackAdapter(BaseAttack):
         if yolo is None or not hasattr(yolo, "predict"):
             return []
         clean_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-        try:
-            results = yolo.predict(
-                source=clean_rgb,
-                save=False,
-                verbose=False,
-                conf=self.clean_detect_conf,
-                iou=self.clean_detect_iou,
-                classes=[self.person_class_id],
-            )
-        except Exception:
-            return []
+        results = yolo.predict(
+            source=clean_rgb,
+            save=False,
+            verbose=False,
+            conf=self.clean_detect_conf,
+            iou=self.clean_detect_iou,
+            classes=[self.person_class_id],
+        )
         if not results:
             return []
         boxes = getattr(results[0], "boxes", None)
