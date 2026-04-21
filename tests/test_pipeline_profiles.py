@@ -8,7 +8,11 @@ from lab.config.profiles import (
     load_pipeline_profile,
     profile_canonical_attacks,
     profile_canonical_defenses,
+    profile_manual_only_attacks,
+    profile_manual_only_defenses,
+    profile_model_name,
     resolve_profile_compatibility,
+    should_include_extra_plugins,
 )
 
 
@@ -29,6 +33,37 @@ class PipelineProfilesTest(unittest.TestCase):
             profile_canonical_defenses("yolo11n_lab_v1"),
             ["bit_depth", "jpeg_preprocess", "median_preprocess"],
         )
+
+    def test_profile_manual_only_catalogs_match_v1_contract(self) -> None:
+        self.assertEqual(
+            profile_manual_only_attacks("yolo11n_lab_v1"),
+            ["cw", "fgsm_center_mask", "fgsm_edge_mask", "jpeg_attack", "pretrained_patch"],
+        )
+        self.assertEqual(
+            profile_manual_only_defenses("yolo11n_lab_v1"),
+            ["c_dog", "c_dog_ensemble", "confidence_filter", "random_resize"],
+        )
+
+    def test_profile_model_name_for_v1_is_yolo(self) -> None:
+        self.assertEqual(profile_model_name("yolo11n_lab_v1"), "yolo")
+
+    def test_should_include_extra_plugins_is_false_for_canonical_profile(self) -> None:
+        self.assertFalse(should_include_extra_plugins(build_profile_config("yolo11n_lab_v1")))
+
+    def test_should_include_extra_plugins_is_true_for_manual_only_attack(self) -> None:
+        config = build_profile_config("yolo11n_lab_v1")
+        config["attack"]["name"] = "pretrained_patch"
+        self.assertTrue(should_include_extra_plugins(config))
+
+    def test_should_include_extra_plugins_is_true_for_manual_only_defense(self) -> None:
+        config = build_profile_config("yolo11n_lab_v1")
+        config["defense"]["name"] = "c_dog"
+        self.assertTrue(should_include_extra_plugins(config))
+
+    def test_should_include_extra_plugins_is_true_without_profile_metadata(self) -> None:
+        config = build_profile_config("yolo11n_lab_v1")
+        config.pop("pipeline_profile")
+        self.assertTrue(should_include_extra_plugins(config))
 
     def test_profile_compatibility_marks_manual_only_defense(self) -> None:
         config = build_profile_config("yolo11n_lab_v1")

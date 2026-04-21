@@ -8,9 +8,18 @@ time.
 The repository is framework-first:
 
 - Canonical single-run entrypoint: `scripts/run_unified.py run-one`
-- Canonical sweep entrypoint: `scripts/sweep_and_report.py`
-- Closed-loop automation: `scripts/auto_cycle.py --loop`
+- Canonical sweep entrypoint: `scripts/run_unified.py sweep`
+- Sweep compatibility backend: `scripts/sweep_and_report.py`
+- Optional automation: `scripts/auto_cycle.py --loop`
 - Canonical v1 profile: `yolo11n_lab_v1` in `configs/pipeline_profiles.yaml`
+
+Effective layout:
+
+- Core runtime: `scripts/run_unified.py run-one|sweep` with `scripts/sweep_and_report.py` as the compatibility backend
+- Optional maintained workflow implementations: `scripts/automation/`, `scripts/training/`, `scripts/reporting/`, `scripts/demo/`
+- Root `scripts/*.py` workflow entrypoints remain supported compatibility wrappers
+- Old flat adapter paths under `lab.attacks`, `lab.defenses`, and `lab.models` remain supported compatibility shims
+- `lab.reporting` umbrella imports remain compatibility-only; new code should prefer `lab.reporting.framework`, `lab.reporting.local`, or `lab.reporting.aggregate`
 
 `YOLO-Bad-Triangle` is the only canonical runtime surface for the attack-defend-fortify
 pipeline. The separate `Adversarial_Patch` repository is research/artifact input only;
@@ -88,7 +97,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
 ### 3. Run a sweep
 
 ```bash
-PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py \
+PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py sweep \
   --profile yolo11n_lab_v1 \
   --preset full \
   --workers 1 \
@@ -105,7 +114,7 @@ the safer choice.
 ### 4. List live plugin names
 
 ```bash
-PYTHONPATH=src ./.venv/bin/python scripts/sweep_and_report.py --list-plugins
+PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py sweep --list-plugins
 ```
 
 ### 5. Run the closed-loop cycle
@@ -121,10 +130,15 @@ Use the loop only after a smoke run and a regular sweep are working.
 ## Quality gates
 
 ```bash
-./.venv/bin/ruff check src tests scripts
-./.venv/bin/mypy
-./.venv/bin/pytest -q
+./.venv/bin/python scripts/ci/run_repo_quality_gate.py --lane ci
+./.venv/bin/python scripts/ci/run_repo_standards_audit.py --lane compat
 ```
+
+`scripts/check_environment.py` remains a separate local-machine prerequisite
+check; it is not part of CI parity yet.
+
+Repository quality policy lives in `CODE_QUALITY_STANDARD.md`, and root
+`AGENTS.md` provides the short drop-in contract for coding agents.
 
 ## Outputs
 
@@ -148,18 +162,28 @@ Sweep and report artifacts land in `outputs/framework_reports/<sweep_id>/`:
 - `framework_run_summary.csv`
 - `team_summary.json`
 - `team_summary.md`
+- `dashboard.html`
 - `summary_<attack>.txt` files
+
+Authoritative canonical sweep outputs are the framework CSV/Markdown report
+plus the local dashboard under the explicit report root. `team_summary.*`,
+`failure_gallery.html`, and `outputs/dashboard.html` are optional extras.
+Defaults still preserve the current behavior; the new CLI flags only make that
+boundary explicit as extraction prep.
 
 Cycle automation writes additional longitudinal artifacts such as:
 
 - `outputs/cycle_history/*.json`
 - `outputs/cycle_report.md`
 - `outputs/cycle_report.csv`
-- `outputs/dashboard.html`
+- `outputs/dashboard.html` as a compatibility mirror of the latest generated dashboard
 
 This repository intentionally versions selected historical report artifacts
 under `outputs/` for trend tracking. Raw run directories, lock files, state
 files, transfer bundles, and other local-only artifacts should not be tracked.
+
+`lab.reporting` umbrella imports remain for compatibility only. New code should
+import concrete reporting submodules directly.
 
 ## Project map
 
@@ -174,6 +198,11 @@ files, transfer bundles, and other local-only artifacts should not be tracked.
 - `schemas/v1/` - JSON schemas for structured artifacts
 - `scripts/` - user-facing orchestration and reporting scripts
 - `tests/` - unit and integration coverage
+
+Remaining root payload outside the core runtime is intentionally classified:
+
+- Optional maintained workflows: root wrapper entrypoints for automation, training, reporting, and demo flows
+- Manual utilities: `scripts/check_environment.py`, `scripts/analyze_per_class.py`, `scripts/cw_tune.py`, `scripts/generate_slide_tables.py`, `scripts/setup_dataset.sh`, `scripts/restart_after_cycle.sh`
 
 ## Canonical vs manual-only defenses
 
@@ -198,6 +227,7 @@ is retained as diagnostic output only and a future pivot, not the v1 gate.
 ## Documentation
 
 - `PROJECT_STATE.md` - current repo map and canonical paths
+- `CODE_QUALITY_STANDARD.md` - repo quality bar, review rubric, and audit commands
 - `docs/TEAM_GUIDE.md` - teammate onboarding guide
 - `docs/PIPELINE_IN_PLAIN_ENGLISH.md` - plain-language walkthrough
 - `docs/LOOP_DESIGN.md` - auto-cycle design and longitudinal workflow

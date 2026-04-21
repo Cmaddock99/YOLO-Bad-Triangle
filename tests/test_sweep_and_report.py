@@ -17,6 +17,35 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from scripts import sweep_and_report
 
 
+class _FakeTqdm:
+    instances: list["_FakeTqdm"] = []
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        self.args = args
+        self.kwargs = kwargs
+        self.total = kwargs.get("total")
+        self.desc = kwargs.get("desc")
+        self.updates: list[int] = []
+        self.descriptions: list[str] = []
+        self.writes: list[str] = []
+        _FakeTqdm.instances.append(self)
+
+    def __enter__(self) -> "_FakeTqdm":
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
+        return False
+
+    def update(self, n: int = 1) -> None:
+        self.updates.append(n)
+
+    def set_description(self, text: str) -> None:
+        self.descriptions.append(text)
+
+    def write(self, text: str) -> None:
+        self.writes.append(text)
+
+
 class SweepAndReportScriptTest(unittest.TestCase):
     def _write_resume_artifacts(
         self,
@@ -70,6 +99,30 @@ class SweepAndReportScriptTest(unittest.TestCase):
     def test_resolve_all_attacks_returns_canonical_names_only(self) -> None:
         attacks = sweep_and_report._resolve_all_plugins("all", "attack")
         self.assertEqual(attacks, list(sweep_and_report.CANONICAL_ATTACKS_ALL))
+
+    def test_resolve_all_attacks_uses_profile_canonical_core_scope(self) -> None:
+        attacks = sweep_and_report._resolve_all_plugins(
+            "all",
+            "attack",
+            profile_name="yolo11n_lab_v1",
+            include_extra=False,
+        )
+        self.assertEqual(
+            attacks,
+            ["fgsm", "pgd", "deepfool", "eot_pgd", "dispersion_reduction", "blur", "square"],
+        )
+
+    def test_resolve_all_defenses_uses_profile_canonical_core_scope(self) -> None:
+        defenses = sweep_and_report._resolve_all_plugins(
+            "all",
+            "defense",
+            profile_name="yolo11n_lab_v1",
+            include_extra=False,
+        )
+        self.assertEqual(
+            defenses,
+            ["bit_depth", "jpeg_preprocess", "median_preprocess"],
+        )
 
     def test_default_max_images_for_presets(self) -> None:
         self.assertEqual(sweep_and_report._default_max_images("smoke"), 8)
@@ -142,6 +195,79 @@ class SweepAndReportScriptTest(unittest.TestCase):
         self.assertIn("--runs-root", report_command)
         self.assertIn("--report-root", team_command)
         self.assertIn("--baseline", summary_command)
+
+    def test_list_plugins_output_contains_core_extra_and_alias_sections(self) -> None:
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            sweep_and_report._list_plugins("yolo11n_lab_v1")
+
+        output = buffer.getvalue()
+        self.assertIn("Profile plugin inventory: yolo11n_lab_v1", output)
+        self.assertIn("Baseline sentinels:", output)
+        self.assertIn("attack: none", output)
+        self.assertIn("defense: none, identity", output)
+        self.assertIn("Core attacks:", output)
+        self.assertIn("Extra/manual-only attacks:", output)
+        self.assertIn("All registered attack aliases:", output)
+        self.assertIn("Core defenses:", output)
+        self.assertIn("Extra/manual-only defenses:", output)
+        self.assertIn("All registered defense aliases:", output)
+
+    def test_main_list_plugins_uses_explicit_profile_when_passed(self) -> None:
+        argv = [
+            "sweep_and_report.py",
+            "--profile",
+            "manual_profile",
+            "--list-plugins",
+        ]
+        with patch.object(sys, "argv", argv):
+            with patch.object(sweep_and_report, "_list_plugins") as mock_list_plugins:
+                sweep_and_report.main()
+
+        mock_list_plugins.assert_called_once_with("manual_profile")
+
+    def test_main_list_plugins_defaults_to_v1_profile(self) -> None:
+        argv = [
+            "sweep_and_report.py",
+            "--config",
+            str(REPO_ROOT / "configs/default.yaml"),
+            "--list-plugins",
+        ]
+        with patch.object(sys, "argv", argv):
+            with patch.object(sweep_and_report, "_list_plugins") as mock_list_plugins:
+                sweep_and_report.main()
+
+        mock_list_plugins.assert_called_once_with("yolo11n_lab_v1")
+
+    def test_dashboard_command_targets_local_output_and_compat_mirror(self) -> None:
+        command = sweep_and_report._generate_dashboard_command(
+            python_bin="python",
+            report_root=Path("outputs/framework_reports/custom_report"),
+            output_path=Path("outputs/framework_reports/custom_report/dashboard.html"),
+            compat_output_path=Path("outputs/dashboard.html"),
+            update_pages=False,
+        )
+
+        self.assertEqual(command[:2], ["python", str(sweep_and_report.REPO_ROOT / "scripts/generate_dashboard.py")])
+        self.assertIn("--report-dir", command)
+        self.assertIn("--output", command)
+        self.assertIn("--compat-output", command)
+        self.assertIn("--no-pages", command)
+
+    def test_dashboard_command_omits_compat_output_when_not_requested(self) -> None:
+        command = sweep_and_report._generate_dashboard_command(
+            python_bin="python",
+            report_root=Path("outputs/framework_reports/custom_report"),
+            output_path=Path("outputs/framework_reports/custom_report/dashboard.html"),
+            compat_output_path=None,
+            update_pages=False,
+        )
+
+        self.assertEqual(command[:2], ["python", str(sweep_and_report.REPO_ROOT / "scripts/generate_dashboard.py")])
+        self.assertIn("--report-dir", command)
+        self.assertIn("--output", command)
+        self.assertNotIn("--compat-output", command)
+        self.assertIn("--no-pages", command)
 
     def test_run_command_adds_src_pythonpath(self) -> None:
         with patch("scripts.sweep_and_report.subprocess.run") as mock_run:
@@ -327,6 +453,42 @@ class SweepAndReportScriptTest(unittest.TestCase):
             ["bit_depth", "jpeg_preprocess", "median_preprocess"],
         )
 
+    def test_profile_all_expansion_uses_canonical_core_catalogs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            runs_root = Path(tmp) / "runs"
+            report_root = Path(tmp) / "report"
+            argv = [
+                "sweep_and_report.py",
+                "--profile",
+                "yolo11n_lab_v1",
+                "--python-bin",
+                sys.executable,
+                "--runs-root",
+                str(runs_root),
+                "--report-root",
+                str(report_root),
+                "--attacks",
+                "all",
+                "--defenses",
+                "all",
+                "--phases",
+                "2",
+                "--dry-run",
+            ]
+            with patch.object(sys, "argv", argv):
+                sweep_and_report.main()
+
+            manifest = json.loads((report_root / "sweep_manifest.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            manifest["requested_attacks"],
+            ["fgsm", "pgd", "deepfool", "eot_pgd", "dispersion_reduction", "blur", "square"],
+        )
+        self.assertEqual(
+            manifest["requested_defenses"],
+            ["bit_depth", "jpeg_preprocess", "median_preprocess"],
+        )
+
     def test_main_dry_run_forwards_repeatable_set_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             runs_root = Path(tmp) / "runs"
@@ -412,12 +574,310 @@ class WS7SweepNoPagesTest(unittest.TestCase):
         args = self._captured_dashboard_args([])
         flat = " ".join(args)
         self.assertIn("--no-pages", flat)
+        self.assertIn("--report-dir", flat)
+        self.assertIn("--compat-output", flat)
+        self.assertNotIn("--reports-root", flat)
+        report_dir = Path(args[args.index("--report-dir") + 1])
+        output = Path(args[args.index("--output") + 1])
+        compat_output = Path(args[args.index("--compat-output") + 1])
+        self.assertEqual(output, report_dir / "dashboard.html")
+        self.assertEqual(compat_output, sweep_and_report.REPO_ROOT / "outputs/dashboard.html")
 
     def test_update_pages_omits_no_pages_flag(self) -> None:
         """With --update-pages, --no-pages is NOT added to the dashboard command."""
         args = self._captured_dashboard_args(["--update-pages"])
         flat = " ".join(args)
         self.assertNotIn("--no-pages", flat)
+        self.assertIn("--report-dir", flat)
+
+    def test_no_compat_dashboard_omits_compat_output_flag(self) -> None:
+        args = self._captured_dashboard_args(["--no-compat-dashboard"])
+        flat = " ".join(args)
+        self.assertIn("--report-dir", flat)
+        self.assertIn("--output", flat)
+        self.assertNotIn("--compat-output", flat)
+
+
+class SweepAndReportOptionalExtrasTest(unittest.TestCase):
+    _BASE_ARGV = [
+        "sweep_and_report.py",
+        "--config",
+        str(REPO_ROOT / "configs/default.yaml"),
+        "--python-bin",
+        sys.executable,
+        "--attacks",
+        "pgd",
+        "--defenses",
+        "none",
+        "--phases",
+        "4",
+        "--dry-run",
+    ]
+
+    def _captured_phase4_commands(self, extra_argv: list[str]) -> list[list[str]]:
+        captured: list[list[str]] = []
+        original_run_command = sweep_and_report._run_command
+
+        def capturing_run_command(cmd: list[str], **kwargs: object) -> bool:
+            captured.append([str(c) for c in cmd])
+            return original_run_command(cmd, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            argv = self._BASE_ARGV + [
+                "--runs-root",
+                str(Path(tmp) / "runs"),
+                "--report-root",
+                str(Path(tmp) / "report"),
+            ] + extra_argv
+            with patch.object(sys, "argv", argv):
+                with patch.object(sweep_and_report, "_run_command", side_effect=capturing_run_command):
+                    sweep_and_report.main()
+        return captured
+
+    def _phase4_stdout(self, extra_argv: list[str]) -> str:
+        buffer = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp:
+            argv = self._BASE_ARGV + [
+                "--runs-root",
+                str(Path(tmp) / "runs"),
+                "--report-root",
+                str(Path(tmp) / "report"),
+            ] + extra_argv
+            with patch.object(sys, "argv", argv):
+                with redirect_stdout(buffer):
+                    sweep_and_report.main()
+        return buffer.getvalue()
+
+    def test_no_failure_gallery_skips_failure_gallery_command(self) -> None:
+        commands = self._captured_phase4_commands(["--no-failure-gallery"])
+        rendered = [" ".join(command) for command in commands]
+        self.assertTrue(any("generate_framework_report.py" in command for command in rendered))
+        self.assertTrue(any("generate_dashboard.py" in command for command in rendered))
+        self.assertFalse(any("generate_failure_gallery.py" in command for command in rendered))
+
+    def test_final_stdout_omits_disabled_optional_artifact_lines(self) -> None:
+        output = self._phase4_stdout([
+            "--no-team-summary",
+            "--no-failure-gallery",
+            "--no-compat-dashboard",
+        ])
+
+        self.assertIn("Aggregate CSV:", output)
+        self.assertIn("Aggregate Markdown:", output)
+        self.assertIn("Dashboard (local):", output)
+        self.assertNotIn("Team JSON summary:", output)
+        self.assertNotIn("Team MD summary:", output)
+        self.assertNotIn("Failure Gallery:", output)
+        self.assertNotIn("Dashboard (compat):", output)
+
+
+class SweepAndReportPhase4InProcessTest(unittest.TestCase):
+    _BASE_ARGV = [
+        "sweep_and_report.py",
+        "--config",
+        str(REPO_ROOT / "configs/default.yaml"),
+        "--python-bin",
+        sys.executable,
+        "--attacks",
+        "pgd",
+        "--defenses",
+        "none",
+        "--phases",
+        "4",
+    ]
+
+    def _run_phase4(
+        self,
+        extra_argv: list[str],
+    ) -> tuple[Path, Path]:
+        with tempfile.TemporaryDirectory() as tmp:
+            runs_root = Path(tmp) / "runs"
+            report_root = Path(tmp) / "report"
+            argv = self._BASE_ARGV + [
+                "--runs-root",
+                str(runs_root),
+                "--report-root",
+                str(report_root),
+            ] + extra_argv
+            with patch.object(sys, "argv", argv):
+                sweep_and_report.main()
+            return runs_root.resolve(), report_root.resolve()
+
+    def test_non_dry_run_phase4_calls_framework_report_helper_once(self) -> None:
+        with patch.object(sweep_and_report, "_write_framework_report") as mock_framework_report:
+            with patch.object(sweep_and_report, "_write_team_summary") as mock_team_summary:
+                with patch.object(sweep_and_report, "_write_failure_gallery") as mock_failure_gallery:
+                    with patch.object(sweep_and_report, "_write_dashboard") as mock_dashboard:
+                        with patch.object(sweep_and_report, "_run_command") as mock_run_command:
+                            runs_root, report_root = self._run_phase4([])
+
+        mock_framework_report.assert_called_once_with(
+            runs_root=runs_root.resolve(),
+            report_root=report_root.resolve(),
+        )
+        mock_team_summary.assert_called_once_with(report_root=report_root.resolve())
+        mock_failure_gallery.assert_called_once_with(
+            runs_root=runs_root.resolve(),
+            output_path=report_root.resolve() / "failure_gallery.html",
+        )
+        mock_dashboard.assert_called_once_with(
+            report_root=report_root.resolve(),
+            output_path=report_root.resolve() / "dashboard.html",
+            compat_output_path=(sweep_and_report.REPO_ROOT / "outputs/dashboard.html").resolve(),
+            update_pages=False,
+        )
+        mock_run_command.assert_not_called()
+
+    def test_non_dry_run_phase4_passes_dashboard_paths_and_update_pages(self) -> None:
+        scenarios = [
+            {
+                "extra_argv": [],
+                "compat_output_path": (sweep_and_report.REPO_ROOT / "outputs/dashboard.html").resolve(),
+                "update_pages": False,
+            },
+            {
+                "extra_argv": ["--update-pages", "--no-compat-dashboard"],
+                "compat_output_path": None,
+                "update_pages": True,
+            },
+        ]
+
+        for scenario in scenarios:
+            with self.subTest(extra_argv=scenario["extra_argv"]):
+                with patch.object(sweep_and_report, "_write_framework_report"):
+                    with patch.object(sweep_and_report, "_write_team_summary"):
+                        with patch.object(sweep_and_report, "_write_failure_gallery"):
+                            with patch.object(sweep_and_report, "_write_dashboard") as mock_dashboard:
+                                with patch.object(sweep_and_report, "_run_command") as mock_run_command:
+                                    with tempfile.TemporaryDirectory() as tmp:
+                                        runs_root = Path(tmp) / "runs"
+                                        report_root = Path(tmp) / "report"
+                                        argv = self._BASE_ARGV + [
+                                            "--runs-root",
+                                            str(runs_root),
+                                            "--report-root",
+                                            str(report_root),
+                                        ] + scenario["extra_argv"]
+                                        with patch.object(sys, "argv", argv):
+                                            sweep_and_report.main()
+
+                mock_dashboard.assert_called_once_with(
+                    report_root=report_root.resolve(),
+                    output_path=report_root.resolve() / "dashboard.html",
+                    compat_output_path=scenario["compat_output_path"],
+                    update_pages=scenario["update_pages"],
+                )
+                mock_run_command.assert_not_called()
+
+    def test_non_dry_run_phase4_skips_team_summary_when_disabled(self) -> None:
+        with patch.object(sweep_and_report, "_write_framework_report"):
+            with patch.object(sweep_and_report, "_write_team_summary") as mock_team_summary:
+                with patch.object(sweep_and_report, "_write_failure_gallery"):
+                    with patch.object(sweep_and_report, "_write_dashboard"):
+                        self._run_phase4(["--no-team-summary"])
+
+        mock_team_summary.assert_not_called()
+
+    def test_non_dry_run_phase4_skips_failure_gallery_when_disabled(self) -> None:
+        with patch.object(sweep_and_report, "_write_framework_report"):
+            with patch.object(sweep_and_report, "_write_team_summary"):
+                with patch.object(sweep_and_report, "_write_failure_gallery") as mock_failure_gallery:
+                    with patch.object(sweep_and_report, "_write_dashboard"):
+                        self._run_phase4(["--no-failure-gallery"])
+
+        mock_failure_gallery.assert_not_called()
+
+    def test_non_dry_run_phase4_swallows_failure_gallery_exception(self) -> None:
+        with patch.object(sweep_and_report, "_write_framework_report"):
+            with patch.object(sweep_and_report, "_write_team_summary"):
+                with patch.object(
+                    sweep_and_report,
+                    "_write_failure_gallery",
+                    side_effect=RuntimeError("gallery failed"),
+                ) as mock_failure_gallery:
+                    with patch.object(sweep_and_report, "_write_dashboard") as mock_dashboard:
+                        self._run_phase4([])
+
+        mock_failure_gallery.assert_called_once()
+        mock_dashboard.assert_called_once()
+
+    def test_non_dry_run_phase4_raises_on_dashboard_failure(self) -> None:
+        with patch.object(sweep_and_report, "_write_framework_report"):
+            with patch.object(sweep_and_report, "_write_team_summary"):
+                with patch.object(sweep_and_report, "_write_failure_gallery"):
+                    with patch.object(
+                        sweep_and_report,
+                        "_write_dashboard",
+                        side_effect=RuntimeError("dashboard failed"),
+                    ):
+                        with self.assertRaises(SystemExit) as excinfo:
+                            self._run_phase4([])
+
+        self.assertEqual(excinfo.exception.code, 2)
+
+
+class SweepAndReportPhase4ProgressTest(unittest.TestCase):
+    _BASE_ARGV = [
+        "sweep_and_report.py",
+        "--config",
+        str(REPO_ROOT / "configs/default.yaml"),
+        "--python-bin",
+        sys.executable,
+        "--attacks",
+        "pgd",
+        "--defenses",
+        "none",
+        "--phases",
+        "4",
+        "--dry-run",
+    ]
+
+    def _phase4_bar_for(self, extra_argv: list[str]) -> _FakeTqdm:
+        _FakeTqdm.instances = []
+        with tempfile.TemporaryDirectory() as tmp:
+            argv = self._BASE_ARGV + [
+                "--runs-root",
+                str(Path(tmp) / "runs"),
+                "--report-root",
+                str(Path(tmp) / "report"),
+            ] + extra_argv
+            with patch.object(sys, "argv", argv):
+                with patch.object(sweep_and_report, "tqdm", _FakeTqdm):
+                    sweep_and_report.main()
+        self.assertEqual(len(_FakeTqdm.instances), 1)
+        return _FakeTqdm.instances[0]
+
+    def test_phase4_counts_four_steps_by_default(self) -> None:
+        bar = self._phase4_bar_for([])
+        self.assertEqual(bar.total, 4)
+        self.assertEqual(sum(bar.updates), 4)
+        self.assertIn("  reports | team summary done", bar.descriptions)
+        self.assertIn("  reports | failure gallery done", bar.descriptions)
+        self.assertIn("  reports | dashboard done", bar.descriptions)
+
+    def test_phase4_counts_three_steps_without_team_summary(self) -> None:
+        bar = self._phase4_bar_for(["--no-team-summary"])
+        self.assertEqual(bar.total, 3)
+        self.assertEqual(sum(bar.updates), 3)
+        self.assertNotIn("  reports | team summary done", bar.descriptions)
+        self.assertIn("  reports | failure gallery done", bar.descriptions)
+        self.assertIn("  reports | dashboard done", bar.descriptions)
+
+    def test_phase4_counts_three_steps_without_failure_gallery(self) -> None:
+        bar = self._phase4_bar_for(["--no-failure-gallery"])
+        self.assertEqual(bar.total, 3)
+        self.assertEqual(sum(bar.updates), 3)
+        self.assertIn("  reports | team summary done", bar.descriptions)
+        self.assertNotIn("  reports | failure gallery done", bar.descriptions)
+        self.assertIn("  reports | dashboard done", bar.descriptions)
+
+    def test_phase4_counts_two_steps_without_team_summary_or_failure_gallery(self) -> None:
+        bar = self._phase4_bar_for(["--no-team-summary", "--no-failure-gallery"])
+        self.assertEqual(bar.total, 2)
+        self.assertEqual(sum(bar.updates), 2)
+        self.assertNotIn("  reports | team summary done", bar.descriptions)
+        self.assertNotIn("  reports | failure gallery done", bar.descriptions)
+        self.assertIn("  reports | dashboard done", bar.descriptions)
 
 
 if __name__ == "__main__":

@@ -14,6 +14,25 @@ from lab.runners import cli_utils
 
 
 class RunUnifiedTest(unittest.TestCase):
+    def _captured_command(self, argv: list[str]) -> list[str]:
+        captured: list[list[str]] = []
+
+        def _fake_run(command: list[str], *, component: str, env: dict[str, str] | None = None) -> int:
+            del component, env
+            captured.append(command)
+            return 0
+
+        with patch("sys.argv", argv):
+            with patch("scripts.run_unified.resolve_python_bin", return_value="python"):
+                with patch("scripts.run_unified.with_src_pythonpath", return_value={}):
+                    with patch("scripts.run_unified._run", side_effect=_fake_run):
+                        with self.assertRaises(SystemExit) as exit_ctx:
+                            run_unified.main()
+                        self.assertEqual(int(exit_ctx.exception.code), 0)
+
+        self.assertEqual(len(captured), 1)
+        return captured[0]
+
     def test_build_run_experiment_command_appends_set_overrides(self) -> None:
         command = cli_utils.build_run_experiment_command(
             Path("/repo"),
@@ -118,6 +137,35 @@ class RunUnifiedTest(unittest.TestCase):
         self.assertIn("--seed 123", rendered)
         self.assertIn("--resume", rendered)
         self.assertIn("--skip-errors", rendered)
+
+    def test_sweep_forwards_dry_run_and_list_plugins(self) -> None:
+        captured: list[list[str]] = []
+
+        def _fake_run(command: list[str], *, component: str, env: dict[str, str] | None = None) -> int:
+            del component, env
+            captured.append(command)
+            return 0
+
+        argv = [
+            "run_unified.py",
+            "sweep",
+            "--config",
+            "configs/default.yaml",
+            "--dry-run",
+            "--list-plugins",
+        ]
+        with patch("sys.argv", argv):
+            with patch("scripts.run_unified.resolve_python_bin", return_value="python"):
+                with patch("scripts.run_unified.with_src_pythonpath", return_value={}):
+                    with patch("scripts.run_unified._run", side_effect=_fake_run):
+                        with self.assertRaises(SystemExit) as exit_ctx:
+                            run_unified.main()
+                        self.assertEqual(int(exit_ctx.exception.code), 0)
+
+        self.assertEqual(len(captured), 1)
+        rendered = " ".join(captured[0])
+        self.assertIn("--dry-run", rendered)
+        self.assertIn("--list-plugins", rendered)
 
     def test_sweep_forwards_repeatable_set_overrides(self) -> None:
         captured: list[list[str]] = []
@@ -262,6 +310,74 @@ class RunUnifiedTest(unittest.TestCase):
             with self.assertRaises(SystemExit) as exit_ctx:
                 run_unified.main()
         self.assertEqual(int(exit_ctx.exception.code), 2)
+
+    def test_sweep_forwards_no_failure_gallery(self) -> None:
+        command = self._captured_command([
+            "run_unified.py",
+            "sweep",
+            "--config",
+            "configs/default.yaml",
+            "--no-failure-gallery",
+        ])
+
+        self.assertIn("--no-failure-gallery", " ".join(command))
+
+    def test_sweep_forwards_no_compat_dashboard(self) -> None:
+        command = self._captured_command([
+            "run_unified.py",
+            "sweep",
+            "--config",
+            "configs/default.yaml",
+            "--no-compat-dashboard",
+        ])
+
+        self.assertIn("--no-compat-dashboard", " ".join(command))
+
+    def test_sweep_omits_optional_report_extra_flags_when_unspecified(self) -> None:
+        command = self._captured_command([
+            "run_unified.py",
+            "sweep",
+            "--config",
+            "configs/default.yaml",
+        ])
+
+        rendered = " ".join(command)
+        self.assertNotIn("--failure-gallery", rendered)
+        self.assertNotIn("--no-failure-gallery", rendered)
+        self.assertNotIn("--compat-dashboard", rendered)
+        self.assertNotIn("--no-compat-dashboard", rendered)
+
+    def test_sweep_forwards_reporting_metadata_flags(self) -> None:
+        command = self._captured_command([
+            "run_unified.py",
+            "sweep",
+            "--config",
+            "configs/default.yaml",
+            "--reporting-dataset-scope",
+            "smoke",
+            "--reporting-authority",
+            "diagnostic",
+            "--reporting-source-phase",
+            "phase1",
+        ])
+
+        rendered = " ".join(command)
+        self.assertIn("--reporting-dataset-scope smoke", rendered)
+        self.assertIn("--reporting-authority diagnostic", rendered)
+        self.assertIn("--reporting-source-phase phase1", rendered)
+
+    def test_sweep_omits_reporting_metadata_flags_when_unspecified(self) -> None:
+        command = self._captured_command([
+            "run_unified.py",
+            "sweep",
+            "--config",
+            "configs/default.yaml",
+        ])
+
+        rendered = " ".join(command)
+        self.assertNotIn("--reporting-dataset-scope", rendered)
+        self.assertNotIn("--reporting-authority", rendered)
+        self.assertNotIn("--reporting-source-phase", rendered)
 
 
 if __name__ == "__main__":

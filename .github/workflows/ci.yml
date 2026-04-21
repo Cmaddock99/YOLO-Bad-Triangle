@@ -28,15 +28,6 @@ jobs:
           pip install -r requirements-dev.txt
           pip install "ruff==0.15.8"
 
-      - name: Lint (ruff)
-        run: ruff check src tests scripts --output-format=github
-
-      - name: Type check (mypy practical lane)
-        run: mypy
-
-      - name: Run tests
-        run: pytest -q
-
       - name: Create tiny CI demo image
         run: |
           python - <<'PY'
@@ -51,27 +42,8 @@ jobs:
           print(f"Wrote demo image to {out / 'ci.jpg'}")
           PY
 
-      - name: Run minimal framework experiment
-        run: |
-          python scripts/run_unified.py run-one \
-            --config configs/ci_demo.yaml \
-            --set runner.output_root=outputs/framework_runs/ci \
-            --set runner.run_name=ci_demo
-
-      - name: Validate output artifacts
-        run: |
-          python scripts/ci/validate_outputs.py \
-            --output-root outputs/framework_runs/ci/ci_demo \
-            --contract-name framework_run \
-            --framework-run-dir outputs/framework_runs/ci/ci_demo \
-            --legacy-compat-csv tests/fixtures/schema/valid/legacy_compat.csv \
-            --require-schema
-
-      - name: Generate framework report CSV
-        run: |
-          python scripts/generate_framework_report.py \
-            --runs-root outputs/framework_runs/ci \
-            --output-dir outputs/framework_reports/ci
+      - name: Run repo quality gate
+        run: python scripts/ci/run_repo_quality_gate.py --lane ci
 
       - name: Enforce required metrics_summary.csv and print metrics
         run: |
@@ -104,6 +76,3 @@ jobs:
           name: plots
           path: outputs/plots/
           if-no-files-found: ignore
-
-      - name: Check generated artifact hygiene
-        run: python scripts/ci/check_tracked_outputs.py

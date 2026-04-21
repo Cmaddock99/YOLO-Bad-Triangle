@@ -1,0 +1,31 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+
+from lab.defenses.base_defense import BaseDefense
+from lab.defenses.framework_registry import register_defense_plugin
+from lab.eval.prediction_schema import PredictionRecord
+from lab.eval.prediction_utils import adapter_stage_metadata
+
+
+@dataclass
+@register_defense_plugin("none", "identity")
+class NoDefenseAdapter(BaseDefense):
+    """No-op defense adapter for framework compatibility."""
+
+    name: str = "none_defense_adapter"
+
+    def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:
+        del kwargs
+        return image, adapter_stage_metadata("none", "preprocess")
+
+    def postprocess(
+        self,
+        predictions: list[PredictionRecord],
+        **kwargs: Any,
+    ) -> tuple[list[PredictionRecord], dict[str, Any]]:
+        del kwargs
+        return predictions, adapter_stage_metadata("none", "postprocess")

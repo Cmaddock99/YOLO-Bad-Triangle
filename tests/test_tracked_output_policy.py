@@ -12,6 +12,7 @@ class TrackedOutputPolicyTest(unittest.TestCase):
             Path("outputs/cycle_history/cycle_001.json"),
             Path("outputs/framework_reports/sweep_001/framework_run_report.md"),
             Path("outputs/framework_reports/sweep_001/summary_blur.txt"),
+            Path("outputs/framework_reports/sweep_001/dashboard.html"),
             Path("outputs/cycle_report.csv"),
             Path("outputs/dashboard.html"),
         ]

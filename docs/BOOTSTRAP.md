@@ -140,8 +140,8 @@ YOLO-Bad-Triangle/
 │
 ├── scripts/                        ★ user-facing entrypoints
 │   ├── run_unified.py              ★ CANONICAL: run-one + sweep subcommands
-│   ├── sweep_and_report.py         ★ CANONICAL: matrix sweep + report generation
-│   ├── auto_cycle.py               ★ CANONICAL: 4-phase autonomous loop
+│   ├── sweep_and_report.py         compatibility backend for run_unified.py sweep
+│   ├── auto_cycle.py               ★ CANONICAL: 4-phase autonomous loop (Phase 1/2/report regeneration call run_unified.py sweep; report regeneration requests only the core local report set)
 │   ├── watch_cycle.py              live TUI monitor (rich) for running cycle
 │   ├── generate_dashboard.py       HTML dashboard from framework reports
 │   ├── generate_framework_report.py CSV/MD from run dirs
@@ -228,7 +228,8 @@ YOLO-Bad-Triangle/
 User / Operator
        │
        ├─── scripts/run_unified.py run-one     ──┐
-       ├─── scripts/sweep_and_report.py          ├── all invoke run_experiment.py
+       ├─── scripts/run_unified.py sweep       ──┼── public sweep surfaces
+       ├─── scripts/sweep_and_report.py          ├── invoke run_experiment.py
        └─── scripts/auto_cycle.py --loop       ──┘   via subprocess
                                                 │
                        src/lab/runners/run_experiment.py
@@ -614,8 +615,9 @@ not exist in the current tree. The dataset download steps work; the label genera
 A teammate following this script will hit a file-not-found error. Use `docs/FRESH_CLONE_SETUP.md`
 instead for the current authoritative setup path.
 
-**`run_unified.py sweep` subcommand** is a thin wrapper that forwards via subprocess to
-`sweep_and_report.py`. It does not re-implement sweep logic. Evidence: `run_unified.py:68–80`.
+**`run_unified.py sweep` subcommand** is the canonical public sweep surface and forwards via
+subprocess to `sweep_and_report.py` for backend compatibility. It does not re-implement sweep
+logic. Evidence: `run_unified.py`.
 
 **`outputs/` gitignore policy** uses negation rules (e.g., `!outputs/dashboard.html`). Easy to
 accidentally commit generated files or fail to commit tracked ones. Check `.gitignore` directly.
@@ -723,7 +725,13 @@ TRACKED in git. Produced by `generate_framework_report.py`:
 | `outputs/cycle_state.json` | No | live state — may be stale; prefer cycle_history |
 | `outputs/cycle_warm_start.json` | No | carry-forward params for next cycle |
 | `outputs/cycle_training_signal.json` | No | worst attack + weakest defense for retraining |
-| `outputs/dashboard.html` | Yes (exception) | latest HTML dashboard |
+| `outputs/dashboard.html` | Yes (exception) | compatibility mirror of the latest generated dashboard |
+
+`auto_cycle.py` report regeneration intentionally requests only the local/core
+report bundle: `framework_run_report.md`, `framework_run_summary.csv`, and the
+local `dashboard.html` under the explicit report root. Optional extras remain
+available on manual sweeps, and `scripts/sweep_and_report.py` remains the
+compatibility backend behind `run_unified.py sweep`.
 
 ### Which artifacts matter for downstream work
 

@@ -8,7 +8,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from scripts import auto_cycle, generate_dashboard
+from lab.reporting.aggregate import generate_dashboard as generate_dashboard_namespace
+from lab.reporting.aggregate import dashboard as generate_dashboard
+from scripts import auto_cycle, generate_dashboard as generate_dashboard_cli
 
 
 class AutoCycleTrainingSignalTest(unittest.TestCase):
@@ -92,6 +94,76 @@ class AutoCycleTrainingSignalTest(unittest.TestCase):
 
 
 class DashboardSelectionTest(unittest.TestCase):
+    def _write_dashboard_report(
+        self,
+        report_dir: Path,
+        *,
+        model: str = "yolo11n.pt",
+        pipeline_profile: str = "yolo11n_lab_v1",
+        sweep_id: str | None = None,
+        generated_at: str | None = None,
+    ) -> None:
+        report_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = report_dir / "framework_run_summary.csv"
+        with csv_path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=[
+                    "run_name",
+                    "model",
+                    "attack",
+                    "defense",
+                    "total_detections",
+                    "avg_confidence",
+                    "mAP50",
+                    "validation_status",
+                    "authority",
+                    "source_phase",
+                    "pipeline_profile",
+                ],
+            )
+            writer.writeheader()
+            writer.writerow(
+                {
+                    "run_name": "validate_baseline",
+                    "model": model,
+                    "attack": "none",
+                    "defense": "none",
+                    "total_detections": "1000",
+                    "avg_confidence": "0.80",
+                    "mAP50": "0.60",
+                    "validation_status": "complete",
+                    "authority": "authoritative",
+                    "source_phase": "phase4",
+                    "pipeline_profile": pipeline_profile,
+                }
+            )
+            writer.writerow(
+                {
+                    "run_name": "validate_atk_blur",
+                    "model": model,
+                    "attack": "blur",
+                    "defense": "none",
+                    "total_detections": "700",
+                    "avg_confidence": "0.70",
+                    "mAP50": "0.30",
+                    "validation_status": "complete",
+                    "authority": "authoritative",
+                    "source_phase": "phase4",
+                    "pipeline_profile": pipeline_profile,
+                }
+            )
+        manifest = {}
+        if sweep_id is not None:
+            manifest["sweep_id"] = sweep_id
+        if generated_at is not None:
+            manifest["generated_at"] = generated_at
+        if manifest:
+            (report_dir / "sweep_manifest.json").write_text(
+                json.dumps(manifest),
+                encoding="utf-8",
+            )
+
     def test_sweep_label_supports_cycle_timestamp(self) -> None:
         self.assertEqual(
             generate_dashboard._sweep_label("cycle_20260407_193440"),
@@ -256,6 +328,79 @@ class DashboardSelectionTest(unittest.TestCase):
         self.assertIn("NO_EFFECTIVE_ATTACK", html)
         self.assertIn("all attacks had 0.0% drop", html)
 
+    def test_generate_discovers_custom_named_report_dir_under_reports_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            reports_root = Path(tmp) / "framework_reports"
+            report_dir = reports_root / "custom_report_dir"
+            ignored_dir = reports_root / "ignored_dir"
+            output = Path(tmp) / "dashboard.html"
+            reports_root.mkdir(parents=True, exist_ok=True)
+            ignored_dir.mkdir(parents=True, exist_ok=True)
+            self._write_dashboard_report(
+                report_dir,
+                sweep_id="custom_report_dir",
+                generated_at="2026-04-17T10:00:00+00:00",
+            )
+
+            generate_dashboard_namespace(
+                reports_root=reports_root,
+                output=output,
+                no_pages=True,
+            )
+
+            html = output.read_text(encoding="utf-8")
+            self.assertIn("Latest Sweep — Defense Heatmap (custom_report_dir)", html)
+
+    def test_generate_accepts_explicit_report_dir_and_writes_compat_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_dir = Path(tmp) / "reports" / "manual_report"
+            output = Path(tmp) / "manual_dashboard.html"
+            compat_output = Path(tmp) / "compat" / "dashboard.html"
+            self._write_dashboard_report(
+                report_dir,
+                sweep_id="manual_report",
+                generated_at="2026-04-17T11:00:00+00:00",
+            )
+
+            generate_dashboard.generate(
+                reports_root=Path(tmp) / "unused_reports_root",
+                output=output,
+                report_dirs=[report_dir],
+                compat_output=compat_output,
+                no_pages=True,
+            )
+
+            self.assertTrue(output.exists())
+            self.assertTrue(compat_output.exists())
+            self.assertEqual(
+                output.read_text(encoding="utf-8"),
+                compat_output.read_text(encoding="utf-8"),
+            )
+
+    def test_generate_uses_dynamic_profile_and_model_subtitle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_dir = Path(tmp) / "reports" / "custom_report_dir"
+            output = Path(tmp) / "dashboard.html"
+            self._write_dashboard_report(
+                report_dir,
+                model="yolo11n.pt",
+                pipeline_profile="yolo11n_lab_v1",
+                sweep_id="custom_report_dir",
+                generated_at="2026-04-17T12:00:00+00:00",
+            )
+
+            generate_dashboard.generate(
+                reports_root=None,
+                output=output,
+                report_dirs=[report_dir],
+                no_pages=True,
+            )
+
+            html = output.read_text(encoding="utf-8")
+            self.assertNotIn("Model: yolo26n", html)
+            self.assertIn("Pipeline profile: yolo11n_lab_v1", html)
+            self.assertIn("Model: yolo11n.pt", html)
+
 
 class AutoCycleProfileTest(unittest.TestCase):
     def test_set_active_runtime_profile_swaps_catalogs(self) -> None:
@@ -333,6 +478,8 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
             )
             self.assertTrue(ok)
             command = run_mock.call_args.kwargs["args"] if "args" in run_mock.call_args.kwargs else run_mock.call_args[0][0]
+            self.assertEqual(command[1], "scripts/run_unified.py")
+            self.assertEqual(command[2], "sweep")
             self.assertIn("--max-images", command)
             self.assertIn("32", command)
             self.assertIn("--reporting-dataset-scope", command)
@@ -341,6 +488,74 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
             self.assertIn("diagnostic", command)
             self.assertIn("--reporting-source-phase", command)
             self.assertIn("phase1", command)
+
+    def test_run_sweep_appends_no_extra_report_flags_when_disabled(self) -> None:
+        with mock.patch("scripts.auto_cycle.subprocess.run") as run_mock:
+            run_mock.return_value.returncode = 0
+            ok = auto_cycle.run_sweep(
+                attacks=["deepfool"],
+                defenses=["none"],
+                runs_root="outputs/framework_runs/test",
+                report_root="outputs/framework_reports/test",
+                sweep_phases="4",
+                team_summary=False,
+                failure_gallery=False,
+                compat_dashboard=False,
+            )
+
+        self.assertTrue(ok)
+        command = run_mock.call_args.kwargs["args"] if "args" in run_mock.call_args.kwargs else run_mock.call_args[0][0]
+        self.assertIn("--no-team-summary", command)
+        self.assertIn("--no-failure-gallery", command)
+        self.assertIn("--no-compat-dashboard", command)
+
+    def test_run_sweep_omits_extra_report_flags_when_unspecified(self) -> None:
+        with mock.patch("scripts.auto_cycle.subprocess.run") as run_mock:
+            run_mock.return_value.returncode = 0
+            ok = auto_cycle.run_sweep(
+                attacks=["deepfool"],
+                defenses=["none"],
+                runs_root="outputs/framework_runs/test",
+                report_root="outputs/framework_reports/test",
+                sweep_phases="1,2",
+            )
+
+        self.assertTrue(ok)
+        command = run_mock.call_args.kwargs["args"] if "args" in run_mock.call_args.kwargs else run_mock.call_args[0][0]
+        self.assertNotIn("--team-summary", command)
+        self.assertNotIn("--no-team-summary", command)
+        self.assertNotIn("--failure-gallery", command)
+        self.assertNotIn("--no-failure-gallery", command)
+        self.assertNotIn("--compat-dashboard", command)
+        self.assertNotIn("--no-compat-dashboard", command)
+
+    def test_run_sweep_uses_profile_flag_when_active(self) -> None:
+        original_profile = auto_cycle.ACTIVE_PIPELINE_PROFILE
+        original_authority = auto_cycle.ACTIVE_AUTHORITATIVE_METRIC
+        original_config_arg = auto_cycle.ACTIVE_CONFIG_ARG
+        original_config_path = auto_cycle.ACTIVE_CONFIG_PATH
+        try:
+            auto_cycle._set_active_runtime_profile("yolo11n_lab_v1", None)
+            with mock.patch("scripts.auto_cycle.subprocess.run") as run_mock:
+                run_mock.return_value.returncode = 0
+                ok = auto_cycle.run_sweep(
+                    attacks=["deepfool"],
+                    defenses=["none"],
+                    runs_root="outputs/framework_runs/test",
+                    report_root="outputs/framework_reports/test",
+                    sweep_phases="1",
+                )
+            self.assertTrue(ok)
+            command = run_mock.call_args.kwargs["args"] if "args" in run_mock.call_args.kwargs else run_mock.call_args[0][0]
+            self.assertEqual(command[1], "scripts/run_unified.py")
+            self.assertEqual(command[2], "sweep")
+            self.assertIn("--profile", command)
+            self.assertIn("yolo11n_lab_v1", command)
+        finally:
+            auto_cycle.ACTIVE_PIPELINE_PROFILE = original_profile
+            auto_cycle.ACTIVE_AUTHORITATIVE_METRIC = original_authority
+            auto_cycle.ACTIVE_CONFIG_ARG = original_config_arg
+            auto_cycle.ACTIVE_CONFIG_PATH = original_config_path
 
     def test_phase1_passes_reporting_metadata_to_sweep(self) -> None:
         state = {
@@ -360,6 +575,9 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
         self.assertEqual(kwargs["reporting_dataset_scope"], "smoke")
         self.assertEqual(kwargs["reporting_authority"], "diagnostic")
         self.assertEqual(kwargs["reporting_source_phase"], "phase1")
+        self.assertNotIn("team_summary", kwargs)
+        self.assertNotIn("failure_gallery", kwargs)
+        self.assertNotIn("compat_dashboard", kwargs)
 
     def test_phase2_passes_reporting_metadata_to_sweep(self) -> None:
         state = {
@@ -378,8 +596,29 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
         self.assertEqual(kwargs["reporting_dataset_scope"], "smoke")
         self.assertEqual(kwargs["reporting_authority"], "diagnostic")
         self.assertEqual(kwargs["reporting_source_phase"], "phase2")
+        self.assertNotIn("team_summary", kwargs)
+        self.assertNotIn("failure_gallery", kwargs)
+        self.assertNotIn("compat_dashboard", kwargs)
         self.assertEqual(state["top_defenses"], ["bit_depth"])
         self.assertEqual(state["phase4_defense_candidates"], ["bit_depth", "jpeg_preprocess"])
+
+    def test_generate_report_requests_only_core_local_report_set(self) -> None:
+        state = {
+            "runs_root": "outputs/framework_runs/test",
+            "report_root": "outputs/framework_reports/test",
+        }
+        with mock.patch("scripts.auto_cycle.run_sweep", return_value=True) as run_sweep_mock:
+            auto_cycle.generate_report(state)
+
+        kwargs = run_sweep_mock.call_args.kwargs
+        self.assertEqual(kwargs["attacks"], ["none"])
+        self.assertEqual(kwargs["defenses"], ["none"])
+        self.assertEqual(kwargs["runs_root"], state["runs_root"])
+        self.assertEqual(kwargs["report_root"], state["report_root"])
+        self.assertEqual(kwargs["sweep_phases"], "4")
+        self.assertFalse(kwargs["team_summary"])
+        self.assertFalse(kwargs["failure_gallery"])
+        self.assertFalse(kwargs["compat_dashboard"])
 
     def test_phase4_supplements_single_top_defense_with_next_ranked_candidate(self) -> None:
         state = {
@@ -1189,6 +1428,9 @@ if __name__ == "__main__":
 
 class WS7DashboardNoPagesTest(unittest.TestCase):
     """WS7 tests: --no-pages suppresses docs/index.html write."""
+
+    def test_script_wrapper_generate_alias_matches_namespace(self) -> None:
+        self.assertIs(generate_dashboard_cli.generate, generate_dashboard_namespace)
 
     def test_generate_accepts_no_pages_kwarg(self) -> None:
         """generate() must accept no_pages kwarg without error."""

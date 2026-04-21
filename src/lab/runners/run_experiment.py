@@ -27,7 +27,7 @@ from lab.config.contracts import (
     FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
     PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
 )
-from lab.config.profiles import resolve_framework_config
+from lab.config.profiles import resolve_framework_config, should_include_extra_plugins
 from lab.attacks.framework_registry import list_available_attack_plugins
 from lab.attacks.utils import iter_images
 from lab.defenses.framework_registry import list_available_defense_plugins
@@ -40,7 +40,7 @@ from lab.eval.framework_metrics import (
 from lab.eval.prediction_utils import write_predictions_jsonl
 from lab.eval.prediction_schema import PredictionRecord, validate_prediction_records
 from lab.models.framework_registry import build_model, list_available_models
-from lab.reporting.experiment_summary import generate_summary
+from lab.plugins import build_plugin_inventory
 from lab.runners.run_intent import (
     build_attack_signature as _build_attack_signature,
     build_run_intent,
@@ -530,6 +530,8 @@ class UnifiedExperimentRunner:
         summary_cfg = as_mapping(self.config, "summary")
         if not bool(summary_cfg.get("enabled", False)):
             return
+        from lab.reporting.local import generate_summary
+
         output_root = Path(
             str(runner_cfg.get("output_root", "outputs/framework_runs"))
         ).expanduser().resolve()
@@ -612,19 +614,25 @@ class UnifiedExperimentRunner:
 
         run_started_at = datetime.now(timezone.utc)
         run_started_mono = time.monotonic()
+        include_extra = should_include_extra_plugins(self.config)
         model_params = dict(as_mapping(model_cfg, "params"))
-        model = build_model(model_name, **model_params)
+        model = build_model(model_name, include_extra=include_extra, **model_params)
         model.load()
 
         attack_name = str(attack_cfg.get("name", "none")).strip().lower()
         attack_params = dict(as_mapping(attack_cfg, "params"))
-        attack, attack_params, resolved_objective = resolve_attack_instance(attack_name, attack_params)
+        attack, attack_params, resolved_objective = resolve_attack_instance(
+            attack_name,
+            attack_params,
+            include_extra=include_extra,
+        )
 
         defense_name = str(defense_cfg.get("name", "none")).strip().lower()
         defense_params = dict(as_mapping(defense_cfg, "params"))
         defense, defense_params, defense_checkpoint_provenance = resolve_defense_instance(
             defense_name,
             defense_params,
+            include_extra=include_extra,
         )
 
         (
@@ -689,7 +697,7 @@ class UnifiedExperimentRunner:
             "artifact_write_ms": runtime_metrics["artifact_write_ms"],
             "total_ms": runtime_metrics["total_ms"],
         }
-        metrics_payload = {
+        metrics_payload: dict[str, Any] = {
             "schema_version": FRAMEWORK_METRICS_SCHEMA_VERSION,
             "validation": {
                 **validation_section,
@@ -734,10 +742,11 @@ class UnifiedExperimentRunner:
         predictions_file = run_dir / "predictions.jsonl"
         metrics_file = run_dir / "metrics.json"
         summary_file = run_dir / "run_summary.json"
-        metrics_payload["provenance"]["pipeline_profile"] = pipeline_profile
-        metrics_payload["provenance"]["authoritative_metric"] = authoritative_metric
-        metrics_payload["provenance"]["profile_compatibility"] = profile_compatibility
-        metrics_payload["provenance"]["attack_metadata"] = attack_metadata if attack_metadata else None
+        provenance_payload = cast(dict[str, Any], metrics_payload["provenance"])
+        provenance_payload["pipeline_profile"] = pipeline_profile
+        provenance_payload["authoritative_metric"] = authoritative_metric
+        provenance_payload["profile_compatibility"] = profile_compatibility
+        provenance_payload["attack_metadata"] = attack_metadata if attack_metadata else None
 
         run_summary = {
             "schema_version": FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION,
@@ -886,10 +895,12 @@ def main() -> None:
         args, unknown = parser.parse_known_args()
 
         if args.list_plugins:
+            inventory_profile = args.profile or "yolo11n_lab_v1"
             payload = {
                 "models": list_available_models(),
                 "attacks": ["none", *list_available_attack_plugins()],
                 "defenses": list_available_defense_plugins(),
+                "plugin_inventory": build_plugin_inventory(inventory_profile),
             }
             print(json.dumps(payload, indent=2))
             return

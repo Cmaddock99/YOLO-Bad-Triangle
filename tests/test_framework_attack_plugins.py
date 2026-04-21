@@ -47,6 +47,35 @@ class FrameworkAttackPluginTest(unittest.TestCase):
         self.assertIn("fgsm_center_mask", available)
         self.assertIn("fgsm_edge_mask", available)
 
+    def test_core_only_plugin_list_excludes_extra_attack_aliases(self) -> None:
+        available = set(list_available_attack_plugins(include_extra=False))
+        self.assertIn("fgsm", available)
+        self.assertIn("pgd", available)
+        self.assertIn("deepfool", available)
+        self.assertIn("ifgsm", available)
+        self.assertIn("bim", available)
+        self.assertIn("gaussian_blur", available)
+        self.assertNotIn("cw", available)
+        self.assertNotIn("cw_l2", available)
+        self.assertNotIn("pretrained_patch", available)
+        self.assertNotIn("adv_patch", available)
+
+    def test_core_only_build_succeeds_for_core_attack(self) -> None:
+        attack = build_attack_plugin("fgsm", include_extra=False, epsilon=0.005)
+        self.assertEqual(type(attack).__name__, "FGSMAttackAdapter")
+
+    def test_core_only_build_rejects_extra_attack(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Unsupported attack plugin 'cw'"):
+            build_attack_plugin(
+                "cw",
+                include_extra=False,
+                c=10.0,
+                max_iter=4,
+                lr=0.01,
+                binary_search_steps=1,
+                device="cpu",
+            )
+
     def test_fgsm_pgd_deepfool_adapters_run_with_torch_model(self) -> None:
         model = _DummyGradModel()
         fgsm = build_attack_plugin("fgsm", epsilon=0.005)

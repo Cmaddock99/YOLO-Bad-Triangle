@@ -16,6 +16,7 @@ from lab.config.profiles import (
     authoritative_metric as resolved_authoritative_metric,
     pipeline_profile_name,
     resolve_profile_compatibility,
+    should_include_extra_plugins,
 )
 from lab.defenses.framework_registry import build_defense_plugin
 from lab.runners.cli_utils import as_mapping
@@ -230,6 +231,8 @@ def build_defense_signature(*, defense_name: str, defense_params: dict[str, Any]
 def resolve_attack_instance(
     attack_name: str,
     attack_params: dict[str, Any],
+    *,
+    include_extra: bool = True,
 ) -> tuple[Any | None, dict[str, Any], dict[str, Any]]:
     normalized_name = str(attack_name or "none").strip().lower()
     normalized_params = without_none_values(dict(attack_params))
@@ -241,7 +244,11 @@ def resolve_attack_instance(
             "preserve_weight": None,
         }
 
-    attack = build_attack_plugin(normalized_name, **normalized_params)
+    attack = build_attack_plugin(
+        normalized_name,
+        include_extra=include_extra,
+        **normalized_params,
+    )
     resolved_params = normalized_params
     if dataclasses.is_dataclass(attack):
         resolved_params = without_none_values(
@@ -263,10 +270,16 @@ def resolve_attack_instance(
 def resolve_defense_instance(
     defense_name: str,
     defense_params: dict[str, Any],
+    *,
+    include_extra: bool = True,
 ) -> tuple[Any, dict[str, Any], list[dict[str, str]]]:
     normalized_name = str(defense_name or "none").strip().lower() or "none"
     normalized_params = without_none_values(dict(defense_params))
-    defense = build_defense_plugin(normalized_name, **normalized_params)
+    defense = build_defense_plugin(
+        normalized_name,
+        include_extra=include_extra,
+        **normalized_params,
+    )
     checkpoint_provenance: list[dict[str, str]] = []
     checkpoint_fn = getattr(defense, "checkpoint_provenance", None)
     if callable(checkpoint_fn):
@@ -307,25 +320,30 @@ def build_run_intent(
     defense_cfg = as_mapping(normalized, "defense")
     runner_cfg = as_mapping(normalized, "runner")
     validation_cfg = as_mapping(normalized, "validation")
+    profile_compatibility = resolve_profile_compatibility(normalized)
+    include_extra = should_include_extra_plugins(normalized)
 
     model_params = dict(as_mapping(model_cfg, "params"))
     attack_name = str(attack_cfg.get("name", "none")).strip().lower()
     attack_params = dict(as_mapping(attack_cfg, "params"))
-    _, resolved_attack_params, resolved_objective = resolve_attack_instance(attack_name, attack_params)
+    _, resolved_attack_params, resolved_objective = resolve_attack_instance(
+        attack_name,
+        attack_params,
+        include_extra=include_extra,
+    )
 
     defense_name = str(defense_cfg.get("name", "none")).strip().lower()
     defense_params = dict(as_mapping(defense_cfg, "params"))
     _, resolved_defense_params, defense_checkpoint_provenance = resolve_defense_instance(
         defense_name,
         defense_params,
+        include_extra=include_extra,
     )
 
     checkpoint_fingerprint, checkpoint_source = resolve_model_checkpoint_fingerprint(
         model_params,
         cwd=cwd,
     )
-    profile_compatibility = resolve_profile_compatibility(normalized)
-
     return {
         "config_fingerprint_sha256": config_fingerprint_sha256(normalized),
         "attack_signature": build_attack_signature(

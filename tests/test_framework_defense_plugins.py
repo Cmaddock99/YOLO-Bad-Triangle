@@ -17,6 +17,32 @@ class FrameworkDefensePluginTest(unittest.TestCase):
         self.assertIn("preprocess_median_blur", available)
         self.assertIn("confidence_filter", available)
 
+    def test_core_only_plugin_list_excludes_extra_defense_aliases(self) -> None:
+        available = set(list_available_defense_plugins(include_extra=False))
+        self.assertIn("none", available)
+        self.assertIn("identity", available)
+        self.assertIn("bit_depth", available)
+        self.assertIn("jpeg_preprocess", available)
+        self.assertIn("median_preprocess", available)
+        self.assertNotIn("c_dog", available)
+        self.assertNotIn("c_dog_ensemble", available)
+        self.assertNotIn("confidence_filter", available)
+        self.assertNotIn("random_resize", available)
+
+    def test_core_only_build_succeeds_for_core_defense(self) -> None:
+        defense = build_defense_plugin(
+            "preprocess_median_blur",
+            include_extra=False,
+            kernel_size=3,
+        )
+        self.assertEqual(type(defense).__name__, "PreprocessMedianBlurDefenseAdapter")
+
+    def test_core_only_build_rejects_extra_defense(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "Unsupported defense plugin 'confidence_filter'"
+        ):
+            build_defense_plugin("confidence_filter", include_extra=False, threshold=0.5)
+
     def test_preprocess_median_blur_runs(self) -> None:
         defense = build_defense_plugin("preprocess_median_blur", kernel_size=3)
         image = np.full((16, 16, 3), 127, dtype=np.uint8)

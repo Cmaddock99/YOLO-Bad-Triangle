@@ -7,7 +7,7 @@ Usage (single run):
         --set attack.name=fgsm \\
         --set runner.run_name=my_run
 
-Usage (sweep, forwarded to sweep_and_report.py):
+Usage (sweep, forwarded to the compatibility backend in sweep_and_report.py):
     PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py sweep \\
         --profile yolo11n_lab_v1 \\
         --attacks fgsm,pgd --preset smoke
@@ -48,7 +48,10 @@ def _run(command: list[str], *, component: str, env: dict[str, str] | None = Non
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Unified framework-first entry surface for single runs and sweeps."
+        description=(
+            "Unified framework-first public entry surface for single runs and sweeps. "
+            "The sweep subcommand forwards to scripts/sweep_and_report.py for backend compatibility."
+        )
     )
     subparsers = parser.add_subparsers(dest="mode", required=True)
 
@@ -68,7 +71,10 @@ def main() -> None:
     run_one.add_argument("--seed", type=int, default=None,
         help="Random seed (overrides config). Shorthand for --set runner.seed=N.")
 
-    sweep = subparsers.add_parser("sweep", help="Run baseline + attack sweep with reports.")
+    sweep = subparsers.add_parser(
+        "sweep",
+        help="Run the canonical baseline + attack sweep with reports.",
+    )
     sweep_config = sweep.add_mutually_exclusive_group()
     sweep_config.add_argument("--config", default="configs/default.yaml")
     sweep_config.add_argument("--profile")
@@ -83,6 +89,12 @@ def main() -> None:
     sweep.add_argument("--max-images", type=int, default=None)
     sweep.add_argument("--resume", action="store_true")
     sweep.add_argument("--skip-errors", action="store_true")
+    sweep.add_argument("--dry-run", action="store_true")
+    sweep.add_argument(
+        "--list-plugins",
+        action="store_true",
+        help="Print all available attack and defense plugin names and exit.",
+    )
     sweep.add_argument(
         "--set",
         dest="overrides",
@@ -92,7 +104,26 @@ def main() -> None:
     )
     sweep.add_argument("--team-summary", dest="team_summary", action="store_true")
     sweep.add_argument("--no-team-summary", dest="team_summary", action="store_false")
-    sweep.set_defaults(team_summary=None)
+    sweep.add_argument("--failure-gallery", dest="failure_gallery", action="store_true")
+    sweep.add_argument("--no-failure-gallery", dest="failure_gallery", action="store_false")
+    sweep.add_argument("--compat-dashboard", dest="compat_dashboard", action="store_true")
+    sweep.add_argument("--no-compat-dashboard", dest="compat_dashboard", action="store_false")
+    sweep.set_defaults(team_summary=None, failure_gallery=None, compat_dashboard=None)
+    sweep.add_argument(
+        "--reporting-dataset-scope",
+        choices=("smoke", "tune", "full"),
+        default=None,
+    )
+    sweep.add_argument(
+        "--reporting-authority",
+        choices=("diagnostic", "authoritative"),
+        default=None,
+    )
+    sweep.add_argument(
+        "--reporting-source-phase",
+        choices=("phase1", "phase2", "phase3", "phase4", "manual"),
+        default=None,
+    )
     sweep.add_argument("--validation-enabled", action="store_true")
 
     args = parser.parse_args()
@@ -144,12 +175,30 @@ def main() -> None:
         command.append("--resume")
     if args.skip_errors:
         command.append("--skip-errors")
+    if args.dry_run:
+        command.append("--dry-run")
+    if args.list_plugins:
+        command.append("--list-plugins")
     for override in args.overrides:
         command.extend(["--set", override])
     if args.team_summary is True:
         command.append("--team-summary")
     if args.team_summary is False:
         command.append("--no-team-summary")
+    if args.failure_gallery is True:
+        command.append("--failure-gallery")
+    if args.failure_gallery is False:
+        command.append("--no-failure-gallery")
+    if args.compat_dashboard is True:
+        command.append("--compat-dashboard")
+    if args.compat_dashboard is False:
+        command.append("--no-compat-dashboard")
+    if args.reporting_dataset_scope:
+        command.extend(["--reporting-dataset-scope", str(args.reporting_dataset_scope)])
+    if args.reporting_authority:
+        command.extend(["--reporting-authority", str(args.reporting_authority)])
+    if args.reporting_source_phase:
+        command.extend(["--reporting-source-phase", str(args.reporting_source_phase)])
     if args.validation_enabled:
         command.append("--validation-enabled")
     raise SystemExit(_run(command, component="run-unified", env=runtime_env))

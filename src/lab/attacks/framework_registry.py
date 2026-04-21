@@ -13,6 +13,12 @@ get_attack_plugin = _registry.get
 list_attack_plugins = _registry.list
 
 # Runner uses these (triggers lazy adapter discovery on first call)
-_loader: AdapterLoader[BaseAttack] = AdapterLoader("lab.attacks", "attack", _registry)
+_loader: AdapterLoader[BaseAttack] = AdapterLoader(
+    ("lab.plugins.core.attacks", "lab.plugins.extra.attacks"),
+    "attack",
+    _registry,
+    core_package_names=("lab.plugins.core.attacks",),
+    extra_package_names=("lab.plugins.extra.attacks",),
+)
 build_attack_plugin = _loader.build
 list_available_attack_plugins = _loader.list_available

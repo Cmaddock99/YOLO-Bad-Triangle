@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Multi-attack × multi-defense sweep with reporting.
+"""Compatibility sweep backend for the canonical `run_unified.py sweep` entrypoint.
 
 Runs all requested attack/defense combinations in parallel subprocesses and
 generates a comparison report under outputs/framework_reports/<sweep_id>/.
@@ -11,12 +11,15 @@ Usage:
         --workers auto \\
         --validation-enabled
 
+Prefer invoking this through `scripts/run_unified.py sweep`.
 Use --list-plugins to see all registered attacks and defenses.
 """
 from __future__ import annotations
 
 import argparse
+from contextlib import redirect_stderr, redirect_stdout
 from copy import deepcopy
+import io
 import json
 import os
 import shlex
@@ -24,6 +27,7 @@ import subprocess
 import sys
 import threading
 import time
+from typing import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,10 +36,13 @@ from tqdm import tqdm
 
 from lab.config.profiles import (
     authoritative_metric as resolved_authoritative_metric,
+    pipeline_profile_name,
     profile_canonical_attacks,
     profile_canonical_defenses,
     resolve_framework_config,
+    should_include_extra_plugins,
 )
+from lab.plugins import build_plugin_inventory
 from lab.runners.cli_utils import (
     apply_override,
     build_repo_python_command,
@@ -106,36 +113,84 @@ def _parse_phases(raw: str) -> set[int]:
     return phases
 
 
-def _list_plugins() -> None:
-    sys.path.insert(0, str((REPO_ROOT / "src").resolve()))
-    from lab.attacks.framework_registry import list_available_attack_plugins
-    from lab.defenses.framework_registry import list_available_defense_plugins
-    attacks = list_available_attack_plugins()
-    defenses = [d for d in list_available_defense_plugins() if d not in {"none", "identity"}]
-    print("Available attacks:")
-    for a in attacks:
-        print(f"  {a}")
-    print("\nAvailable defenses:")
-    for d in defenses:
-        print(f"  {d}")
+def _list_plugins(profile_name: str = "yolo11n_lab_v1") -> None:
+    inventory = build_plugin_inventory(profile_name)
+    sentinels = inventory["baseline_sentinels"]
+    attacks = inventory["attacks"]
+    defenses = inventory["defenses"]
+    print(f"Profile plugin inventory: {inventory['profile']}")
+    print()
+    print("Baseline sentinels:")
+    print(f"  attack: {', '.join(sentinels['attack'])}")
+    print(f"  defense: {', '.join(sentinels['defense'])}")
+    print()
+    print("Core attacks:")
+    for attack in attacks["core"]:
+        print(f"  {attack}")
+    print("Extra/manual-only attacks:")
+    for attack in attacks["extra"]:
+        print(f"  {attack}")
+    print("All registered attack aliases:")
+    for attack in attacks["all_aliases"]:
+        print(f"  {attack}")
+    print()
+    print("Core defenses:")
+    for defense in defenses["core"]:
+        print(f"  {defense}")
+    print("Extra/manual-only defenses:")
+    for defense in defenses["extra"]:
+        print(f"  {defense}")
+    print("All registered defense aliases:")
+    for defense in defenses["all_aliases"]:
+        print(f"  {defense}")
 
 
-def _resolve_all_plugins(value: str, kind: str) -> list[str] | None:
+def _resolve_all_plugins(
+    value: str,
+    kind: str,
+    *,
+    profile_name: str | None = None,
+    include_extra: bool = True,
+) -> list[str] | None:
     """Expand 'all' to every registered plugin of the given kind.
 
     Returns None when value is not 'all', signalling the caller to parse normally.
     """
     if value.strip().lower() != "all":
         return None  # signal: not 'all', parse normally
-    sys.path.insert(0, str((REPO_ROOT / "src").resolve()))
     if kind == "attack":
         from lab.attacks.framework_registry import list_available_attack_plugins
+
+        if profile_name and not include_extra:
+            available = {
+                str(name).strip().lower()
+                for name in list_available_attack_plugins(include_extra=False)
+            }
+            return [
+                name
+                for name in profile_canonical_attacks(profile_name)
+                if str(name).strip().lower() in available
+            ]
+
         available = {
             str(name).strip().lower()
             for name in list_available_attack_plugins()
         }
         return [name for name in CANONICAL_ATTACKS_ALL if name in available]
+
     from lab.defenses.framework_registry import list_available_defense_plugins
+
+    if profile_name and not include_extra:
+        available = {
+            str(name).strip().lower()
+            for name in list_available_defense_plugins(include_extra=False)
+        }
+        return [
+            name
+            for name in profile_canonical_defenses(profile_name)
+            if str(name).strip().lower() in available
+        ]
+
     return [d for d in list_available_defense_plugins() if d not in {"none", "identity"}]
 
 
@@ -211,14 +266,34 @@ def _normalize_requested_attacks(attacks: list[str]) -> list[str]:
     return normalized
 
 
-def _parse_attacks(raw: str) -> list[str]:
-    resolved = _resolve_all_plugins(raw, "attack")
+def _parse_attacks(
+    raw: str,
+    *,
+    profile_name: str | None = None,
+    include_extra: bool = True,
+) -> list[str]:
+    resolved = _resolve_all_plugins(
+        raw,
+        "attack",
+        profile_name=profile_name,
+        include_extra=include_extra,
+    )
     attacks = resolved if resolved is not None else _parse_csv_list(raw, "attack")
     return _normalize_requested_attacks(attacks)
 
 
-def _parse_defenses(raw: str) -> list[str]:
-    resolved = _resolve_all_plugins(raw, "defense")
+def _parse_defenses(
+    raw: str,
+    *,
+    profile_name: str | None = None,
+    include_extra: bool = True,
+) -> list[str]:
+    resolved = _resolve_all_plugins(
+        raw,
+        "defense",
+        profile_name=profile_name,
+        include_extra=include_extra,
+    )
     return resolved if resolved is not None else _parse_csv_list(raw, "defense")
 
 
@@ -370,6 +445,102 @@ def _generate_failure_gallery_command(
     )
 
 
+def _generate_dashboard_command(
+    *,
+    python_bin: str,
+    report_root: Path,
+    output_path: Path,
+    compat_output_path: Path | None,
+    update_pages: bool,
+) -> list[str]:
+    arguments = [
+        "--report-dir",
+        str(report_root),
+        "--output",
+        str(output_path),
+    ]
+    if compat_output_path is not None:
+        arguments.extend([
+            "--compat-output",
+            str(compat_output_path),
+        ])
+    if not update_pages:
+        arguments.append("--no-pages")
+    return build_repo_python_command(
+        REPO_ROOT,
+        "scripts/generate_dashboard.py",
+        arguments,
+        python_bin=python_bin,
+    )
+
+
+def _write_framework_report(*, runs_root: Path, report_root: Path) -> None:
+    from lab.reporting.framework import generate_framework_report
+
+    generate_framework_report(runs_root=runs_root, output_dir=report_root)
+
+
+def _write_team_summary(*, report_root: Path) -> None:
+    from lab.reporting.local import write_team_summary
+
+    write_team_summary(report_root)
+
+
+def _write_failure_gallery(*, runs_root: Path, output_path: Path) -> None:
+    from lab.reporting.local import generate_failure_gallery
+
+    generate_failure_gallery(runs_root=runs_root, output_path=output_path)
+
+
+def _write_dashboard(
+    *,
+    report_root: Path,
+    output_path: Path,
+    compat_output_path: Path | None,
+    update_pages: bool,
+) -> None:
+    from lab.reporting.aggregate import generate_dashboard
+
+    generate_dashboard(
+        reports_root=None,
+        output=output_path,
+        report_dirs=[report_root],
+        compat_output=compat_output_path,
+        no_pages=not update_pages,
+    )
+
+
+def _run_report_callable(
+    *,
+    command: list[str],
+    report_callable: Callable[[], object],
+    dry_run: bool,
+    bar: tqdm | None = None,
+    skip_errors: bool = False,
+) -> bool:
+    if dry_run:
+        return _run_command(command, dry_run=True, bar=bar, skip_errors=skip_errors)
+
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            report_callable()
+    except Exception as exc:
+        stdout_text = stdout_buffer.getvalue().rstrip()
+        stderr_text = stderr_buffer.getvalue().rstrip()
+        if stdout_text:
+            _write(stdout_text, bar=bar)
+        if stderr_text:
+            _write(stderr_text, bar=bar)
+        if not stdout_text and not stderr_text and str(exc):
+            _write(str(exc), bar=bar)
+        if skip_errors:
+            return False
+        raise subprocess.CalledProcessError(1, command) from exc
+    return True
+
+
 def _default_max_images(preset: str) -> int:
     if preset == "full":
         return 0
@@ -494,12 +665,35 @@ def main() -> None:
         dest="team_summary",
         action="store_false",
     )
+    parser.add_argument(
+        "--failure-gallery",
+        dest="failure_gallery",
+        action="store_true",
+        help="Generate failure_gallery.html after the aggregate report.",
+    )
+    parser.add_argument(
+        "--no-failure-gallery",
+        dest="failure_gallery",
+        action="store_false",
+    )
+    parser.add_argument(
+        "--compat-dashboard",
+        dest="compat_dashboard",
+        action="store_true",
+        help="Write outputs/dashboard.html as a compatibility mirror of the local dashboard.",
+    )
+    parser.add_argument(
+        "--no-compat-dashboard",
+        dest="compat_dashboard",
+        action="store_false",
+    )
     parser.set_defaults(team_summary=True)
+    parser.set_defaults(failure_gallery=True, compat_dashboard=True)
     try:
         args = parser.parse_args()
 
         if args.list_plugins:
-            _list_plugins()
+            _list_plugins(args.profile or "yolo11n_lab_v1")
             return
 
         # Resolve workers: integer or 'auto'
@@ -523,6 +717,8 @@ def main() -> None:
             config_path=config,
             profile_name=args.profile,
         )
+        resolved_profile = pipeline_profile_name(base_config)
+        include_extra = should_include_extra_plugins(base_config)
         python_bin_path = Path(args.python_bin).expanduser()
         if not python_bin_path.is_file():
             raise FileNotFoundError(f"Python binary not found: {python_bin_path}")
@@ -534,11 +730,19 @@ def main() -> None:
         if args.profile and attacks_arg is None:
             attacks = profile_canonical_attacks(args.profile)
         else:
-            attacks = _parse_attacks(attacks_arg or ",".join(DEFAULT_ATTACKS))
+            attacks = _parse_attacks(
+                attacks_arg or ",".join(DEFAULT_ATTACKS),
+                profile_name=resolved_profile,
+                include_extra=include_extra,
+            )
         if args.profile and defenses_arg is None:
             raw_defenses = profile_canonical_defenses(args.profile)
         else:
-            raw_defenses = _parse_defenses(defenses_arg or ",".join(DEFAULT_DEFENSES))
+            raw_defenses = _parse_defenses(
+                defenses_arg or ",".join(DEFAULT_DEFENSES),
+                profile_name=resolved_profile,
+                include_extra=include_extra,
+            )
         defenses = [d for d in raw_defenses if d.lower() != "none"]
         authoritative_metric = resolved_authoritative_metric(base_config)
 
@@ -841,15 +1045,20 @@ def main() -> None:
 
         # --- Phase 4: Reports ---
         if 4 in phases:
-            report_steps = 3 if args.team_summary else 2
+            report_steps = 2 + int(args.team_summary) + int(args.failure_gallery)
             print(f"[{_now()}] Phase 4/reports: generating ({report_steps} report(s))...")
             t0_p4 = time.monotonic()
             with tqdm(total=report_steps, desc="  reports", unit="report", dynamic_ncols=True) as bar4:
-                _run_command(
-                    _generate_framework_report_command(
-                        python_bin=args.python_bin,
+                framework_report_command = _generate_framework_report_command(
+                    python_bin=args.python_bin,
+                    runs_root=runs_root,
+                    output_dir=report_root,
+                )
+                _run_report_callable(
+                    command=framework_report_command,
+                    report_callable=lambda: _write_framework_report(
                         runs_root=runs_root,
-                        output_dir=report_root,
+                        report_root=report_root,
                     ),
                     dry_run=args.dry_run,
                     bar=bar4,
@@ -857,43 +1066,63 @@ def main() -> None:
                 bar4.set_description("  reports | framework report done")
                 bar4.update(1)
                 if args.team_summary:
-                    _run_command(
-                        _generate_team_summary_command(
-                            python_bin=args.python_bin,
-                            report_root=report_root,
-                        ),
+                    team_summary_command = _generate_team_summary_command(
+                        python_bin=args.python_bin,
+                        report_root=report_root,
+                    )
+                    _run_report_callable(
+                        command=team_summary_command,
+                        report_callable=lambda: _write_team_summary(report_root=report_root),
                         dry_run=args.dry_run,
                         bar=bar4,
                     )
                     bar4.set_description("  reports | team summary done")
                     bar4.update(1)
-                _run_command(
-                    _generate_failure_gallery_command(
+                if args.failure_gallery:
+                    failure_gallery_output = report_root / "failure_gallery.html"
+                    failure_gallery_command = _generate_failure_gallery_command(
                         python_bin=args.python_bin,
                         runs_root=runs_root,
-                        output_path=report_root / "failure_gallery.html",
+                        output_path=failure_gallery_output,
+                    )
+                    _run_report_callable(
+                        command=failure_gallery_command,
+                        report_callable=lambda: _write_failure_gallery(
+                            runs_root=runs_root,
+                            output_path=failure_gallery_output,
+                        ),
+                        dry_run=args.dry_run,
+                        bar=bar4,
+                        skip_errors=True,
+                    )
+                    bar4.set_description("  reports | failure gallery done")
+                    bar4.update(1)
+                dashboard_out = report_root / "dashboard.html"
+                compat_dashboard_out = (
+                    Path("outputs/dashboard.html").resolve()
+                    if args.compat_dashboard
+                    else None
+                )
+                dashboard_command = _generate_dashboard_command(
+                    python_bin=args.python_bin,
+                    report_root=report_root,
+                    output_path=dashboard_out,
+                    compat_output_path=compat_dashboard_out,
+                    update_pages=args.update_pages,
+                )
+                _run_report_callable(
+                    command=dashboard_command,
+                    report_callable=lambda: _write_dashboard(
+                        report_root=report_root,
+                        output_path=dashboard_out,
+                        compat_output_path=compat_dashboard_out,
+                        update_pages=args.update_pages,
                     ),
                     dry_run=args.dry_run,
                     bar=bar4,
-                    skip_errors=True,
                 )
-                bar4.set_description("  reports | failure gallery done")
+                bar4.set_description("  reports | dashboard done")
                 bar4.update(1)
-
-            # Generate dashboard
-            dashboard_out = Path("outputs/dashboard.html").resolve()
-            _run_command(
-                build_repo_python_command(
-                    REPO_ROOT,
-                    "scripts/generate_dashboard.py",
-                    ["--reports-root", str(report_root.parent), "--output", str(dashboard_out)]
-                    + ([] if args.update_pages else ["--no-pages"]),
-                    python_bin=args.python_bin,
-                ),
-                dry_run=args.dry_run,
-                bar=bar4,
-            )
-            bar4.set_description("  reports | dashboard done")
 
             phase_times[4] = time.monotonic() - t0_p4
             print(f"[{_now()}] Phase 4/reports: done ({_fmt_elapsed(phase_times[4])})")
@@ -944,11 +1173,14 @@ def main() -> None:
             print(f"Per-attack summaries: {report_root}/summary_*.txt")
             print(f"Aggregate CSV:        {report_root}/framework_run_summary.csv")
             print(f"Aggregate Markdown:   {report_root}/framework_run_report.md")
-            print(f"Failure Gallery:      {report_root}/failure_gallery.html")
             if args.team_summary:
                 print(f"Team JSON summary:    {report_root}/team_summary.json")
                 print(f"Team MD summary:      {report_root}/team_summary.md")
-            print("Dashboard:            outputs/dashboard.html")
+            if args.failure_gallery:
+                print(f"Failure Gallery:      {report_root}/failure_gallery.html")
+            print(f"Dashboard (local):    {report_root}/dashboard.html")
+            if args.compat_dashboard:
+                print("Dashboard (compat):   outputs/dashboard.html")
         print("=" * 60)
     except (ValueError, FileNotFoundError, subprocess.CalledProcessError, PermissionError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

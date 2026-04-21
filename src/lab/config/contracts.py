@@ -36,9 +36,11 @@ FRAMEWORK_METRICS_SCHEMA_VERSION = SCHEMA_ID_FRAMEWORK_METRICS
 FRAMEWORK_RUN_SUMMARY_SCHEMA_VERSION = SCHEMA_ID_FRAMEWORK_RUN_SUMMARY
 LEGACY_COMPAT_CSV_SCHEMA_VERSION = SCHEMA_ID_LEGACY_COMPAT_CSV
 
-# Canonical runtime entrypoint.
+# Canonical runtime entrypoints.
 CANONICAL_RUNTIME_ENTRYPOINT = "scripts/run_unified.py"
 CANONICAL_RUNTIME_COMMANDS = ("run-one", "sweep")
+CANONICAL_SWEEP_ENTRYPOINT = "scripts/run_unified.py sweep"
+COMPAT_SWEEP_BACKEND = "scripts/sweep_and_report.py"
 
 # Canonical pipeline semantics markers and transform orders.
 PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE = "attack_then_defense"

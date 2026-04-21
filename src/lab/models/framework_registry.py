@@ -11,7 +11,13 @@ register_model = _registry.register
 get_model_class = _registry.get
 list_registered_models = _registry.list
 
-_loader: AdapterLoader[BaseModel] = AdapterLoader("lab.models", "model", _registry)
+_loader: AdapterLoader[BaseModel] = AdapterLoader(
+    ("lab.plugins.core.models", "lab.plugins.extra.models"),
+    "model",
+    _registry,
+    core_package_names=("lab.plugins.core.models",),
+    extra_package_names=("lab.plugins.extra.models",),
+)
 
 build_model = _loader.build
 list_available_models = _loader.list_available
