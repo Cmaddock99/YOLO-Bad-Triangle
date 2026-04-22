@@ -2,8 +2,7 @@
 
 YOLO-Bad-Triangle is a modular adversarial-ML lab for YOLO object detection.
 It is built to run repeatable attack and defense experiments, write structured
-artifacts, and generate report-ready summaries that a teammate can compare over
-time.
+artifacts, and generate report-ready summaries that you can compare over time.
 
 The repository is framework-first:
 
@@ -24,6 +23,11 @@ Effective layout:
 `YOLO-Bad-Triangle` is the only canonical runtime surface for the attack-defend-fortify
 pipeline. The separate `Adversarial_Patch` repository is research/artifact input only;
 it is not a second orchestrator and it is not required to execute the v1 pipeline.
+
+This is now a single-maintainer project. Optimize ongoing cleanup for
+reproducibility, local operability, and archive clarity. Preserve public CLI
+and artifact names unless they are intentionally migrated; legacy names such as
+`team_summary.*` remain supported compatibility surfaces.
 
 ## What the project does
 
@@ -46,7 +50,7 @@ distinguish this canonical era from older legacy outputs.
 
 Fresh-clone note: the repo intentionally does not track local model weights,
 COCO images, label folders, or your `.env`. Use
-[docs/FRESH_CLONE_SETUP.md](docs/FRESH_CLONE_SETUP.md) for the exact teammate
+[docs/FRESH_CLONE_SETUP.md](docs/FRESH_CLONE_SETUP.md) for the exact local
 bootstrap path and expected local file layout.
 
 ```bash
@@ -202,7 +206,7 @@ import concrete reporting submodules directly.
 Remaining root payload outside the core runtime is intentionally classified:
 
 - Optional maintained workflows: root wrapper entrypoints for automation, training, reporting, and demo flows
-- Manual utilities: `scripts/check_environment.py`, `scripts/analyze_per_class.py`, `scripts/cw_tune.py`, `scripts/generate_slide_tables.py`, `scripts/setup_dataset.sh`, `scripts/restart_after_cycle.sh`
+- Manual utility: `scripts/check_environment.py`
 
 ## Canonical vs manual-only defenses
 
@@ -228,8 +232,7 @@ is retained as diagnostic output only and a future pivot, not the v1 gate.
 
 - `PROJECT_STATE.md` - current repo map and canonical paths
 - `CODE_QUALITY_STANDARD.md` - repo quality bar, review rubric, and audit commands
-- `docs/TEAM_GUIDE.md` - teammate onboarding guide
-- `docs/PIPELINE_IN_PLAIN_ENGLISH.md` - plain-language walkthrough
+- `docs/FRESH_CLONE_SETUP.md` - local machine bootstrap and asset checklist
 - `docs/LOOP_DESIGN.md` - auto-cycle design and longitudinal workflow
 - `docs/ATTACK_TEMPLATE.md` - adding a new attack
 - `docs/DEFENSE_TEMPLATE.md` - adding a new defense

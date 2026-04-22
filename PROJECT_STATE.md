@@ -15,6 +15,13 @@
 - Digital and printable patch work remain out of the canonical v1 ranked/tuned loop
 - Future patch support must enter as a profile-aware attack extension, not as a second runner
 
+## Maintenance Posture
+
+- Single-maintainer repository as of 2026-04-21
+- Prioritize stable entrypoints, reproducible outputs, and archive clarity over team onboarding flow
+- Keep compatibility names such as `team_summary.*` stable until they are intentionally migrated
+- Prefer `operator`, `maintainer`, `local machine`, or `current workspace` wording in new docs instead of `teammate`
+
 ---
 
 Current architecture reference for the repository as it exists today.
@@ -35,7 +42,7 @@ scripts/run_unified.py sweep
   -> scripts/sweep_and_report.py (compatibility backend)
   -> repeated run_experiment.py invocations
   -> framework report generation
-  -> optional team summary generation
+  -> optional `team_summary.*` generation (legacy name; still supported)
 
 scripts/auto_cycle.py
   -> --profile yolo11n_lab_v1
@@ -70,7 +77,7 @@ for coding agents.
 - Supported compatibility entrypoints: root `scripts/*.py` workflow wrappers
 - Supported compatibility shims: old flat adapter paths under `lab.attacks`, `lab.defenses`, and `lab.models`
 - Supported compatibility facade: `lab.reporting` umbrella imports
-- Manual utilities: `scripts/check_environment.py`, `scripts/analyze_per_class.py`, `scripts/cw_tune.py`, `scripts/generate_slide_tables.py`, `scripts/setup_dataset.sh`, `scripts/restart_after_cycle.sh`
+- Manual utility: `scripts/check_environment.py`
 
 ## Current transform order
 
@@ -207,8 +214,8 @@ Report outputs:
 
 - `outputs/framework_reports/<sweep_id>/framework_run_report.md`
 - `outputs/framework_reports/<sweep_id>/framework_run_summary.csv`
-- `outputs/framework_reports/<sweep_id>/team_summary.json`
-- `outputs/framework_reports/<sweep_id>/team_summary.md`
+- `outputs/framework_reports/<sweep_id>/team_summary.json` (legacy compatibility name)
+- `outputs/framework_reports/<sweep_id>/team_summary.md` (legacy compatibility name)
 - `outputs/framework_reports/<sweep_id>/dashboard.html`
 
 Authoritative canonical sweep outputs are the framework CSV/Markdown report

@@ -17,6 +17,9 @@ ignore = ["E501"]
 "tests/*" = ["E402"]
 
 [tool.mypy]
+# Current enforced scope is limited to the paths below. Planned expansion order:
+# keep src/lab/runners stable, then extend to src/lab/plugins, src/lab/config,
+# src/lab/attacks, src/lab/defenses, and finally scripts/automation/auto_cycle.py.
 python_version = "3.11"
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]

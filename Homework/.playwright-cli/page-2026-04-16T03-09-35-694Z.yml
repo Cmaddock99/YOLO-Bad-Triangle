@@ -1,6 +1,0 @@
-- generic [ref=e5]:
-  - generic [ref=e7]:
-    - navigation [ref=e9]:
-      - img [ref=e14] [cursor=pointer]
-    - button "Start" [ref=e18]
-  - button "MITRE ATT&CK® Navigator v4.6.4" [ref=e19]

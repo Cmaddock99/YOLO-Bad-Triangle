@@ -39,7 +39,8 @@ YOLO-Bad-Triangle/
       instances_val2017_subset500.json
 ```
 
-The DPC checkpoint can live somewhere else, but putting it in the repo root is the easiest team convention.
+The DPC checkpoint can live somewhere else, but putting it in the repo root is
+the easiest local convention.
 
 ## Current recommended DPC checkpoint
 
@@ -47,7 +48,8 @@ Use:
 
 `dpc_unet_adversarial_finetuned.pt`
 
-If you are handed multiple DPC checkpoints and just need the current deployed one, start with that filename.
+If you have multiple local DPC checkpoints and just need the current default
+one, start with that filename.
 
 ## Setup steps
 
@@ -151,9 +153,10 @@ PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
 - images are present but `coco/val2017_subset500/labels/` is missing
 - fix: add the matching YOLO-format label files
 
-## Team handoff rule
+## Local asset persistence rule
 
-When onboarding a new teammate, send them:
+When you bring up a new machine or replace your local workspace, make sure you
+preserve or recopy:
 
 - the repo URL and branch name
 - `yolo26n.pt`

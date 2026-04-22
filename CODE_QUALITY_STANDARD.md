@@ -6,12 +6,12 @@ common industry practice:
 
 - explicit public contracts
 - small, reviewable changes
-- lint, type, and test gates
+- configured lint, type, and test gates
 - severity-ranked review findings
 - backwards-compatibility discipline
 - honest documentation
 
-Use this file as the quality contract for humans, AI agents, and review.
+Use this file as the quality contract for humans, AI agents, and self-review.
 
 ## Non-Negotiables
 
@@ -39,7 +39,7 @@ A change is done only when all of the following are true:
 
 - the change is minimal, coherent, and understandable
 - affected behavior is tested at the right level
-- touched code passes the relevant lint/type/test checks
+- touched code passes the relevant configured lint/type/test checks
 - compatibility paths are tested when wrappers or shims are involved
 - user-facing behavior, paths, and contracts are either preserved or
   intentionally updated
@@ -132,10 +132,11 @@ class of checks.
   - targeted `pytest`
   - relevant smoke or dry-run path
   - `ruff`
-  - `mypy` when the change touches typed orchestration or contracts.
-    Scope is currently limited to `src/lab/eval/`, `src/lab/reporting/`, and
-    `src/lab/runners/` (see `[tool.mypy].files` in `pyproject.toml`); changes
-    outside these paths are not type-checked by the gate.
+  - `mypy` when the change touches typed orchestration or contracts inside the
+    configured mypy surface. Current gate scope is limited to
+    `src/lab/eval/`, `src/lab/reporting/`, and `src/lab/runners/` (see
+    `[tool.mypy].files` in `pyproject.toml`); changes outside these paths are
+    not type-checked by the gate.
 - CI/tooling changes:
   - exact contract tests for command shape
   - one real smoke invocation when possible
@@ -150,14 +151,30 @@ Quick structural/compatibility audit:
 ./.venv/bin/python scripts/ci/run_repo_standards_audit.py --lane compat
 ```
 
-Broader repo-quality audit:
+Broad configured repo-quality audit:
 
 ```bash
 ./.venv/bin/python scripts/ci/run_repo_standards_audit.py --lane full
 ```
 
-The `full` lane intentionally includes the repo quality gate and may surface
-known repo-wide issues such as current mypy debt.
+The `full` lane runs the fast quality gate plus the compatibility audit:
+`ruff`, configured `mypy`, `pytest -q` (with integration tests excluded by the
+default pytest marker config), and the compatibility test subset.
+
+Current `mypy` gate scope is `src/lab/eval/`, `src/lab/reporting/`, and
+`src/lab/runners/`. Other `src/lab/` subpackages and `scripts/` are not
+type-checked by this audit. Treat `[tool.mypy].files` in `pyproject.toml` as
+the authoritative scope.
+
+Planned mypy expansion order:
+
+1. keep `src/lab/runners/` clean as the existing baseline
+2. extend to `src/lab/plugins/`
+3. extend to `src/lab/config/`
+4. extend to `src/lab/attacks/`
+5. extend to `src/lab/defenses/`
+6. evaluate `scripts/automation/auto_cycle.py` separately after the library
+   surfaces are clean
 
 ## Drop-In Agent Prompt
 
@@ -173,7 +190,7 @@ Requirements:
 - Do not leave dead code, placeholder code, commented-out logic, or untested compatibility hacks.
 - Keep imports and module boundaries intentional; avoid broad facades when a concrete module is clearer.
 - Add or update tests for changed behavior, and add compatibility tests when wrappers or shims are involved.
-- Run the relevant lint and test subset before stopping.
+- Run the relevant configured lint/type/test subset before stopping.
 - In your final summary, report:
   1. what changed,
   2. what was verified,
@@ -182,9 +199,9 @@ Requirements:
 If the result would score below 10/12 on correctness, simplicity, boundary hygiene, testability, compatibility discipline, and documentation honesty, keep refining before stopping.
 ```
 
-## PR Checklist
+## Change Checklist
 
-Use the repo PR template and confirm:
+Use this checklist before you merge, tag, or archive a change:
 
 - scope is minimal and coherent
 - public behavior is preserved or intentionally documented

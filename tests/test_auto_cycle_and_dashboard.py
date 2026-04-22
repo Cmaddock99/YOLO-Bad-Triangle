@@ -743,6 +743,50 @@ class AutoCyclePhaseTwoDesignTest(unittest.TestCase):
                 auto_cycle.OUTPUTS = original_outputs
                 auto_cycle.WARM_START_FILE = original_warm
 
+    def test_phase3_ignores_malformed_utf8_warm_start_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_outputs = Path(tmp)
+            original_outputs = auto_cycle.OUTPUTS
+            original_warm = auto_cycle.WARM_START_FILE
+            auto_cycle.OUTPUTS = tmp_outputs
+            auto_cycle.WARM_START_FILE = tmp_outputs / "cycle_warm_start.json"
+            auto_cycle.WARM_START_FILE.write_bytes(b"\xff\xfe\x00")
+            state = {
+                "top_attacks": ["deepfool"],
+                "top_defenses": ["bit_depth"],
+                "runs_root": "outputs/framework_runs/test",
+                "best_attack_params": {},
+                "best_defense_params": {},
+                "tune_history": {},
+            }
+            try:
+                with mock.patch("scripts.auto_cycle.pre_tune_consistency_check", return_value=["bit_depth"]), mock.patch(
+                    "scripts.auto_cycle.read_metrics",
+                    side_effect=[
+                        {"predictions": {"confidence": {"mean": 0.8}, "total_detections": 100}},
+                        {"predictions": {"confidence": {"mean": 0.7}, "total_detections": 80}},
+                    ],
+                ), mock.patch("scripts.auto_cycle.run_single", return_value=True), mock.patch(
+                    "scripts.auto_cycle._three_point_scan",
+                    return_value=None,
+                ), mock.patch(
+                    "scripts.auto_cycle._coordinate_descent",
+                    side_effect=[({}, 0.1, []), ({}, 0.2, [])],
+                ), mock.patch("scripts.auto_cycle.save_state"), mock.patch(
+                    "scripts.auto_cycle.log"
+                ) as log_mock:
+                    ok = auto_cycle.phase3(state)
+            finally:
+                auto_cycle.OUTPUTS = original_outputs
+                auto_cycle.WARM_START_FILE = original_warm
+
+        self.assertTrue(ok)
+        self.assertTrue(state["phase3_complete"])
+        warning_messages = [call.args[0] for call in log_mock.call_args_list if call.args]
+        self.assertTrue(
+            any("warm-start file unreadable" in str(message) for message in warning_messages)
+        )
+
     def test_checkpoint_update_touches_pause_file_and_updates_fingerprint(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_outputs = Path(tmp)
