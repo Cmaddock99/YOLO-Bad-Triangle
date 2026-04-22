@@ -12,6 +12,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _COMPAT_TESTS = [
+    "tests/test_cli_wrapper_entrypoints.py",
+    "tests/test_core_adapter_compat.py",
+    "tests/test_extra_adapter_compat.py",
     "tests/test_repo_structure_compat.py",
     "tests/test_plugin_loader_routing.py",
     "tests/test_training_script_compat.py",

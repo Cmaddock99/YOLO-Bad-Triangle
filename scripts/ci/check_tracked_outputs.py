@@ -32,11 +32,6 @@ DISALLOWED_PATTERNS = (
 GRANDFATHERED_LOCAL_ONLY_OUTPUTS = frozenset(
     {
         "outputs/delegated_phase4.log",
-        "outputs/eval_normalize_fix_blur.log",
-        "outputs/eval_normalize_fix_deepfool.log",
-        "outputs/eval_r2_blur.log",
-        "outputs/eval_r2_deepfool_old.log",
-        "outputs/eval_r2_deepfool_strong.log",
         "outputs/sweep_deepfool_strong.log",
         "outputs/sweep_eot_pgd_mac.log",
         "outputs/training_log.txt",
