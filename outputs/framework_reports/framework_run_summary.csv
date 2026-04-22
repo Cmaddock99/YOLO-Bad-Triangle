@@ -1,3 +1,0 @@
-run_name,run_dir,model,attack,defense,seed,prediction_count,images_with_detections,total_detections,avg_confidence,validation_status,precision,recall,mAP50,mAP50-95
-phase6_metrics_no_val_smoke,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/phase6_metrics_no_val_smoke,yolo,none,none,42,6,6,16,0.784411795437336,missing,,,,
-phase6_metrics_with_val_smoke,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/phase6_metrics_with_val_smoke,yolo,none,none,42,4,4,12,0.7948640733957291,complete,0.7047237418497081,0.5317958856923016,0.5991404622367279,0.4370359443024839

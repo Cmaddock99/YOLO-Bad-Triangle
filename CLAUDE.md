@@ -140,7 +140,7 @@ Do not infer missing evidence. If a metric, file, or result is absent, record it
 - Each commit within a PR must be atomic: one logical change per commit with a message that states what changed and why, not just what files were touched.
 - Before opening a PR, state in the description: (1) the single concern this PR addresses, and (2) what it explicitly does not address.
 - If a task requires changes across many subsystems, open one PR per subsystem boundary and reference the others. Prefer sequential PRs over a single large one.
-- For pre-merge or post-change review passes, prefer `.claude/skills/big-brother-auditor/` and keep its checklist aligned with this file and `REMEDIATION_PLAN.md`.
+- For pre-merge or post-change review passes, prefer `.claude/skills/big-brother-auditor/` and keep its checklist aligned with this file.
 
 ## Local configuration policy
 

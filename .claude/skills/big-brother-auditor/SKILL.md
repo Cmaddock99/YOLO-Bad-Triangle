@@ -13,7 +13,6 @@ Act like a principal engineer reviewing adversarial-ML infrastructure that must 
 - A review scope: file paths, a diff summary, a branch description, or a request like "audit the recent changes to auto_cycle".
 - If scope is broad, resolve the smallest concrete set of touched files first.
 - Always read `CLAUDE.md` before judging.
-- Read `REMEDIATION_PLAN.md` when the scope touches state, cycle automation, reporting, schemas, or other integrity-sensitive paths.
 
 ## Steps
 1. Resolve the exact review scope.
