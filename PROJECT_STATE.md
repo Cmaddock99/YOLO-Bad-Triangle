@@ -4,6 +4,7 @@
 
 **YOLOv8 Direction A: COMPLETE** (verdict: PAUSE c_dog, 2026-04-09)
 - Closure record: `docs/analysis/direction_a_closure_20260409.md`
+- Gate 0 record: `docs/analysis/gate0_canonical_attack_set_v1_20260422.md`
 - c_dog checkpoint (`dpc_unet_adversarial_finetuned.pt`) is YOLOv8-specific; do not use for YOLOv11 training
 
 **One Real Pipeline v1: IMPLEMENTED**
@@ -61,6 +62,22 @@ tree. Use `scripts/run_unified.py` for the public runtime surface. Keep
 
 `Adversarial_Patch` is an external research/artifact workspace. It is not part
 of the canonical runtime surface and is not a second orchestration path.
+
+## Manual patch handoff
+
+The current patch integration path is the manual-only `pretrained_patch`
+attack. Training source of truth remains
+`/Users/lurch/Desktop/Adversarial_Patch/experiments/ultralytics_patch.py`.
+
+Supported artifact handoff layout:
+
+- required artifact: `outputs/<run>/patches/patch.png`
+- optional provenance sidecar: `outputs/<run>/results.json`
+
+When the artifact follows that exact layout, the runtime imports selected
+sidecar fields into run-level attack metadata under `artifact_provenance`.
+Patch training, patch demos, physical benchmarks, and defense-eval research
+remain outside the canonical v1 loop.
 
 Local full-quality command: `python scripts/ci/run_repo_quality_gate.py --lane ci`.
 `scripts/check_environment.py` remains a separate local-machine prerequisite

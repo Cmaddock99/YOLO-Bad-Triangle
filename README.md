@@ -115,6 +115,32 @@ profile's canonical attack and defense catalogs automatically.
 job. On a single GPU or memory-constrained machine, `--workers 1` is usually
 the safer choice.
 
+## Manual Patch Workflow
+
+External patch training stays in `/Users/lurch/Desktop/Adversarial_Patch/experiments/ultralytics_patch.py`.
+`YOLO-Bad-Triangle` only consumes the resulting patch artifact through the
+manual-only `pretrained_patch` attack; it does not train or tune patches inside
+the canonical v1 loop.
+
+Supported handoff layout:
+
+- required artifact: `outputs/<run>/patches/patch.png`
+- optional provenance sidecar: `outputs/<run>/results.json`
+
+When the artifact follows that exact layout, the runtime records selected
+sidecar fields as run-level `artifact_provenance` in `run_summary.json` and
+`metrics.json`. Prediction-level metadata remains placement-only.
+
+Example:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/run_unified.py run-one \
+  --profile yolo11n_lab_v1 \
+  --set attack.name=pretrained_patch \
+  --set attack.params.artifact_path=/abs/path/to/outputs/yolov8n_patch_v2/patches/patch.png \
+  --set runner.run_name=manual_pretrained_patch
+```
+
 ### 4. List live plugin names
 
 ```bash
@@ -232,6 +258,7 @@ is retained as diagnostic output only and a future pivot, not the v1 gate.
 
 - `PROJECT_STATE.md` - current repo map and canonical paths
 - `CODE_QUALITY_STANDARD.md` - repo quality bar, review rubric, and audit commands
+- `docs/analysis/gate0_canonical_attack_set_v1_20260422.md` - archived Direction A baseline and evidence authority
 - `docs/FRESH_CLONE_SETUP.md` - local machine bootstrap and asset checklist
 - `docs/LOOP_DESIGN.md` - auto-cycle design and longitudinal workflow
 - `docs/ATTACK_TEMPLATE.md` - adding a new attack

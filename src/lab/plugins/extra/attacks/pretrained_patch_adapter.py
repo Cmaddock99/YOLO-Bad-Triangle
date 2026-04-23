@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,16 @@ from PIL import Image
 
 from lab.attacks.base_attack import BaseAttack
 from lab.attacks.framework_registry import register_attack_plugin
+
+_ARTIFACT_PROVENANCE_KEYS = (
+    "run_name",
+    "model",
+    "joint_models",
+    "patch_size",
+    "training_images",
+    "detection_suppression_pct",
+    "manifest_path",
+)
 
 
 @dataclass
@@ -28,6 +39,7 @@ class PretrainedPatchAttackAdapter(BaseAttack):
     _artifact_sha256: str = field(init=False, repr=False)
     _artifact_size: tuple[int, int] = field(init=False, repr=False)
     _base_patch_bgr: np.ndarray = field(init=False, repr=False)
+    _artifact_provenance: dict[str, Any] | None = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         artifact_raw = str(self.artifact_path or "").strip()
@@ -52,6 +64,33 @@ class PretrainedPatchAttackAdapter(BaseAttack):
         self.artifact_path = str(self._artifact_path)
         self.clean_detect_conf = float(self.clean_detect_conf)
         self.clean_detect_iou = float(self.clean_detect_iou)
+        self._artifact_provenance = self._load_artifact_provenance(self._artifact_path)
+
+    @staticmethod
+    def _results_sidecar_path(artifact_path: Path) -> Path | None:
+        if artifact_path.name != "patch.png":
+            return None
+        if artifact_path.parent.name != "patches":
+            return None
+        return artifact_path.parent.parent / "results.json"
+
+    @staticmethod
+    def _load_artifact_provenance(artifact_path: Path) -> dict[str, Any] | None:
+        sidecar_path = PretrainedPatchAttackAdapter._results_sidecar_path(artifact_path)
+        if sidecar_path is None or not sidecar_path.is_file():
+            return None
+        try:
+            payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        provenance = {
+            key: payload[key]
+            for key in _ARTIFACT_PROVENANCE_KEYS
+            if key in payload
+        }
+        return provenance or None
 
     @staticmethod
     def _normalize_resize_to(value: tuple[int, int] | list[int] | None) -> tuple[int, int] | None:
@@ -156,7 +195,7 @@ class PretrainedPatchAttackAdapter(BaseAttack):
             left = image.shape[1] // 2 - patch_w // 2
         attacked = image.copy()
         attacked[top : top + patch_h, left : left + patch_w] = patch_bgr
-        return attacked, {
+        metadata: dict[str, Any] = {
             "attack": "pretrained_patch",
             "artifact_path": str(self._artifact_path),
             "artifact_sha256": self._artifact_sha256,
@@ -178,3 +217,6 @@ class PretrainedPatchAttackAdapter(BaseAttack):
                 "fallback_used": not person_found,
             },
         }
+        if self._artifact_provenance is not None:
+            metadata["artifact_provenance"] = dict(self._artifact_provenance)
+        return attacked, metadata
