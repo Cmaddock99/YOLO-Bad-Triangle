@@ -355,7 +355,7 @@ def _main() -> None:
     _write_manifest(manifest_path, manifest)
 
     print("=== PROMOTION READY ===")
-    print(f"cp {shlex.quote(str(checkpoint_a))} {shlex.quote(str(checkpoint_a) + '.prev')}")
+    print(f"cp {shlex.quote(str(checkpoint_a))} {shlex.quote(str(checkpoint_a) + '.bak')}")
     print(f"mv {shlex.quote(str(candidate_output))} {shlex.quote(str(checkpoint_a))}")
 
 

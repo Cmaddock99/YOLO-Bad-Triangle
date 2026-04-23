@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Run the repository quality gate with local and CI-parity lanes."""
+"""Run the repository quality gate with local and CI-parity lanes.
+
+When ``--python-bin`` is omitted, subprocesses prefer the repository virtualenv
+interpreter and fall back to the current interpreter only when no repo venv
+exists.
+"""
 from __future__ import annotations
 
 import argparse
@@ -67,6 +72,29 @@ def _build_env() -> dict[str, str]:
     return env
 
 
+def _ensure_ci_demo_input(repo_root: Path) -> Path:
+    import cv2
+    import numpy as np
+
+    source_dir = repo_root / "outputs" / "ci_demo" / "images"
+    source_dir.mkdir(parents=True, exist_ok=True)
+    image_path = source_dir / "ci.jpg"
+    image = np.full((128, 128, 3), 127, dtype=np.uint8)
+    wrote = cv2.imwrite(str(image_path), image)
+    if not wrote:
+        raise RuntimeError(f"Failed to write CI demo image: {image_path}")
+    return image_path
+
+
+def _resolve_python_bin(explicit_python_bin: str | None) -> str:
+    if explicit_python_bin is not None:
+        return explicit_python_bin
+    repo_python = REPO_ROOT / ".venv" / "bin" / "python"
+    if repo_python.is_file():
+        return str(repo_python)
+    return sys.executable
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Run the repository quality gate with a fast lane or CI-parity lane."
@@ -79,13 +107,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--python-bin",
-        default=sys.executable,
-        help="Python interpreter to use for Python-script subprocesses.",
+        default=None,
+        help=(
+            "Python interpreter override for subprocesses. Defaults to "
+            "REPO_ROOT/.venv/bin/python when present, otherwise the current interpreter."
+        ),
     )
     args = parser.parse_args(argv)
+    python_bin = _resolve_python_bin(args.python_bin)
+
+    if args.lane == "ci":
+        _ensure_ci_demo_input(REPO_ROOT)
 
     env = _build_env()
-    for command in _build_lane_commands(args.python_bin, args.lane):
+    for command in _build_lane_commands(python_bin, args.lane):
         print(f"$ PYTHONPATH=src {shlex.join(command)}", flush=True)
         completed = subprocess.run(
             command,

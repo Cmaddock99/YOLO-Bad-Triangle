@@ -28,20 +28,6 @@ jobs:
           pip install -r requirements-dev.txt
           pip install "ruff==0.15.8"
 
-      - name: Create tiny CI demo image
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import cv2
-          import numpy as np
-
-          out = Path("outputs/ci_demo/images")
-          out.mkdir(parents=True, exist_ok=True)
-          img = np.full((128, 128, 3), 127, dtype=np.uint8)
-          cv2.imwrite(str(out / "ci.jpg"), img)
-          print(f"Wrote demo image to {out / 'ci.jpg'}")
-          PY
-
       - name: Run repo quality gate
         run: python scripts/ci/run_repo_quality_gate.py --lane ci
 

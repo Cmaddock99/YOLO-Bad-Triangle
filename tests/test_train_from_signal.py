@@ -112,6 +112,8 @@ class TrainFromSignalTest(unittest.TestCase):
         self.assertIn("=== PROMOTION READY ===", stdout)
         self.assertIn("cp ", stdout)
         self.assertIn("mv ", stdout)
+        self.assertIn(".pt.bak", stdout)
+        self.assertNotIn(".prev", stdout)
 
     def test_missing_signal_file_exits_nonzero(self) -> None:
         missing_signal = self.repo / "outputs" / "missing_signal.json"

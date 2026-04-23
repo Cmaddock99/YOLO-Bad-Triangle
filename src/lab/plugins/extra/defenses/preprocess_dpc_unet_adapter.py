@@ -17,6 +17,7 @@ from lab.defenses.dpc_unet_wrapper import (
     run_wrapper_multipass_on_bgr_image,
     run_wrapper_on_bgr_image,
     sharpen_image,
+    strict_load_with_report,
 )
 from lab.defenses.framework_registry import register_defense_plugin
 from lab.defenses.routing import RoutingThresholds, choose_route, detect_attack_signal
@@ -82,7 +83,15 @@ class _BaseCDogAdapter(BaseDefense):
             raise FileNotFoundError(f"DPC-UNet checkpoint not found: {checkpoint}")
         model = DPCUNet()
         state_dict = load_checkpoint_state_dict(checkpoint)
-        model.load_state_dict(state_dict, strict=True)
+        report = strict_load_with_report(model, state_dict)
+        if not report.strict_passed:
+            raise RuntimeError(
+                "DPC-UNet checkpoint strict load failed. "
+                f"checkpoint_path={checkpoint}; "
+                f"error={report.error_message or 'unknown strict load error'}; "
+                f"missing_keys={report.missing_keys}; "
+                f"unexpected_keys={report.unexpected_keys}"
+            )
         model.eval()
         self._model = model
         self._checkpoint_sha256 = _sha256_file(checkpoint)
