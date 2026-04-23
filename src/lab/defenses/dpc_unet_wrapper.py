@@ -126,9 +126,8 @@ class StrictLoadReport:
     error_message: str | None
 
 
-# TODO (WS5): wire strict_load_with_report into _ensure_loaded so strict loading with
-# a logged report is the default load path. Currently not called at runtime.
 def strict_load_with_report(model: nn.Module, state_dict: dict[str, Tensor]) -> StrictLoadReport:
+    """Run a strict load and capture key-level details for adapter error reporting."""
     try:
         incompatible = model.load_state_dict(state_dict, strict=True)
         return StrictLoadReport(
@@ -138,11 +137,12 @@ def strict_load_with_report(model: nn.Module, state_dict: dict[str, Tensor]) -> 
             error_message=None,
         )
     except RuntimeError as exc:
-        relaxed = model.load_state_dict(state_dict, strict=False)
+        model_keys = set(model.state_dict().keys())
+        loaded_keys = set(state_dict.keys())
         return StrictLoadReport(
             strict_passed=False,
-            missing_keys=list(relaxed.missing_keys),
-            unexpected_keys=list(relaxed.unexpected_keys),
+            missing_keys=sorted(model_keys - loaded_keys),
+            unexpected_keys=sorted(loaded_keys - model_keys),
             error_message=str(exc),
         )
 
@@ -287,4 +287,3 @@ def sharpen_image(image_bgr: np.ndarray, alpha: float = 0.5) -> np.ndarray:
         return image_bgr
     blurred = cv2.GaussianBlur(image_bgr, (0, 0), sigmaX=1.0)
     return cv2.addWeighted(image_bgr, 1.0 + alpha, blurred, -alpha, 0)
-

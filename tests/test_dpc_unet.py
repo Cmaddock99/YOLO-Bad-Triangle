@@ -101,6 +101,30 @@ class DPCUNetAdapterTests(unittest.TestCase):
             self.assertEqual(meta["defense"], "preprocess_dpc_unet")
             self.assertTrue(meta["finite"])
 
+    def test_preprocess_raises_runtime_error_when_checkpoint_has_missing_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ckpt = Path(tmp) / "broken_dpc.pt"
+            state_dict = dict(DPCUNet().state_dict())
+            state_dict.pop("final.bias")
+            torch.save(state_dict, ckpt)
+            defense = build_defense_plugin(
+                "c_dog",
+                checkpoint_path=str(ckpt),
+                timestep=50,
+                color_order="bgr",
+                scaling="zero_one",
+                normalize=True,
+            )
+            image = np.full((40, 60, 3), 120, dtype=np.uint8)
+
+            with self.assertRaises(RuntimeError) as ctx:
+                defense.preprocess(image)
+
+            message = str(ctx.exception)
+            self.assertIn(str(ckpt.resolve()), message)
+            self.assertIn("final.bias", message)
+            self.assertFalse(defense._loaded)
+
     def test_cdog_checkpoint_provenance_reports_resolved_path_and_sha256(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ckpt = Path(tmp) / "dpc.pt"

@@ -32,6 +32,7 @@ attacks/*/images/
 *.pth
 *.pt.bak
 *.pt.bak*
+*.pt.prev
 
 # Datasets
 coco/
