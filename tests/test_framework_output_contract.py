@@ -147,6 +147,10 @@ def _write_patch_artifact(
     Image.fromarray(rgb, mode="RGB").save(path)
 
 
+def _write_patch_results(path: Path, *, payload: dict[str, Any]) -> None:
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
 class FrameworkOutputContractTests(unittest.TestCase):
     def _write_image(self, path: Path, *, pixel_value: int = 127) -> None:
         image = np.full((40, 60, 3), pixel_value, dtype=np.uint8)
@@ -565,6 +569,71 @@ class FrameworkOutputContractTests(unittest.TestCase):
             self.assertTrue(prediction_attack["fallback_used"])
             self.assertEqual(prediction_attack["applied_patch_size"], [12, 10])
             self.assertNotIn("artifact_path", prediction_attack)
+
+    def test_pretrained_patch_imports_artifact_provenance_into_run_metadata_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "images"
+            source.mkdir(parents=True, exist_ok=True)
+            self._write_image(source / "a.png")
+            patch_run = root / "artifact_outputs" / "yolo11n_patch_v2"
+            artifact = patch_run / "patches" / "patch.png"
+            artifact.parent.mkdir(parents=True, exist_ok=True)
+            _write_patch_artifact(artifact, size=(12, 10), color_rgb=(255, 0, 0))
+            _write_patch_results(
+                patch_run / "results.json",
+                payload={
+                    "run_name": "yolo11n_patch_v2",
+                    "model": "yolo11n",
+                    "joint_models": ["yolo11n", "yolo26n"],
+                    "patch_size": 100,
+                    "training_images": 33,
+                    "detection_suppression_pct": 72.7,
+                    "manifest_path": "/tmp/common_all_models.txt",
+                    "checkpoint_path": "/tmp/checkpoint.pt",
+                },
+            )
+
+            config = {
+                "model": {"name": "yolo", "params": {"model": "dummy.pt"}},
+                "data": {"source_dir": str(source)},
+                "attack": {
+                    "name": "pretrained_patch",
+                    "params": {"artifact_path": str(artifact)},
+                },
+                "defense": {"name": "none", "params": {}},
+                "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
+                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "pretrained_patch_provenance"},
+            }
+
+            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+                summary = UnifiedExperimentRunner(config=config).run()
+
+            run_dir = Path(summary["run_dir"])
+            run_summary = json.loads((run_dir / "run_summary.json").read_text(encoding="utf-8"))
+            metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
+            prediction_records = [
+                json.loads(line)
+                for line in (run_dir / "predictions.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+
+            attack_meta = run_summary["attack"]["metadata"]
+            self.assertEqual(
+                attack_meta["artifact_provenance"],
+                {
+                    "run_name": "yolo11n_patch_v2",
+                    "model": "yolo11n",
+                    "joint_models": ["yolo11n", "yolo26n"],
+                    "patch_size": 100,
+                    "training_images": 33,
+                    "detection_suppression_pct": 72.7,
+                    "manifest_path": "/tmp/common_all_models.txt",
+                },
+            )
+            self.assertEqual(metrics["provenance"]["attack_metadata"], attack_meta)
+            self.assertNotIn("artifact_provenance", prediction_records[0]["metadata"]["attack"])
 
     def test_runner_filters_none_params_before_plugin_build_and_persistence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

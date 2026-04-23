@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,6 +29,14 @@ def _write_patch_artifact(
     rgb = np.zeros((height, width, 3), dtype=np.uint8)
     rgb[:, :] = np.asarray(color_rgb, dtype=np.uint8)
     Image.fromarray(rgb, mode="RGB").save(path)
+
+
+def _write_patch_results(
+    path: Path,
+    *,
+    payload: dict[str, object],
+) -> None:
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
 
 class FrameworkAttackPluginTest(unittest.TestCase):
@@ -190,6 +199,65 @@ class PretrainedPatchAttackTest(unittest.TestCase):
                 "prediction_metadata",
             },
         )
+
+    def test_pretrained_patch_loads_artifact_provenance_from_results_sidecar(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "outputs" / "yolov8n_patch_v2"
+            artifact = run_dir / "patches" / "patch.png"
+            artifact.parent.mkdir(parents=True, exist_ok=True)
+            _write_patch_artifact(artifact, size=(10, 8), color_rgb=(255, 0, 0))
+            _write_patch_results(
+                run_dir / "results.json",
+                payload={
+                    "run_name": "yolov8n_patch_v2",
+                    "model": "yolov8n",
+                    "joint_models": ["yolov8n", "yolo11n"],
+                    "patch_size": 100,
+                    "training_images": 18,
+                    "detection_suppression_pct": 90.0,
+                    "manifest_path": "/tmp/common_all_models.txt",
+                    "checkpoint_path": "/tmp/checkpoint.pt",
+                },
+            )
+
+            attack = build_attack_plugin("pretrained_patch", artifact_path=str(artifact))
+
+        _, meta = attack.apply(self.image, model=None, seed=7)
+
+        self.assertEqual(
+            meta["artifact_provenance"],
+            {
+                "run_name": "yolov8n_patch_v2",
+                "model": "yolov8n",
+                "joint_models": ["yolov8n", "yolo11n"],
+                "patch_size": 100,
+                "training_images": 18,
+                "detection_suppression_pct": 90.0,
+                "manifest_path": "/tmp/common_all_models.txt",
+            },
+        )
+        self.assertNotIn("artifact_provenance", meta["prediction_metadata"])
+
+    def test_pretrained_patch_standalone_artifact_omits_provenance(self) -> None:
+        attack = self._build_attack()
+
+        _, meta = attack.apply(self.image, model=None, seed=7)
+
+        self.assertNotIn("artifact_provenance", meta)
+
+    def test_pretrained_patch_ignores_malformed_results_sidecar(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "outputs" / "yolo11n_patch_v2"
+            artifact = run_dir / "patches" / "patch.png"
+            artifact.parent.mkdir(parents=True, exist_ok=True)
+            _write_patch_artifact(artifact, size=(10, 8), color_rgb=(255, 0, 0))
+            (run_dir / "results.json").write_text("{not valid json", encoding="utf-8")
+
+            attack = build_attack_plugin("pretrained_patch", artifact_path=str(artifact))
+
+        _, meta = attack.apply(self.image, model=None, seed=7)
+
+        self.assertNotIn("artifact_provenance", meta)
 
     def test_pretrained_patch_is_deterministic(self) -> None:
         attack = self._build_attack()
