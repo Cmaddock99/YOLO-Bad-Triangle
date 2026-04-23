@@ -1,8 +1,0 @@
-----------------------------------
-Attack effectiveness: +0.0%
-Defense recovery: n/a
-Confidence drop: +2.3%
-
-Conclusion:
-No effect detected (verify metric or params)
-----------------------------------

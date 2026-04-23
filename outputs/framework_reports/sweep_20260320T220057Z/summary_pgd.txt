@@ -1,8 +1,0 @@
-----------------------------------
-Attack effectiveness: +12.9%
-Defense recovery: n/a
-Confidence drop: +0.1%
-
-Conclusion:
-Moderate robustness
-----------------------------------
