@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 import sys
+import tempfile
 from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -378,6 +379,59 @@ class RunUnifiedTest(unittest.TestCase):
         self.assertNotIn("--reporting-dataset-scope", rendered)
         self.assertNotIn("--reporting-authority", rendered)
         self.assertNotIn("--reporting-source-phase", rendered)
+
+    def test_patch_matrix_expands_artifact_placement_and_defense_cells(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            patch_path = root / "patch.png"
+            patch_path.write_bytes(b"patch")
+            matrix = root / "patch_artifacts.yaml"
+            matrix.write_text(
+                "\n".join(
+                    [
+                        "profile: yolo11n_patch_eval_v1",
+                        "artifacts:",
+                        "  - name: demo_patch",
+                        f"    artifact_path: {patch_path}",
+                        "    placement_modes:",
+                        "      - largest_person_torso",
+                        "      - off_object_fixed",
+                        "defenses:",
+                        "  - none",
+                        "  - oracle_patch_recover",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            captured: list[list[str]] = []
+
+            def _fake_run(command: list[str], *, component: str, env: dict[str, str] | None = None) -> int:
+                del component, env
+                captured.append(command)
+                return 0
+
+            argv = [
+                "run_unified.py",
+                "patch-matrix",
+                "--matrix-config",
+                str(matrix),
+                "--dry-run",
+            ]
+            with patch("sys.argv", argv):
+                with patch("scripts.run_unified.resolve_python_bin", return_value="python"):
+                    with patch("scripts.run_unified.with_src_pythonpath", return_value={}):
+                        with patch("scripts.run_unified._run", side_effect=_fake_run):
+                            with self.assertRaises(SystemExit) as exit_ctx:
+                                run_unified.main()
+                            self.assertEqual(int(exit_ctx.exception.code), 0)
+
+        self.assertEqual(len(captured), 4)
+        rendered = [" ".join(command) for command in captured]
+        self.assertTrue(any("attack.params.placement_mode=largest_person_torso" in line for line in rendered))
+        self.assertTrue(any("attack.params.placement_mode=off_object_fixed" in line for line in rendered))
+        self.assertTrue(any("defense.name=oracle_patch_recover" in line for line in rendered))
+        self.assertTrue(all("--dry-run" in line for line in rendered))
 
 
 if __name__ == "__main__":

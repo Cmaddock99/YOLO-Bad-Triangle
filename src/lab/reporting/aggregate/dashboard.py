@@ -24,12 +24,14 @@ ATTACK_COLORS = {
 DEFENSE_COLORS = {
     "c_dog": "#E377C2",
     "median_preprocess": "#7F7F7F",
+    "oracle_patch_recover": "#17BECF",
     "none": "#BCBD22",
 }
 
 DEFENSE_LABELS = {
     "c_dog": "DPC-UNet (c_dog)",
     "median_preprocess": "Median Filter",
+    "oracle_patch_recover": "Oracle Patch Recover (upper bound)",
     "none": "Undefended",
 }
 _PHASE_PRIORITY = {

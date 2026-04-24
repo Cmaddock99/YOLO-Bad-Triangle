@@ -1,0 +1,33 @@
+profile: yolo11n_patch_eval_v1
+
+overrides:
+  - data.source_dir=coco/val2017_subset500/images
+  - runner.output_root=outputs/patch_matrix
+  - runner.max_images=8
+  - runner.seed=42
+
+artifacts:
+  - name: yolov8n_patch_v2
+    artifact_path: ${ADV_PATCH_ARTIFACT_PATH}
+    placement_modes:
+      - largest_person_torso
+      - off_object_fixed
+    attack_params:
+      clean_detect_conf: 0.5
+      clean_detect_iou: 0.7
+
+defenses:
+  - none
+  - bit_depth
+  - jpeg_preprocess
+  - median_preprocess
+  - c_dog
+  - oracle_patch_recover
+
+defense_params:
+  c_dog:
+    checkpoint_path: ${DPC_UNET_CHECKPOINT_PATH}
+  oracle_patch_recover:
+    dilate_px: 8
+    inpaint_radius: 7
+    inpaint_method: telea

@@ -42,8 +42,9 @@ class _PassthroughDefense:
         image: np.ndarray,
         *,
         attack_hint: str | None = None,
+        **kwargs: Any,
     ) -> tuple[np.ndarray, dict[str, Any]]:
-        del attack_hint
+        del attack_hint, kwargs
         return image, {}
 
     def postprocess(

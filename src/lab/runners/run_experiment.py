@@ -357,7 +357,12 @@ class UnifiedExperimentRunner:
                 if run_attack_meta and not attack_metadata:
                     attack_metadata = cast(dict[str, Any], dict(run_attack_meta))
             defense_started = time.monotonic()
-            defended_image, _ = defense.preprocess(transformed, attack_hint=attack_name)
+            defended_image, _ = defense.preprocess(
+                transformed,
+                attack_hint=attack_name,
+                attack_metadata=prediction_attack_meta,
+                attack_run_metadata=attack_metadata,
+            )
             defense_preprocess_elapsed += time.monotonic() - defense_started
             target = prepared_dir / image_path.name
             write_started = time.monotonic()
