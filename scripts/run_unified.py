@@ -15,6 +15,8 @@ Usage (sweep, forwarded to the compatibility backend in sweep_and_report.py):
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -26,7 +28,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from lab.runners.cli_utils import (
     build_repo_python_command,
     build_run_experiment_command,
+    load_yaml_mapping,
     resolve_python_bin,
+    sanitize_segment,
     with_src_pythonpath,
 )
 
@@ -44,6 +48,129 @@ def _run(command: list[str], *, component: str, env: dict[str, str] | None = Non
     if code != 0:
         _log(component, "ERROR", f"command failed with exit code {code}")
     return code
+
+
+def _render_override_value(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return "null"
+    if isinstance(value, (int, float, str)):
+        return str(value)
+    return json.dumps(value, separators=(",", ":"))
+
+
+def _mapping_to_overrides(prefix: str, payload: dict[str, object]) -> list[str]:
+    overrides: list[str] = []
+    for key, value in payload.items():
+        if isinstance(value, dict):
+            overrides.extend(_mapping_to_overrides(f"{prefix}.{key}", value))
+            continue
+        overrides.append(f"{prefix}.{key}={_render_override_value(value)}")
+    return overrides
+
+
+def _resolve_matrix_path_value(raw: object, *, base_dir: Path) -> str:
+    expanded = os.path.expandvars(str(raw or "")).strip()
+    path = Path(expanded).expanduser()
+    if not path.is_absolute():
+        path = (base_dir / path).resolve()
+    return str(path)
+
+
+def _expand_env_values(value: object) -> object:
+    if isinstance(value, dict):
+        return {key: _expand_env_values(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_expand_env_values(item) for item in value]
+    if isinstance(value, str):
+        return os.path.expandvars(value)
+    return value
+
+
+def _build_patch_matrix_commands(
+    *,
+    root: Path,
+    matrix_config: Path,
+    profile_override: str | None,
+    cli_overrides: list[str],
+    python_bin: str,
+    dry_run: bool,
+) -> list[list[str]]:
+    payload = load_yaml_mapping(matrix_config)
+    profile_name = str(profile_override or payload.get("profile") or "yolo11n_patch_eval_v1").strip()
+    if not profile_name:
+        raise ValueError("patch-matrix requires a profile name.")
+    artifacts = payload.get("artifacts") or []
+    if not isinstance(artifacts, list) or not artifacts:
+        raise ValueError("patch-matrix requires a non-empty 'artifacts' list.")
+    defenses = payload.get("defenses") or ["none"]
+    if not isinstance(defenses, list) or not defenses:
+        raise ValueError("patch-matrix requires a non-empty 'defenses' list.")
+    shared_overrides = [str(item) for item in (payload.get("overrides") or []) if str(item).strip()]
+    defense_params = payload.get("defense_params") or {}
+    if not isinstance(defense_params, dict):
+        raise ValueError("patch-matrix defense_params must be a mapping when provided.")
+
+    commands: list[list[str]] = []
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            raise ValueError("Each patch-matrix artifact entry must be a mapping.")
+        artifact_name = str(artifact.get("name") or "").strip()
+        artifact_path_raw = artifact.get("artifact_path")
+        if not artifact_name or not str(artifact_path_raw or "").strip():
+            raise ValueError("Each artifact requires both 'name' and 'artifact_path'.")
+        artifact_path = _resolve_matrix_path_value(artifact_path_raw, base_dir=matrix_config.parent)
+        artifact_overrides = _mapping_to_overrides(
+            "attack.params",
+            {
+                key: value
+                for key, value in dict(_expand_env_values(dict(artifact.get("attack_params") or {}))).items()
+                if key not in {"artifact_path", "placement_mode"}
+            },
+        )
+        placement_modes = artifact.get("placement_modes") or ["largest_person_torso"]
+        if not isinstance(placement_modes, list) or not placement_modes:
+            raise ValueError("artifact placement_modes must be a non-empty list when provided.")
+        local_defenses = artifact.get("defenses") or defenses
+        if not isinstance(local_defenses, list) or not local_defenses:
+            raise ValueError("artifact defenses must be a non-empty list when provided.")
+
+        for placement_mode in placement_modes:
+            for defense_name in local_defenses:
+                run_name = (
+                    f"patchmatrix__{sanitize_segment(artifact_name, 'artifact')}"
+                    f"__{sanitize_segment(placement_mode, 'placement')}"
+                    f"__{sanitize_segment(defense_name, 'defense')}"
+                )
+                overrides = [
+                    *shared_overrides,
+                    *cli_overrides,
+                    "attack.name=pretrained_patch",
+                    f"attack.params.artifact_path={artifact_path}",
+                    f"attack.params.placement_mode={placement_mode}",
+                    *artifact_overrides,
+                    f"defense.name={defense_name}",
+                    f"runner.run_name={run_name}",
+                ]
+                if defense_name in defense_params and isinstance(defense_params[defense_name], dict):
+                    overrides.extend(
+                        _mapping_to_overrides(
+                            "defense.params",
+                            dict(_expand_env_values(dict(defense_params[defense_name]))),
+                        )
+                    )
+                command = build_run_experiment_command(
+                    root,
+                    None,
+                    overrides,
+                    profile=profile_name,
+                    python_bin=python_bin,
+                )
+                if dry_run:
+                    command.append("--dry-run")
+                commands.append(command)
+    return commands
 
 
 def main() -> None:
@@ -126,6 +253,29 @@ def main() -> None:
     )
     sweep.add_argument("--validation-enabled", action="store_true")
 
+    patch_matrix = subparsers.add_parser(
+        "patch-matrix",
+        help="Run imported patch artifacts across placement-mode and defense combinations.",
+    )
+    patch_matrix.add_argument(
+        "--matrix-config",
+        default="configs/patch_artifacts.yaml",
+        help="YAML file describing imported patch artifacts and defense combinations.",
+    )
+    patch_matrix.add_argument(
+        "--profile",
+        default=None,
+        help="Optional profile override for the patch matrix (defaults to the matrix file profile).",
+    )
+    patch_matrix.add_argument(
+        "--set",
+        dest="overrides",
+        action="append",
+        default=[],
+        help="Additional config override in key=value form. Can be repeated.",
+    )
+    patch_matrix.add_argument("--dry-run", action="store_true")
+
     args = parser.parse_args()
     python_bin = resolve_python_bin(ROOT)
     runtime_env = with_src_pythonpath(ROOT)
@@ -146,6 +296,22 @@ def main() -> None:
         if args.list_plugins:
             command.append("--list-plugins")
         raise SystemExit(_run(command, component="run-unified", env=runtime_env))
+
+    if args.mode == "patch-matrix":
+        matrix_config = Path(str(args.matrix_config)).expanduser().resolve()
+        commands = _build_patch_matrix_commands(
+            root=ROOT,
+            matrix_config=matrix_config,
+            profile_override=args.profile,
+            cli_overrides=list(args.overrides),
+            python_bin=python_bin,
+            dry_run=bool(args.dry_run),
+        )
+        for command in commands:
+            code = _run(command, component="patch-matrix", env=runtime_env)
+            if code != 0:
+                raise SystemExit(code)
+        raise SystemExit(0)
 
     command = build_repo_python_command(
         ROOT,

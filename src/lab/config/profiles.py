@@ -107,6 +107,7 @@ def build_profile_config(name: str, *, profiles_path: Path | None = None) -> dic
             "attacks": deepcopy(_as_mapping(profile.get("attacks"), label=f"{name}.attacks")),
             "defenses": deepcopy(_as_mapping(profile.get("defenses"), label=f"{name}.defenses")),
             "model": deepcopy(_as_mapping(profile.get("model"), label=f"{name}.model")),
+            "plugin_loading": deepcopy(_as_mapping(profile.get("plugin_loading"), label=f"{name}.plugin_loading")),
         },
     }
     return config
@@ -235,6 +236,10 @@ def should_include_extra_plugins(config: dict[str, Any]) -> bool:
         return True
     compatibility = resolve_profile_compatibility(config)
     if compatibility is None:
+        return True
+    metadata = pipeline_profile_metadata(config) or {}
+    plugin_loading = _as_mapping(metadata.get("plugin_loading"), label="pipeline_profile.plugin_loading")
+    if bool(plugin_loading.get("allow_extra_canonical", False)):
         return True
     return str(compatibility.get("status") or "").strip().lower() != "canonical"
 

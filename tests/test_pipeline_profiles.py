@@ -96,6 +96,21 @@ class PipelineProfilesTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             load_pipeline_profile("missing_profile")
 
+    def test_patch_eval_profile_catalogs_match_contract(self) -> None:
+        self.assertEqual(profile_canonical_attacks("yolo11n_patch_eval_v1"), ["pretrained_patch"])
+        self.assertEqual(
+            profile_canonical_defenses("yolo11n_patch_eval_v1"),
+            ["bit_depth", "jpeg_preprocess", "median_preprocess", "c_dog", "oracle_patch_recover"],
+        )
+
+    def test_patch_eval_profile_keeps_extra_plugins_enabled_for_canonical_surface(self) -> None:
+        config = build_profile_config("yolo11n_patch_eval_v1")
+
+        self.assertTrue(should_include_extra_plugins(config))
+        compatibility = resolve_profile_compatibility(config)
+        self.assertIsNotNone(compatibility)
+        self.assertEqual(compatibility["status"], "canonical")
+
 
 if __name__ == "__main__":
     unittest.main()

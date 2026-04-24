@@ -16,6 +16,7 @@ class FrameworkDefensePluginTest(unittest.TestCase):
         available = set(list_available_defense_plugins())
         self.assertIn("preprocess_median_blur", available)
         self.assertIn("confidence_filter", available)
+        self.assertIn("oracle_patch_recover", available)
 
     def test_core_only_plugin_list_excludes_extra_defense_aliases(self) -> None:
         available = set(list_available_defense_plugins(include_extra=False))
@@ -27,6 +28,7 @@ class FrameworkDefensePluginTest(unittest.TestCase):
         self.assertNotIn("c_dog", available)
         self.assertNotIn("c_dog_ensemble", available)
         self.assertNotIn("confidence_filter", available)
+        self.assertNotIn("oracle_patch_recover", available)
         self.assertNotIn("random_resize", available)
 
     def test_core_only_build_succeeds_for_core_defense(self) -> None:
@@ -67,6 +69,31 @@ class FrameworkDefensePluginTest(unittest.TestCase):
         self.assertEqual(filtered[0]["scores"], [0.9])
         self.assertEqual(filtered[0]["class_ids"], [0])
         self.assertEqual(meta["removed_detections"], 1)
+
+    def test_oracle_patch_recover_inpaints_attack_region(self) -> None:
+        defense = build_defense_plugin("oracle_patch_recover", dilate_px=0, inpaint_radius=3, inpaint_method="telea")
+        image = np.zeros((24, 24, 3), dtype=np.uint8)
+        image[4:12, 4:12] = np.array([255, 255, 255], dtype=np.uint8)
+
+        processed, meta = defense.preprocess(
+            image,
+            attack_metadata={"top": 4, "left": 4, "applied_patch_size": [8, 8]},
+        )
+
+        self.assertEqual(processed.shape, image.shape)
+        self.assertEqual(processed.dtype, np.uint8)
+        self.assertTrue(meta["applied"])
+        self.assertTrue(meta["oracle_upper_bound"])
+        self.assertFalse(np.array_equal(processed[6, 6], np.array([255, 255, 255], dtype=np.uint8)))
+
+    def test_oracle_patch_recover_passthrough_without_attack_metadata(self) -> None:
+        defense = build_defense_plugin("oracle_patch_recover")
+        image = np.full((8, 8, 3), 17, dtype=np.uint8)
+
+        processed, meta = defense.preprocess(image)
+
+        np.testing.assert_array_equal(processed, image)
+        self.assertFalse(meta["applied"])
 
 
 if __name__ == "__main__":

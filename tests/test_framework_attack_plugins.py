@@ -39,6 +39,14 @@ def _write_patch_results(
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def _write_patch_sidecar(
+    path: Path,
+    *,
+    payload: dict[str, object],
+) -> None:
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
 class FrameworkAttackPluginTest(unittest.TestCase):
     def setUp(self) -> None:
         self.image = np.full((64, 64, 3), 127, dtype=np.uint8)
@@ -238,6 +246,46 @@ class PretrainedPatchAttackTest(unittest.TestCase):
         )
         self.assertNotIn("artifact_provenance", meta["prediction_metadata"])
 
+    def test_pretrained_patch_prefers_patch_artifact_sidecar(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "outputs" / "yolov8n_patch_v3"
+            artifact = run_dir / "patches" / "patch.png"
+            artifact.parent.mkdir(parents=True, exist_ok=True)
+            _write_patch_artifact(artifact, size=(10, 8), color_rgb=(255, 0, 0))
+            _write_patch_results(
+                run_dir / "results.json",
+                payload={"run_name": "legacy_results_name", "model": "legacy-model"},
+            )
+            _write_patch_sidecar(
+                artifact.parent / "patch_artifact.json",
+                payload={
+                    "artifact_sha256": "abc123",
+                    "run_name": "preferred_patch_sidecar",
+                    "model": "yolov8n",
+                    "joint_models": ["yolov8n"],
+                    "joint_weights": [1.0],
+                    "patch_size": 100,
+                    "training_images": 18,
+                    "detection_suppression_pct": 90.0,
+                    "manifest_path": "/tmp/common_all_models.txt",
+                    "loss_source": "channel4",
+                    "placement_regime": "off_object_fixed",
+                    "self_ensemble_mode": "shakedrop",
+                    "self_ensemble_prob": 0.3,
+                    "cloth_eot": "tps",
+                    "repo_commit": "deadbeef",
+                    "created_at": "2026-04-23T18:00:00+00:00",
+                },
+            )
+
+            attack = build_attack_plugin("pretrained_patch", artifact_path=str(artifact))
+
+        _, meta = attack.apply(self.image, model=None, seed=7)
+
+        self.assertEqual(meta["artifact_provenance"]["run_name"], "preferred_patch_sidecar")
+        self.assertEqual(meta["artifact_provenance"]["placement_regime"], "off_object_fixed")
+        self.assertEqual(meta["artifact_provenance"]["repo_commit"], "deadbeef")
+
     def test_pretrained_patch_standalone_artifact_omits_provenance(self) -> None:
         attack = self._build_attack()
 
@@ -299,6 +347,20 @@ class PretrainedPatchAttackTest(unittest.TestCase):
         source = model._model.last_kwargs["source"]
         self.assertIsInstance(source, np.ndarray)
         np.testing.assert_array_equal(source[0, 0], np.array([30, 20, 10], dtype=np.uint8))
+
+    def test_pretrained_patch_accepts_off_object_fixed_placement_mode(self) -> None:
+        attack = self._build_attack(size=(20, 20), color_rgb=(0, 255, 0), placement_mode="off_object_fixed")
+        model = _StubYOLOAdapter([[100, 50, 200, 300]])
+        image = np.zeros((320, 320, 3), dtype=np.uint8)
+
+        attacked, meta = attack.apply(image, model=model)
+
+        prediction_meta = meta["prediction_metadata"]
+        self.assertEqual(prediction_meta["top"], 16)
+        self.assertEqual(prediction_meta["left"], 16)
+        self.assertEqual(prediction_meta["placement_mode"], "off_object_fixed")
+        self.assertFalse(prediction_meta["fallback_used"])
+        np.testing.assert_array_equal(attacked[16, 16], np.array([0, 255, 0], dtype=np.uint8))
 
     def test_pretrained_patch_downscales_to_fit_small_images(self) -> None:
         attack = self._build_attack(size=(80, 120), color_rgb=(0, 0, 255))

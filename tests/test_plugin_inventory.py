@@ -92,3 +92,10 @@ class PluginInventoryTest(unittest.TestCase):
         self.assertIn("identity", inventory["defenses"]["all_aliases"])
         self.assertIn("ultralytics_yolo", inventory["models"]["all_aliases"])
         self.assertIn("torchvision_frcnn", inventory["models"]["all_aliases"])
+
+    def test_patch_eval_inventory_promotes_imported_patch_and_oracle_defense(self) -> None:
+        inventory = build_plugin_inventory("yolo11n_patch_eval_v1")
+
+        self.assertEqual(inventory["attacks"]["core"], ["pretrained_patch"])
+        self.assertIn("oracle_patch_recover", inventory["defenses"]["core"])
+        self.assertIn("c_dog", inventory["defenses"]["core"])

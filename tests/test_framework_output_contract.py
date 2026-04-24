@@ -92,7 +92,9 @@ class _RecordingDefense:
         image: np.ndarray,
         *,
         attack_hint: str | None = None,
+        **kwargs: Any,
     ) -> tuple[np.ndarray, dict[str, Any]]:
+        del kwargs
         self.preprocess_inputs.append((int(image.mean()), attack_hint))
         defended = np.clip(image.astype(np.int16) + 10, 0, 255).astype(np.uint8)
         return defended, {}
@@ -127,8 +129,9 @@ class _PassthroughDefense:
         image: np.ndarray,
         *,
         attack_hint: str | None = None,
+        **kwargs: Any,
     ) -> tuple[np.ndarray, dict[str, Any]]:
-        del attack_hint
+        del attack_hint, kwargs
         return image, {}
 
     def postprocess(self, records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
