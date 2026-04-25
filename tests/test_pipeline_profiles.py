@@ -100,7 +100,7 @@ class PipelineProfilesTest(unittest.TestCase):
         self.assertEqual(profile_canonical_attacks("yolo11n_patch_eval_v1"), ["pretrained_patch"])
         self.assertEqual(
             profile_canonical_defenses("yolo11n_patch_eval_v1"),
-            ["bit_depth", "jpeg_preprocess", "median_preprocess", "c_dog", "oracle_patch_recover"],
+            ["bit_depth", "jpeg_preprocess", "median_preprocess", "c_dog", "blind_patch_recover", "oracle_patch_recover"],
         )
 
     def test_patch_eval_profile_keeps_extra_plugins_enabled_for_canonical_surface(self) -> None:

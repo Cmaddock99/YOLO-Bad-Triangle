@@ -312,6 +312,175 @@ class DashboardSelectionTest(unittest.TestCase):
             blur_row = next(row for row in sweep["runs"] if row["attack"] == "blur" and row["defense"] == "none")
             self.assertEqual(int(blur_row["total_detections"]), 800)
 
+    def test_load_sweep_keeps_imported_patch_rows_distinct_by_artifact_and_placement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_dir = Path(tmp)
+            csv_path = report_dir / "framework_run_summary.csv"
+            with csv_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "run_name",
+                        "model",
+                        "seed",
+                        "attack",
+                        "defense",
+                        "attack_artifact",
+                        "placement_mode",
+                        "total_detections",
+                        "avg_confidence",
+                        "mAP50",
+                        "validation_status",
+                        "authority",
+                        "source_phase",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "run_name": "validate_baseline",
+                        "model": "yolo",
+                        "seed": "42",
+                        "attack": "none",
+                        "defense": "none",
+                        "attack_artifact": "",
+                        "placement_mode": "",
+                        "total_detections": "1000",
+                        "avg_confidence": "0.80",
+                        "mAP50": "0.60",
+                        "validation_status": "complete",
+                        "authority": "authoritative",
+                        "source_phase": "phase4",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "run_name": "validate_patch_torso",
+                        "model": "yolo",
+                        "seed": "42",
+                        "attack": "pretrained_patch",
+                        "defense": "none",
+                        "attack_artifact": "yolo11n_patch_v2",
+                        "placement_mode": "largest_person_torso",
+                        "total_detections": "400",
+                        "avg_confidence": "0.55",
+                        "mAP50": "0.20",
+                        "validation_status": "complete",
+                        "authority": "authoritative",
+                        "source_phase": "phase4",
+                    }
+                )
+                writer.writerow(
+                    {
+                        "run_name": "validate_patch_off_object",
+                        "model": "yolo",
+                        "seed": "42",
+                        "attack": "pretrained_patch",
+                        "defense": "none",
+                        "attack_artifact": "yolo11n_patch_v2",
+                        "placement_mode": "off_object_fixed",
+                        "total_detections": "350",
+                        "avg_confidence": "0.50",
+                        "mAP50": "0.18",
+                        "validation_status": "complete",
+                        "authority": "authoritative",
+                        "source_phase": "phase4",
+                    }
+                )
+
+            sweep = generate_dashboard._load_sweep(report_dir)
+            self.assertIsNotNone(sweep)
+            imported = [row for row in sweep["runs"] if row["attack"] == "pretrained_patch"]
+            self.assertEqual(len(imported), 2)
+            self.assertEqual(
+                sorted(row["placement_mode"] for row in imported),
+                ["largest_person_torso", "off_object_fixed"],
+            )
+
+    def test_generate_dashboard_includes_imported_patch_comparison_table(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report_dir = root / "report"
+            report_dir.mkdir(parents=True, exist_ok=True)
+            csv_path = report_dir / "framework_run_summary.csv"
+            with csv_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "run_name",
+                        "model",
+                        "seed",
+                        "attack",
+                        "defense",
+                        "attack_artifact",
+                        "placement_mode",
+                        "total_detections",
+                        "avg_confidence",
+                        "mAP50",
+                        "validation_status",
+                        "authority",
+                        "source_phase",
+                        "pipeline_profile",
+                    ],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "run_name": "validate_baseline",
+                        "model": "yolo11n.pt",
+                        "seed": "42",
+                        "attack": "none",
+                        "defense": "none",
+                        "attack_artifact": "",
+                        "placement_mode": "",
+                        "total_detections": "1000",
+                        "avg_confidence": "0.80",
+                        "mAP50": "0.60",
+                        "validation_status": "complete",
+                        "authority": "authoritative",
+                        "source_phase": "phase4",
+                        "pipeline_profile": "yolo11n_patch_eval_v1",
+                    }
+                )
+                for defense, detections in (
+                    ("none", "420"),
+                    ("blind_patch_recover", "610"),
+                    ("oracle_patch_recover", "700"),
+                ):
+                    writer.writerow(
+                        {
+                            "run_name": f"validate_{defense}",
+                            "model": "yolo11n.pt",
+                            "seed": "42",
+                            "attack": "pretrained_patch",
+                            "defense": defense,
+                            "attack_artifact": "yolo11n_patch_v2",
+                            "placement_mode": "largest_person_torso",
+                            "total_detections": detections,
+                            "avg_confidence": "0.61",
+                            "mAP50": "0.25",
+                            "validation_status": "complete",
+                            "authority": "authoritative",
+                            "source_phase": "phase4",
+                            "pipeline_profile": "yolo11n_patch_eval_v1",
+                        }
+                    )
+
+            output_path = root / "dashboard.html"
+            generate_dashboard.generate_dashboard(
+                reports_root=None,
+                output=output_path,
+                report_dirs=[report_dir],
+                no_pages=True,
+            )
+
+            html = output_path.read_text(encoding="utf-8")
+            self.assertIn("Imported Patch Comparisons", html)
+            self.assertIn("yolo11n_patch_v2", html)
+            self.assertIn("largest_person_torso", html)
+            self.assertIn("Blind Patch Recover", html)
+            self.assertIn("Oracle Patch Recover (upper bound)", html)
+
     def test_summary_cards_ignore_zero_drop_attacks(self) -> None:
         sweeps = [
             {

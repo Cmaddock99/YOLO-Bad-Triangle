@@ -27,6 +27,7 @@ from lab.reporting.aggregate import (
 from lab.reporting.framework import (
     build_comparison_rows,
     build_defense_recovery_rows,
+    build_imported_patch_recovery_rows,
     discover_framework_runs,
     discover_framework_runs as _discover,
     generate_framework_report as generate_framework_report_namespace,
@@ -62,6 +63,7 @@ class FrameworkReportingTest(unittest.TestCase):
         seed: int = 42,
         model: str = "yolo",
         attack_params: dict[str, object] | None = None,
+        attack_metadata: dict[str, object] | None = None,
         defense_params: dict[str, object] | None = None,
         resolved_objective: dict[str, object] | None = None,
         semantic_order: str | None = "attack_then_defense",
@@ -103,6 +105,7 @@ class FrameworkReportingTest(unittest.TestCase):
             "attack": {
                 "name": attack,
                 "params": attack_params or {},
+                "metadata": attack_metadata or {},
                 "resolved_objective": resolved_objective or {},
             },
             "defense": {"name": defense, "params": defense_params or {}},
@@ -195,6 +198,139 @@ class FrameworkReportingTest(unittest.TestCase):
             self.assertEqual(record.dataset_scope, "full")
             self.assertEqual(record.authority, "authoritative")
             self.assertEqual(record.source_phase, "phase4")
+
+    def test_discover_framework_runs_extracts_imported_patch_artifact_and_placement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_run(
+                root,
+                "imported_patch_attack",
+                attack="pretrained_patch",
+                defense="none",
+                map50=0.31,
+                attack_params={
+                    "artifact_path": "/tmp/adversarial_patch/outputs/yolo11n_patch_v2/patches/patch.png",
+                    "placement_mode": "largest_person_torso",
+                },
+                attack_metadata={
+                    "artifact_provenance": {"run_name": "yolo11n_patch_v2"},
+                },
+            )
+
+            records = discover_framework_runs(root)
+
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0].attack_artifact, "yolo11n_patch_v2")
+            self.assertEqual(records[0].placement_mode, "largest_person_torso")
+
+            csv_path = root / "framework_run_summary.csv"
+            write_summary_csv(records, csv_path)
+            rows = list(csv.DictReader(csv_path.open(encoding="utf-8")))
+            self.assertEqual(rows[0]["attack_artifact"], "yolo11n_patch_v2")
+            self.assertEqual(rows[0]["placement_mode"], "largest_person_torso")
+
+    def test_imported_patch_recovery_rows_remain_separated_by_artifact_and_placement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_run(root, "baseline_none", attack="none", defense="none", map50=0.60, total_detections=100)
+            self._write_run(
+                root,
+                "attack_patch_torso",
+                attack="pretrained_patch",
+                defense="none",
+                map50=0.20,
+                total_detections=40,
+                attack_params={
+                    "artifact_path": "/tmp/adversarial_patch/outputs/yolo11n_patch_v2/patches/patch.png",
+                    "placement_mode": "largest_person_torso",
+                },
+            )
+            self._write_run(
+                root,
+                "defended_patch_torso_blind",
+                attack="pretrained_patch",
+                defense="blind_patch_recover",
+                map50=0.34,
+                total_detections=62,
+                attack_params={
+                    "artifact_path": "/tmp/adversarial_patch/outputs/yolo11n_patch_v2/patches/patch.png",
+                    "placement_mode": "largest_person_torso",
+                },
+            )
+            self._write_run(
+                root,
+                "defended_patch_torso_oracle",
+                attack="pretrained_patch",
+                defense="oracle_patch_recover",
+                map50=0.40,
+                total_detections=70,
+                attack_params={
+                    "artifact_path": "/tmp/adversarial_patch/outputs/yolo11n_patch_v2/patches/patch.png",
+                    "placement_mode": "largest_person_torso",
+                },
+            )
+            self._write_run(
+                root,
+                "attack_patch_off_object",
+                attack="pretrained_patch",
+                defense="none",
+                map50=0.18,
+                total_detections=35,
+                attack_params={
+                    "artifact_path": "/tmp/adversarial_patch/outputs/yolo26n_patch_v2/patches/patch.png",
+                    "placement_mode": "off_object_fixed",
+                },
+            )
+            self._write_run(
+                root,
+                "defended_patch_off_object_blind",
+                attack="pretrained_patch",
+                defense="blind_patch_recover",
+                map50=0.28,
+                total_detections=54,
+                attack_params={
+                    "artifact_path": "/tmp/adversarial_patch/outputs/yolo26n_patch_v2/patches/patch.png",
+                    "placement_mode": "off_object_fixed",
+                },
+            )
+            self._write_run(
+                root,
+                "defended_patch_off_object_oracle",
+                attack="pretrained_patch",
+                defense="oracle_patch_recover",
+                map50=0.33,
+                total_detections=61,
+                attack_params={
+                    "artifact_path": "/tmp/adversarial_patch/outputs/yolo26n_patch_v2/patches/patch.png",
+                    "placement_mode": "off_object_fixed",
+                },
+            )
+
+            records = discover_framework_runs(root)
+            imported_rows = build_imported_patch_recovery_rows(records)
+
+            self.assertEqual(len(imported_rows), 6)
+            grouped = {
+                (row["attack_artifact"], row["placement_mode"]): []
+                for row in imported_rows
+            }
+            for row in imported_rows:
+                grouped[(row["attack_artifact"], row["placement_mode"])].append(row["defense"])
+            self.assertEqual(
+                sorted(grouped[("yolo11n_patch_v2", "largest_person_torso")]),
+                ["blind_patch_recover", "none", "oracle_patch_recover"],
+            )
+            self.assertEqual(
+                sorted(grouped[("yolo26n_patch_v2", "off_object_fixed")]),
+                ["blind_patch_recover", "none", "oracle_patch_recover"],
+            )
+
+            report = render_markdown_report(records)
+            self.assertIn("## Imported Patch Recovery", report)
+            self.assertIn("yolo11n_patch_v2", report)
+            self.assertIn("largest_person_torso", report)
+            self.assertIn("yolo26n_patch_v2", report)
+            self.assertIn("off_object_fixed", report)
 
     def test_authoritative_metadata_drives_warning_selection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

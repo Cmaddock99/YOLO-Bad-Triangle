@@ -3,6 +3,7 @@ from __future__ import annotations
 from importlib import import_module
 
 ADAPTER_MODULES = (
+    "lab.plugins.extra.defenses.blind_patch_recover_adapter",
     "lab.plugins.extra.defenses.confidence_filter_adapter",
     "lab.plugins.extra.defenses.oracle_patch_recover_adapter",
     "lab.plugins.extra.defenses.preprocess_dpc_unet_adapter",

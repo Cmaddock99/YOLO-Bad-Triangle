@@ -398,6 +398,7 @@ class RunUnifiedTest(unittest.TestCase):
                         "      - off_object_fixed",
                         "defenses:",
                         "  - none",
+                        "  - blind_patch_recover",
                         "  - oracle_patch_recover",
                     ]
                 ),
@@ -426,10 +427,11 @@ class RunUnifiedTest(unittest.TestCase):
                                 run_unified.main()
                             self.assertEqual(int(exit_ctx.exception.code), 0)
 
-        self.assertEqual(len(captured), 4)
+        self.assertEqual(len(captured), 6)
         rendered = [" ".join(command) for command in captured]
         self.assertTrue(any("attack.params.placement_mode=largest_person_torso" in line for line in rendered))
         self.assertTrue(any("attack.params.placement_mode=off_object_fixed" in line for line in rendered))
+        self.assertTrue(any("defense.name=blind_patch_recover" in line for line in rendered))
         self.assertTrue(any("defense.name=oracle_patch_recover" in line for line in rendered))
         self.assertTrue(all("--dry-run" in line for line in rendered))
 
