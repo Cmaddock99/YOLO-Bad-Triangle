@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
+from lab.eval.derived_metrics import compute_normalized_defense_recovery
+
 PLOTLY_CDN = "https://cdn.plot.ly/plotly-2.32.0.min.js"
 MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -19,9 +21,11 @@ ATTACK_COLORS = {
     "gaussian_blur": "#8172B3",
     "bim": "#937860",
     "ifgsm": "#DA8BC3",
+    "pretrained_patch": "#CCB974",
 }
 
 DEFENSE_COLORS = {
+    "blind_patch_recover": "#4CB391",
     "c_dog": "#E377C2",
     "median_preprocess": "#7F7F7F",
     "oracle_patch_recover": "#17BECF",
@@ -29,6 +33,7 @@ DEFENSE_COLORS = {
 }
 
 DEFENSE_LABELS = {
+    "blind_patch_recover": "Blind Patch Recover",
     "c_dog": "DPC-UNet (c_dog)",
     "median_preprocess": "Median Filter",
     "oracle_patch_recover": "Oracle Patch Recover (upper bound)",
@@ -151,6 +156,26 @@ def _normalize_text(value: object) -> str:
     return str(value or "").strip().lower()
 
 
+def _attack_instance_key(attack: object, attack_artifact: object, placement_mode: object) -> str:
+    attack_name = _normalize_text(attack) or "unknown"
+    artifact = str(attack_artifact or "").strip()
+    placement = str(placement_mode or "").strip()
+    if attack_name == "pretrained_patch" and (artifact or placement):
+        return "|".join(part for part in (attack_name, artifact, placement) if part)
+    return attack_name
+
+
+def _attack_instance_label(attack: object, attack_artifact: object, placement_mode: object) -> str:
+    attack_name = str(attack or "").strip() or "unknown"
+    artifact = str(attack_artifact or "").strip()
+    placement = str(placement_mode or "").strip()
+    if _normalize_text(attack) == "pretrained_patch" and (artifact or placement):
+        if artifact and placement:
+            return f"{artifact} ({placement})"
+        return artifact or placement or attack_name
+    return attack_name
+
+
 def _authority_priority(value: object) -> int:
     normalized = _normalize_text(value)
     if normalized == "authoritative":
@@ -183,13 +208,15 @@ def _row_selection_key(row: dict[str, str]) -> tuple[int, int, int, str]:
 
 
 def _dedupe_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    grouped: dict[tuple[str, str, str, str], list[dict[str, str]]] = {}
+    grouped: dict[tuple[str, str, str, str, str, str], list[dict[str, str]]] = {}
     for row in rows:
         key = (
             _normalize_text(row.get("model")),
             str(row.get("seed") or ""),
             _normalize_text(row.get("attack")),
             _normalize_text(row.get("defense")),
+            str(row.get("attack_artifact") or "").strip(),
+            str(row.get("placement_mode") or "").strip(),
         )
         grouped.setdefault(key, []).append(row)
     deduped: list[dict[str, str]] = []
@@ -232,9 +259,15 @@ def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
         drop = (baseline_det - det) / baseline_det if baseline_det else 0
         source_phase = _normalize_text(row.get("source_phase"))
         map50_authoritative = source_phase == "phase4"
+        attack_artifact = str(row.get("attack_artifact") or "").strip()
+        placement_mode = str(row.get("placement_mode") or "").strip()
         runs.append({
             "run_name": row["run_name"],
             "attack": row["attack"],
+            "attack_key": _attack_instance_key(row.get("attack"), attack_artifact, placement_mode),
+            "attack_label": _attack_instance_label(row.get("attack"), attack_artifact, placement_mode),
+            "attack_artifact": attack_artifact,
+            "placement_mode": placement_mode,
             "defense": row["defense"],
             "total_detections": det,
             "avg_confidence": float(row["avg_confidence"]) if row.get("avg_confidence") else None,
@@ -267,17 +300,25 @@ def _build_heatmap_data(
     if not defended:
         return [], [], [], []
 
-    attacks = sorted(str(row["attack"]) for row in defended)
-    defenses = sorted(str(row["defense"]) for row in defended)
+    attack_labels_by_key: dict[str, str] = {}
+    for row in defended:
+        attack_labels_by_key[str(row["attack_key"])] = str(row["attack_label"])
+    attack_keys = sorted(attack_labels_by_key, key=lambda key: attack_labels_by_key[key])
+    attacks = [attack_labels_by_key[key] for key in attack_keys]
+    defenses = sorted({str(row["defense"]) for row in defended})
 
     z: list[list[float | None]] = []
     text: list[list[str]] = []
     for defense in defenses:
         row_z: list[float | None] = []
         row_t: list[str] = []
-        for attack in attacks:
+        for attack_key in attack_keys:
             match = next(
-                (row for row in defended if row["attack"] == attack and row["defense"] == defense),
+                (
+                    row
+                    for row in defended
+                    if str(row["attack_key"]) == attack_key and row["defense"] == defense
+                ),
                 None,
             )
             if match:
@@ -297,18 +338,29 @@ def _build_heatmap_data(
 
 def _build_trend_data(sweeps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Build one trace per attack+defense combo showing detection drop over time."""
-    combos: set[tuple[str, str]] = set()
+    combos: set[tuple[str, str, str, str]] = set()
     for sweep in sweeps:
         for row in sweep["runs"]:
             if row["defense"] not in ("none", ""):
-                combos.add((row["attack"], row["defense"]))
+                combos.add(
+                    (
+                        str(row["attack_key"]),
+                        str(row["attack_label"]),
+                        str(row["attack"]),
+                        str(row["defense"]),
+                    )
+                )
 
     traces = []
-    for attack, defense in sorted(combos):
+    for attack_key, attack_label, attack_name, defense in sorted(combos):
         x, y = [], []
         for sweep in sweeps:
             match = next(
-                (row for row in sweep["runs"] if row["attack"] == attack and row["defense"] == defense),
+                (
+                    row
+                    for row in sweep["runs"]
+                    if str(row["attack_key"]) == attack_key and row["defense"] == defense
+                ),
                 None,
             )
             if match:
@@ -319,9 +371,9 @@ def _build_trend_data(sweeps: list[dict[str, Any]]) -> list[dict[str, Any]]:
         traces.append({
             "x": x,
             "y": y,
-            "name": f"{attack} + {_defense_label(defense)}",
+            "name": f"{attack_label} + {_defense_label(defense)}",
             "mode": "lines+markers",
-            "line": {"color": _attack_color(attack), "width": 2},
+            "line": {"color": _attack_color(attack_name), "width": 2},
             "marker": {"size": 8, "symbol": "circle" if defense == "c_dog" else "square"},
         })
     return traces
@@ -332,7 +384,7 @@ def _build_attack_bar_data(sweep: dict[str, Any]) -> list[dict[str, Any]]:
     attacked = [row for row in sweep["runs"] if row["attack"] != "none" and row["defense"] in ("none", "")]
     return [
         {
-            "x": [row["attack"] for row in attacked],
+            "x": [row["attack_label"] for row in attacked],
             "y": [row["detection_drop"] for row in attacked],
             "type": "bar",
             "marker": {"color": [_attack_color(row["attack"]) for row in attacked]},
@@ -373,14 +425,120 @@ def _summary_cards_html(sweeps: list[dict[str, Any]]) -> str:
         card("Total Sweeps", str(len(sweeps)), "runs recorded"),
         card("Baseline Detections", str(int(latest["baseline_detections"])),
              "clean images, no attack", "#2ca02c"),
-        card("Strongest Attack", worst_attack["attack"].upper() if worst_attack else "NO_EFFECTIVE_ATTACK",
+        card("Strongest Attack", str(worst_attack.get("attack_label") or worst_attack.get("attack") or "unknown").upper() if worst_attack else "NO_EFFECTIVE_ATTACK",
              f"−{worst_attack['detection_drop']}% detections" if worst_attack else "all attacks had 0.0% drop",
              "#C44E52"),
         card("Best Defense (latest)", best["defense"] if best else "—",
-             f"vs {best['attack']}: −{best['detection_drop']}%" if best else "",
+             f"vs {best.get('attack_label') or best.get('attack')}: −{best['detection_drop']}%" if best else "",
              "#E377C2"),
     ]
     return '<div class="cards">' + "".join(cards) + "</div>"
+
+
+def _fmt_count(value: object) -> str:
+    if value is None:
+        return "—"
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    if numeric.is_integer():
+        return str(int(numeric))
+    return f"{numeric:.1f}"
+
+
+def _fmt_ratio_pct(value: object) -> str:
+    if value is None:
+        return "—"
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    return f"{numeric * 100:.1f}%"
+
+
+def _build_imported_patch_comparison_rows(sweep: dict[str, Any]) -> list[dict[str, Any]]:
+    defense_order = ("none", "blind_patch_recover", "oracle_patch_recover")
+    groups: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
+    for row in sweep["runs"]:
+        if _normalize_text(row.get("attack")) != "pretrained_patch":
+            continue
+        artifact = str(row.get("attack_artifact") or "").strip()
+        placement = str(row.get("placement_mode") or "").strip()
+        if not (artifact or placement):
+            continue
+        groups.setdefault((artifact, placement), {})[_normalize_text(row.get("defense"))] = row
+
+    rendered_rows: list[dict[str, Any]] = []
+    baseline_det = sweep["baseline_detections"]
+    for artifact, placement in sorted(groups):
+        group = groups[(artifact, placement)]
+        attack_row = group.get("none")
+        if attack_row is None:
+            continue
+        attack_det = cast(float | None, attack_row.get("total_detections"))
+        oracle_row = group.get("oracle_patch_recover")
+        oracle_det = cast(float | None, oracle_row.get("total_detections")) if oracle_row else None
+        oracle_recovery = compute_normalized_defense_recovery(baseline_det, attack_det, oracle_det)
+        for defense_name in defense_order:
+            row = group.get(defense_name)
+            defended_det = (
+                cast(float | None, row.get("total_detections"))
+                if row is not None
+                else (attack_det if defense_name == "none" else None)
+            )
+            recovery = compute_normalized_defense_recovery(baseline_det, attack_det, defended_det)
+            gap_to_oracle = (
+                oracle_recovery - recovery
+                if oracle_recovery is not None and recovery is not None
+                else None
+            )
+            rendered_rows.append(
+                {
+                    "artifact": artifact,
+                    "placement_mode": placement,
+                    "defense": defense_name,
+                    "total_detections": defended_det,
+                    "detection_drop": row.get("detection_drop") if row is not None else None,
+                    "recovery_over_undefended": recovery,
+                    "gap_to_oracle": gap_to_oracle,
+                    "avg_confidence": row.get("avg_confidence") if row is not None else None,
+                }
+            )
+    return rendered_rows
+
+
+def _imported_patch_table_html(sweep: dict[str, Any]) -> str:
+    rows = _build_imported_patch_comparison_rows(sweep)
+    if not rows:
+        return ""
+
+    body = ""
+    for row in rows:
+        drop = row["detection_drop"]
+        drop_text = "—" if drop is None else f"{float(drop):.1f}%"
+        body += f"""
+        <tr>
+            <td>{row['artifact'] or '—'}</td>
+            <td>{row['placement_mode'] or '—'}</td>
+            <td><span class="badge defense">{_defense_label(str(row['defense']))}</span></td>
+            <td>{_fmt_count(row['total_detections'])}</td>
+            <td>{drop_text}</td>
+            <td>{_fmt_ratio_pct(row['recovery_over_undefended'])}</td>
+            <td>{_fmt_ratio_pct(row['gap_to_oracle'])}</td>
+            <td>{round(cast(float, row['avg_confidence']), 4) if row['avg_confidence'] is not None else '—'}</td>
+        </tr>"""
+    return f"""
+    <table>
+        <thead>
+            <tr>
+                <th>Artifact</th><th>Placement</th><th>Defense</th>
+                <th>Detections</th><th>Detection Drop</th>
+                <th>Recovery Over Undefended</th><th>Gap To Oracle</th><th>Avg Confidence</th>
+            </tr>
+        </thead>
+        <tbody>{body}</tbody>
+    </table>"""
 
 
 def _run_table_html(sweep: dict[str, Any]) -> str:
@@ -394,7 +552,7 @@ def _run_table_html(sweep: dict[str, Any]) -> str:
         color = "#c0392b" if drop > 60 else "#e67e22" if drop > 30 else "#27ae60"
         rows_html += f"""
         <tr>
-            <td><span class="badge attack">{row['attack']}</span></td>
+            <td><span class="badge attack">{row['attack_label']}</span></td>
             <td><span class="badge defense">{_defense_label(row['defense'])}</span></td>
             <td style="color:{color}; font-weight:600">{drop}%</td>
             <td>{int(row['total_detections'])}</td>
@@ -463,6 +621,14 @@ def generate_dashboard(
 
     trend_json = json.dumps(trend_traces)
     attack_bar_json = json.dumps(attack_bars)
+    imported_patch_section = ""
+    imported_patch_table = _imported_patch_table_html(latest)
+    if imported_patch_table:
+        imported_patch_section = f"""
+<h2>Imported Patch Comparisons — Latest Sweep</h2>
+<div class="chart-box" style="overflow-x:auto">
+  {imported_patch_table}
+</div>"""
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -615,6 +781,8 @@ def generate_dashboard(
     </div>
   </div>
 </div>
+
+{imported_patch_section}
 
 <h2>Detection Drop Over Time — All Sweeps</h2>
 <div class="chart-box">

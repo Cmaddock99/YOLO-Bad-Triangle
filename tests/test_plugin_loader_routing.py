@@ -97,6 +97,7 @@ class PluginLoaderRoutingTest(unittest.TestCase):
         self.assertEqual(
             extra_defense_bootstrap.ADAPTER_MODULES,
             (
+                "lab.plugins.extra.defenses.blind_patch_recover_adapter",
                 "lab.plugins.extra.defenses.confidence_filter_adapter",
                 "lab.plugins.extra.defenses.oracle_patch_recover_adapter",
                 "lab.plugins.extra.defenses.preprocess_dpc_unet_adapter",

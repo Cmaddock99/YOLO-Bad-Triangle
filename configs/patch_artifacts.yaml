@@ -22,11 +22,19 @@ defenses:
   - jpeg_preprocess
   - median_preprocess
   - c_dog
+  - blind_patch_recover
   - oracle_patch_recover
 
 defense_params:
   c_dog:
     checkpoint_path: ${DPC_UNET_CHECKPOINT_PATH}
+  blind_patch_recover:
+    score_percentile: 99.0
+    min_area_frac: 0.01
+    max_area_frac: 0.20
+    dilate_px: 8
+    inpaint_radius: 7
+    inpaint_method: telea
   oracle_patch_recover:
     dilate_px: 8
     inpaint_radius: 7

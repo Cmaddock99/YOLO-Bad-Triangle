@@ -97,6 +97,7 @@ profiles:
         - jpeg_preprocess
         - median_preprocess
         - c_dog
+        - blind_patch_recover
         - oracle_patch_recover
       manual_only:
         - c_dog_ensemble

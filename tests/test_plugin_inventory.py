@@ -97,5 +97,6 @@ class PluginInventoryTest(unittest.TestCase):
         inventory = build_plugin_inventory("yolo11n_patch_eval_v1")
 
         self.assertEqual(inventory["attacks"]["core"], ["pretrained_patch"])
+        self.assertIn("blind_patch_recover", inventory["defenses"]["core"])
         self.assertIn("oracle_patch_recover", inventory["defenses"]["core"])
         self.assertIn("c_dog", inventory["defenses"]["core"])

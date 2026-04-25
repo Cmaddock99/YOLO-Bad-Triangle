@@ -18,7 +18,10 @@ from lab.config.contracts import (
     REPORTING_RUN_ROLES,
     REPORTING_SOURCE_PHASES,
 )
-from lab.eval.derived_metrics import compute_normalized_defense_recovery
+from lab.eval.derived_metrics import (
+    compute_detection_drop,
+    compute_normalized_defense_recovery,
+)
 
 NONE_LIKE_NAMES = {"", "none", "identity"}
 
@@ -51,6 +54,8 @@ class FrameworkRunRecord:
     objective_mode: str | None
     target_class: int | None
     attack_roi: str | None
+    attack_artifact: str | None
+    placement_mode: str | None
     attack_signature: str
     defense_signature: str
     transform_order: tuple[str, ...]
@@ -94,6 +99,54 @@ def _normalized_optional_enum(value: object, allowed: tuple[str, ...]) -> str | 
     return None
 
 
+def _as_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _as_optional_text(value: object) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def _artifact_name_from_path(value: object) -> str | None:
+    raw_path = _as_optional_text(value)
+    if raw_path is None:
+        return None
+    path = Path(raw_path)
+    if path.parent.name == "patches" and path.parent.parent.name:
+        return path.parent.parent.name
+    if path.parent.name and path.parent.name not in {".", ""}:
+        return path.parent.name
+    stem = path.stem.strip()
+    return stem or path.name.strip() or None
+
+
+def _attack_artifact_from_summary(attack_summary: dict[str, Any]) -> str | None:
+    if normalize_name(attack_summary.get("name")) != "pretrained_patch":
+        return None
+    attack_params = _as_mapping(attack_summary.get("params"))
+    attack_metadata = _as_mapping(attack_summary.get("metadata"))
+    artifact_provenance = _as_mapping(attack_metadata.get("artifact_provenance"))
+    return (
+        _as_optional_text(artifact_provenance.get("run_name"))
+        or _as_optional_text(attack_metadata.get("artifact_name"))
+        or _as_optional_text(attack_params.get("artifact_name"))
+        or _artifact_name_from_path(attack_metadata.get("artifact_path"))
+        or _artifact_name_from_path(attack_params.get("artifact_path"))
+    )
+
+
+def _placement_mode_from_summary(attack_summary: dict[str, Any]) -> str | None:
+    attack_params = _as_mapping(attack_summary.get("params"))
+    attack_metadata = _as_mapping(attack_summary.get("metadata"))
+    return (
+        _as_optional_text(attack_params.get("placement_mode"))
+        or _as_optional_text(attack_metadata.get("placement_mode"))
+    )
+
+
 def _reporting_context_from_summary(summary: dict[str, Any]) -> dict[str, str | None]:
     payload = (summary.get("reporting_context") or {})
     if not isinstance(payload, dict):
@@ -104,6 +157,32 @@ def _reporting_context_from_summary(summary: dict[str, Any]) -> dict[str, str | 
         "authority": _normalized_optional_enum(payload.get("authority"), REPORTING_AUTHORITIES),
         "source_phase": _normalized_optional_enum(payload.get("source_phase"), REPORTING_SOURCE_PHASES),
     }
+
+
+def _select_defended_record(
+    runs: list[FrameworkRunRecord],
+    *,
+    attack_signature: str,
+    defense_name: str,
+    preferred_authority: str | None = None,
+) -> FrameworkRunRecord | None:
+    matched = [
+        record
+        for record in runs
+        if (
+            not is_none_like(record.attack)
+            and normalize_name(record.defense) == normalize_name(defense_name)
+            and record.attack_signature == attack_signature
+            and record.semantic_order == PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE
+        )
+    ]
+    if not matched:
+        return None
+    if preferred_authority:
+        authority_matches = [record for record in matched if record.authority == preferred_authority]
+        if authority_matches:
+            return authority_matches[0]
+    return matched[0]
 
 
 def _select_baseline_record(
@@ -193,9 +272,11 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
         metrics = _read_json(metrics_path)
         predictions = metrics.get("predictions", {})
         validation = metrics.get("validation", {})
-        attack_obj = (summary.get("attack") or {}).get("resolved_objective") or {}
-        attack_params = (summary.get("attack") or {}).get("params") or {}
-        defense_params = (summary.get("defense") or {}).get("params") or {}
+        attack_summary = _as_mapping(summary.get("attack"))
+        defense_summary = _as_mapping(summary.get("defense"))
+        attack_obj = _as_mapping(attack_summary.get("resolved_objective"))
+        attack_params = _as_mapping(attack_summary.get("params"))
+        defense_params = _as_mapping(defense_summary.get("params"))
         objective_mode = attack_obj.get("objective_mode") or attack_params.get("objective_mode")
         target_class_raw = attack_obj.get("target_class")
         if target_class_raw is None:
@@ -209,7 +290,7 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
             attack_roi = attack_params.get("attack_roi")
         attack_signature = _stable_json_signature(
             {
-                "attack_name": normalize_name((summary.get("attack") or {}).get("name", "")),
+                "attack_name": normalize_name(attack_summary.get("name", "")),
                 "objective_mode": objective_mode,
                 "target_class": target_class,
                 "attack_roi": attack_roi,
@@ -218,7 +299,7 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
         )
         defense_signature = _stable_json_signature(
             {
-                "defense_name": normalize_name((summary.get("defense") or {}).get("name", "")),
+                "defense_name": normalize_name(defense_summary.get("name", "")),
                 "defense_params": defense_params,
             }
         )
@@ -260,6 +341,8 @@ def discover_framework_runs(runs_root: Path) -> list[FrameworkRunRecord]:
                 objective_mode=str(objective_mode) if objective_mode else None,
                 target_class=target_class,
                 attack_roi=str(attack_roi) if attack_roi is not None else None,
+                attack_artifact=_attack_artifact_from_summary(attack_summary),
+                placement_mode=_placement_mode_from_summary(attack_summary),
                 attack_signature=attack_signature,
                 defense_signature=defense_signature,
                 transform_order=transform_order,
@@ -305,7 +388,7 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
         "semantic_order",
         "run_role", "dataset_scope", "authority", "source_phase",
         "pipeline_profile", "authoritative_metric", "profile_compatibility_status",
-        "objective_mode", "target_class", "attack_roi",
+        "objective_mode", "target_class", "attack_roi", "attack_artifact", "placement_mode",
         "prediction_count", "images_with_detections", "total_detections",
         "avg_confidence", "validation_status", "precision", "recall",
         "mAP50", "mAP50-95",
@@ -333,6 +416,8 @@ def write_summary_csv(records: list[FrameworkRunRecord], output_csv: Path) -> No
                 "objective_mode": record.objective_mode,
                 "target_class": record.target_class,
                 "attack_roi": record.attack_roi,
+                "attack_artifact": record.attack_artifact,
+                "placement_mode": record.placement_mode,
                 "prediction_count": record.prediction_count,
                 "images_with_detections": record.images_with_detections,
                 "total_detections": record.total_detections,
@@ -364,6 +449,8 @@ def build_comparison_rows(records: list[FrameworkRunRecord]) -> list[dict[str, A
                 "seed": seed,
                 "attack_run": run.run_name,
                 "attack": normalize_name(run.attack),
+                "attack_artifact": run.attack_artifact,
+                "placement_mode": run.placement_mode,
                 "objective_mode": run.objective_mode,
                 "target_class": run.target_class,
                 "attack_roi": run.attack_roi,
@@ -438,6 +525,8 @@ def build_defense_recovery_rows(records: list[FrameworkRunRecord]) -> list[dict[
                 "model": model,
                 "seed": seed,
                 "attack": normalize_name(defended.attack),
+                "attack_artifact": defended.attack_artifact,
+                "placement_mode": defended.placement_mode,
                 "defense": normalize_name(defended.defense),
                 "objective_mode": defended.objective_mode,
                 "target_class": defended.target_class,
@@ -461,12 +550,117 @@ def build_defense_recovery_rows(records: list[FrameworkRunRecord]) -> list[dict[
     return rows
 
 
+_IMPORTED_PATCH_DEFENSE_ORDER = (
+    "none",
+    "blind_patch_recover",
+    "oracle_patch_recover",
+)
+
+
+def build_imported_patch_recovery_rows(records: list[FrameworkRunRecord]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, int], list[FrameworkRunRecord]] = {}
+    for record in records:
+        grouped.setdefault((record.model, record.seed), []).append(record)
+
+    rows: list[dict[str, Any]] = []
+    for (model, seed), runs in grouped.items():
+        attack_only_runs = [
+            record
+            for record in runs
+            if (
+                normalize_name(record.attack) == "pretrained_patch"
+                and is_none_like(record.defense)
+                and (record.attack_artifact or record.placement_mode)
+            )
+        ]
+        attack_only_runs.sort(
+            key=lambda record: (
+                record.attack_artifact or "",
+                record.placement_mode or "",
+                record.authority or "",
+                record.run_name,
+            )
+        )
+        for attacked in attack_only_runs:
+            baseline = _select_baseline_record(runs, preferred_authority=attacked.authority)
+            if baseline is None:
+                continue
+            oracle = _select_defended_record(
+                runs,
+                attack_signature=attacked.attack_signature,
+                defense_name="oracle_patch_recover",
+                preferred_authority=attacked.authority,
+            )
+            oracle_recovery = (
+                compute_normalized_defense_recovery(
+                    baseline.total_detections,
+                    attacked.total_detections,
+                    oracle.total_detections,
+                )
+                if oracle is not None
+                else None
+            )
+            for defense_name in _IMPORTED_PATCH_DEFENSE_ORDER:
+                defended = None
+                if defense_name != "none":
+                    defended = _select_defended_record(
+                        runs,
+                        attack_signature=attacked.attack_signature,
+                        defense_name=defense_name,
+                        preferred_authority=attacked.authority,
+                    )
+                subject = attacked if defense_name == "none" else defended
+                defended_detections = subject.total_detections if subject is not None else None
+                recovery = compute_normalized_defense_recovery(
+                    baseline.total_detections,
+                    attacked.total_detections,
+                    defended_detections,
+                )
+                gap_to_oracle = (
+                    oracle_recovery - recovery
+                    if oracle_recovery is not None and recovery is not None
+                    else None
+                )
+                rows.append(
+                    {
+                        "model": model,
+                        "seed": seed,
+                        "attack": "pretrained_patch",
+                        "attack_artifact": attacked.attack_artifact,
+                        "placement_mode": attacked.placement_mode,
+                        "defense": defense_name,
+                        "run_name": subject.run_name if subject is not None else None,
+                        "validation_status": subject.validation_status if subject is not None else None,
+                        "baseline_detections": baseline.total_detections,
+                        "attack_detections": attacked.total_detections,
+                        "defended_detections": defended_detections,
+                        "detection_drop": compute_detection_drop(
+                            baseline.total_detections,
+                            defended_detections,
+                        ),
+                        "recovery_over_undefended": recovery,
+                        "gap_to_oracle": gap_to_oracle,
+                        "avg_confidence": subject.avg_confidence if subject is not None else None,
+                    }
+                )
+    return rows
+
+
 def _fmt(value: float | None, decimals: int = 4) -> str:
     return "" if value is None else f"{value:.{decimals}f}"
 
 
 def _fmt_pct(value: float | None) -> str:
     return "" if value is None else f"{value * 100:.1f}%"
+
+
+def _fmt_count(value: int | float | None) -> str:
+    if value is None:
+        return ""
+    numeric = float(value)
+    if numeric.is_integer():
+        return str(int(numeric))
+    return f"{numeric:.1f}"
 
 
 def build_per_class_rows(records: list[FrameworkRunRecord]) -> list[dict[str, Any]]:
@@ -571,12 +765,13 @@ def render_markdown_report(records: list[FrameworkRunRecord]) -> str:
     lines += [
         "## Run Inventory",
         "",
-        "| Run | Model | Attack | Defense | Semantics | Validation | mAP50 | Avg conf |",
-        "|---|---|---|---|---|---|---:|---:|",
+        "| Run | Model | Attack | Artifact | Placement | Defense | Semantics | Validation | mAP50 | Avg conf |",
+        "|---|---|---|---|---|---|---|---|---:|---:|",
     ]
     for record in records:
         lines.append(
-            f"| `{record.run_name}` | `{record.model}` | `{record.attack}` | `{record.defense}` | "
+            f"| `{record.run_name}` | `{record.model}` | `{record.attack}` | "
+            f"`{record.attack_artifact or ''}` | `{record.placement_mode or ''}` | `{record.defense}` | "
             f"`{record.semantic_order}` | `{record.validation_status}` | {_fmt(record.map50)} | "
             f"{_fmt(record.avg_confidence)} |"
         )
@@ -588,12 +783,13 @@ def render_markdown_report(records: list[FrameworkRunRecord]) -> str:
         lines.append("No baseline/attack pairs found.")
     else:
         lines += [
-            "| Model | Seed | Attack | Objective | Target class | ROI | mAP50 baseline | mAP50 attacked | mAP50 drop | Effectiveness |",
-            "|---|---:|---|---|---:|---|---:|---:|---:|---:|",
+            "| Model | Seed | Attack | Artifact | Placement | Objective | Target class | ROI | mAP50 baseline | mAP50 attacked | mAP50 drop | Effectiveness |",
+            "|---|---:|---|---|---|---|---:|---|---:|---:|---:|---:|",
         ]
         for row in comparison_rows:
             lines.append(
                 f"| `{row['model']}` | {row['seed']} | `{row['attack']}` | "
+                f"`{row['attack_artifact'] or ''}` | `{row['placement_mode'] or ''}` | "
                 f"`{row['objective_mode'] or ''}` | {'' if row['target_class'] is None else row['target_class']} | "
                 f"`{row['attack_roi'] or ''}` | "
                 f"{_fmt(row['baseline_mAP50'])} | {_fmt(row['attack_mAP50'])} | "
@@ -613,16 +809,35 @@ def render_markdown_report(records: list[FrameworkRunRecord]) -> str:
         lines.append("No defended runs found. Run with `--defenses` to enable defense sweep.")
     else:
         lines += [
-            "| Model | Attack | Defense | Objective | Target class | ROI | mAP50 attacked | mAP50 defended | Recovery |",
-            "|---|---|---|---|---:|---|---:|---:|---:|",
+            "| Model | Attack | Artifact | Placement | Defense | Objective | Target class | ROI | mAP50 attacked | mAP50 defended | Recovery |",
+            "|---|---|---|---|---|---|---:|---|---:|---:|---:|",
         ]
         for row in recovery_rows:
             lines.append(
-                f"| `{row['model']}` | `{row['attack']}` | `{row['defense']}` | "
+                f"| `{row['model']}` | `{row['attack']}` | `{row['attack_artifact'] or ''}` | "
+                f"`{row['placement_mode'] or ''}` | `{row['defense']}` | "
                 f"`{row['objective_mode'] or ''}` | {'' if row['target_class'] is None else row['target_class']} | "
                 f"`{row['attack_roi'] or ''}` | "
                 f"{_fmt(row['attack_mAP50'])} | {_fmt(row['defended_mAP50'])} | "
                 f"{_fmt_pct(row['mAP50_recovery'])} |"
+            )
+
+    imported_rows = build_imported_patch_recovery_rows(records)
+    lines += ["", "## Imported Patch Recovery", ""]
+    if not imported_rows:
+        lines.append("No imported patch comparisons found.")
+    else:
+        lines += [
+            "| Model | Seed | Artifact | Placement | Defense | Baseline det | Undefended det | Defended det | Detection drop | Recovery over undefended | Gap to oracle |",
+            "|---|---:|---|---|---|---:|---:|---:|---:|---:|---:|",
+        ]
+        for row in imported_rows:
+            lines.append(
+                f"| `{row['model']}` | {row['seed']} | `{row['attack_artifact'] or ''}` | "
+                f"`{row['placement_mode'] or ''}` | `{row['defense']}` | "
+                f"{_fmt_count(row['baseline_detections'])} | {_fmt_count(row['attack_detections'])} | "
+                f"{_fmt_count(row['defended_detections'])} | {_fmt_pct(row['detection_drop'])} | "
+                f"{_fmt_pct(row['recovery_over_undefended'])} | {_fmt_pct(row['gap_to_oracle'])} |"
             )
 
     # Per-class detection drop
