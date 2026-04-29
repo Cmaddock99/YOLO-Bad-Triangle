@@ -160,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     export_cmd = build_repo_python_command(
         REPO,
         "scripts/export_training_data.py",
-        ["--from-signal", str(SIGNAL_PATH)],
+        ["--from-signal", "--signal-path", str(SIGNAL_PATH)],
         python_bin=python_bin,
     )
     try:

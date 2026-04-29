@@ -54,10 +54,10 @@ class TrainingRitualTest(unittest.TestCase):
     def test_accepts_fresh_signal_within_age_limit(self) -> None:
         """A signal file younger than the limit is accepted (no exit-2 from check_signal)."""
         self._write_signal(age_hours=1)
-        captured: list[list[str]] = []
+        captured: dict[str, list[str]] = {}
 
         def fake_run_step(label: str, cmd: list[str], *, dry_run: bool) -> None:
-            captured.append(cmd)
+            captured[label] = list(cmd)
             if label == "export_training_data":
                 return  # success
             # train step — raise to stop further processing cleanly
@@ -69,7 +69,13 @@ class TrainingRitualTest(unittest.TestCase):
                     run_training_ritual.main([])
 
         # Should have reached export step without failing at signal check
-        self.assertTrue(any("export_training_data" in " ".join(c) for c in captured))
+        export_cmd = captured.get("export_training_data")
+        self.assertIsNotNone(export_cmd)
+        assert export_cmd is not None
+        self.assertIn("--from-signal", export_cmd)
+        self.assertIn("--signal-path", export_cmd)
+        signal_idx = export_cmd.index("--signal-path")
+        self.assertEqual(export_cmd[signal_idx + 1], str(self.signal_path))
 
     def test_dry_run_prints_steps_without_executing(self) -> None:
         """--dry-run calls _run_step with dry_run=True for all steps."""
