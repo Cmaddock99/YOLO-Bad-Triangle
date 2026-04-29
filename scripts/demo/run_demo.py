@@ -34,7 +34,17 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT / "src"))
+REPO_ROOT_STR = str(REPO_ROOT)
+SRC_ROOT_STR = str(REPO_ROOT / "src")
+if REPO_ROOT_STR not in sys.path:
+    sys.path.insert(0, REPO_ROOT_STR)
+if SRC_ROOT_STR not in sys.path:
+    sys.path.insert(0, SRC_ROOT_STR)
+
+from scripts.check_environment import (
+    DEFAULT_DPC_CHECKPOINT_CANDIDATES,
+    resolve_dpc_checkpoint_path,
+)
 
 # Exit code constants — kept as module-level names for tests.
 EXIT_SUCCESS = 0
@@ -44,6 +54,7 @@ EXIT_ARTIFACT = 3
 EXIT_NOOP = 4
 
 _EXIT_PRIORITY = [EXIT_PREFLIGHT, EXIT_ARTIFACT, EXIT_NOOP, EXIT_PARTIAL_FAILURE, EXIT_SUCCESS]
+_CDOG_DEFENSES = ("c_dog", "c_dog_ensemble")
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +102,17 @@ def _find_images(directory: Path) -> list[Path]:
     for ext in ("*.jpg", "*.jpeg", "*.png"):
         images.extend(directory.glob(ext))
     return images
+
+
+def _configured_dpc_checkpoint_path(config_dict: dict[str, Any]) -> str | None:
+    defense_cfg = config_dict.get("defense") or {}
+    if not isinstance(defense_cfg, dict):
+        return None
+    defense_params = defense_cfg.get("params") or {}
+    if not isinstance(defense_params, dict):
+        return None
+    checkpoint_path = str(defense_params.get("checkpoint_path") or "").strip()
+    return checkpoint_path or None
 
 
 def _git_info() -> tuple[str, bool]:
@@ -208,9 +230,18 @@ def stage_preflight(
             return _fail(f"validation.dataset not found: {val_dataset_raw}")
 
     # 7. DPC-UNet checkpoint for c_dog defenses
-    if any(d in ("c_dog", "c_dog_ensemble") for d in defenses):
-        if not os.environ.get("DPC_UNET_CHECKPOINT_PATH"):
-            return _fail("DPC_UNET_CHECKPOINT_PATH required for c_dog/c_dog_ensemble defense")
+    if any(d in _CDOG_DEFENSES for d in defenses):
+        configured_checkpoint_path = _configured_dpc_checkpoint_path(config_dict)
+        if resolve_dpc_checkpoint_path(configured_checkpoint_path) is None:
+            checked_target = (
+                configured_checkpoint_path
+                or os.environ.get("DPC_UNET_CHECKPOINT_PATH")
+                or ", ".join(DEFAULT_DPC_CHECKPOINT_CANDIDATES)
+            )
+            return _fail(
+                "DPC-UNet checkpoint missing for c_dog/c_dog_ensemble defense "
+                f"(checked: {checked_target})"
+            )
 
     # 8. Disk space (≥ 500 MB)
     check_dir = output_root if output_root.exists() else output_root.parent

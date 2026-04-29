@@ -198,6 +198,13 @@ def _validation_priority(row: dict[str, str]) -> int:
     return 2
 
 
+def _parse_float(value: object) -> float | None:
+    try:
+        return float(cast(Any, value))
+    except (TypeError, ValueError):
+        return None
+
+
 def _row_selection_key(row: dict[str, str]) -> tuple[int, int, int, str]:
     return (
         _authority_priority(row.get("authority")),
@@ -225,6 +232,41 @@ def _dedupe_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return deduped
 
 
+def _surrogate_baseline_selection_key(row: dict[str, str]) -> tuple[float, int, int, int, str]:
+    detections = _parse_float(row.get("total_detections"))
+    return (
+        detections if detections is not None else float("-inf"),
+        -_authority_priority(row.get("authority")),
+        -_validation_priority(row),
+        -_phase_priority(row.get("source_phase")),
+        str(row.get("run_name") or ""),
+    )
+
+
+def _resolve_baseline_row(rows: list[dict[str, str]]) -> tuple[dict[str, str] | None, str]:
+    baseline_candidates = [
+        row
+        for row in rows
+        if _normalize_text(row.get("attack")) in {"", "none"} and _normalize_text(row.get("defense")) in {"", "none"}
+    ]
+    if baseline_candidates:
+        baseline = min(baseline_candidates, key=_row_selection_key)
+        return baseline, "clean images, no attack"
+
+    imported_patch_undefended = [
+        row
+        for row in rows
+        if _normalize_text(row.get("attack")) == "pretrained_patch"
+        and _normalize_text(row.get("defense")) in {"", "none"}
+        and _parse_float(row.get("total_detections")) is not None
+    ]
+    if imported_patch_undefended:
+        baseline = max(imported_patch_undefended, key=_surrogate_baseline_selection_key)
+        return baseline, "best imported patch undefended run"
+
+    return None, ""
+
+
 def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
     """Load a single sweep's CSV into a list of row dicts. Returns None if unusable."""
     csv_path = report_dir / "framework_run_summary.csv"
@@ -238,12 +280,7 @@ def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
         return None
     rows = _dedupe_rows(rows)
 
-    baseline_candidates = [
-        row
-        for row in rows
-        if _normalize_text(row.get("attack")) in {"", "none"} and _normalize_text(row.get("defense")) in {"", "none"}
-    ]
-    baseline = min(baseline_candidates, key=_row_selection_key) if baseline_candidates else None
+    baseline, baseline_label = _resolve_baseline_row(rows)
     if not baseline or not baseline.get("total_detections"):
         return None
     baseline_det = float(baseline["total_detections"])
@@ -287,6 +324,7 @@ def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
         ),
         "model": _shared_row_value(rows, "model"),
         "baseline_detections": baseline_det,
+        "baseline_label": baseline_label,
         "runs": runs,
         "generated_at": _parse_generated_at(manifest.get("generated_at")),
     }
@@ -424,7 +462,7 @@ def _summary_cards_html(sweeps: list[dict[str, Any]]) -> str:
     cards = [
         card("Total Sweeps", str(len(sweeps)), "runs recorded"),
         card("Baseline Detections", str(int(latest["baseline_detections"])),
-             "clean images, no attack", "#2ca02c"),
+             str(latest.get("baseline_label") or "clean images, no attack"), "#2ca02c"),
         card("Strongest Attack", str(worst_attack.get("attack_label") or worst_attack.get("attack") or "unknown").upper() if worst_attack else "NO_EFFECTIVE_ATTACK",
              f"−{worst_attack['detection_drop']}% detections" if worst_attack else "all attacks had 0.0% drop",
              "#C44E52"),
@@ -439,7 +477,7 @@ def _fmt_count(value: object) -> str:
     if value is None:
         return "—"
     try:
-        numeric = float(value)
+        numeric = float(cast(Any, value))
     except (TypeError, ValueError):
         return "—"
     if numeric.is_integer():
@@ -451,7 +489,7 @@ def _fmt_ratio_pct(value: object) -> str:
     if value is None:
         return "—"
     try:
-        numeric = float(value)
+        numeric = float(cast(Any, value))
     except (TypeError, ValueError):
         return "—"
     return f"{numeric * 100:.1f}%"

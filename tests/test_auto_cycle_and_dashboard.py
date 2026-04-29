@@ -481,6 +481,72 @@ class DashboardSelectionTest(unittest.TestCase):
             self.assertIn("Blind Patch Recover", html)
             self.assertIn("Oracle Patch Recover (upper bound)", html)
 
+    def test_generate_dashboard_accepts_imported_patch_only_report_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report_dir = root / "report"
+            report_dir.mkdir(parents=True, exist_ok=True)
+            csv_path = report_dir / "framework_run_summary.csv"
+            with csv_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=[
+                        "run_name",
+                        "model",
+                        "seed",
+                        "attack",
+                        "defense",
+                        "attack_artifact",
+                        "placement_mode",
+                        "total_detections",
+                        "avg_confidence",
+                        "mAP50",
+                        "validation_status",
+                        "authority",
+                        "source_phase",
+                        "pipeline_profile",
+                    ],
+                )
+                writer.writeheader()
+                for run_name, defense, placement_mode, detections in (
+                    ("torso_none", "none", "largest_person_torso", "2"),
+                    ("torso_blind", "blind_patch_recover", "largest_person_torso", "2"),
+                    ("torso_oracle", "oracle_patch_recover", "largest_person_torso", "2"),
+                    ("fixed_none", "none", "off_object_fixed", "4"),
+                    ("fixed_blind", "blind_patch_recover", "off_object_fixed", "3"),
+                    ("fixed_oracle", "oracle_patch_recover", "off_object_fixed", "3"),
+                ):
+                    writer.writerow(
+                        {
+                            "run_name": run_name,
+                            "model": "yolo11n.pt",
+                            "seed": "42",
+                            "attack": "pretrained_patch",
+                            "defense": defense,
+                            "attack_artifact": "yolo11n_patch_v2",
+                            "placement_mode": placement_mode,
+                            "total_detections": detections,
+                            "avg_confidence": "0.61",
+                            "mAP50": "",
+                            "validation_status": "missing",
+                            "authority": "diagnostic",
+                            "source_phase": "manual",
+                            "pipeline_profile": "yolo11n_patch_eval_v1",
+                        }
+                    )
+
+            output_path = root / "dashboard.html"
+            generate_dashboard.generate_dashboard(
+                reports_root=None,
+                output=output_path,
+                report_dirs=[report_dir],
+                no_pages=True,
+            )
+
+            html = output_path.read_text(encoding="utf-8")
+            self.assertIn("Imported Patch Comparisons", html)
+            self.assertIn("best imported patch undefended run", html)
+
     def test_summary_cards_ignore_zero_drop_attacks(self) -> None:
         sweeps = [
             {
