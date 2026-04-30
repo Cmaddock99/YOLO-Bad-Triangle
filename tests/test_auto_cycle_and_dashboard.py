@@ -535,6 +535,19 @@ class DashboardSelectionTest(unittest.TestCase):
                         }
                     )
 
+            sweep = generate_dashboard._load_sweep(report_dir)
+            self.assertIsNotNone(sweep)
+            assert sweep is not None
+            self.assertIsNone(sweep["baseline_detections"])
+            self.assertFalse(sweep["has_clean_baseline"])
+            self.assertEqual(
+                sweep["baseline_label"],
+                "clean images, no attack unavailable in this report",
+            )
+            imported_rows = [row for row in sweep["runs"] if row["attack"] == "pretrained_patch"]
+            self.assertTrue(imported_rows)
+            self.assertTrue(all(row["detection_drop"] is None for row in imported_rows))
+
             output_path = root / "dashboard.html"
             generate_dashboard.generate_dashboard(
                 reports_root=None,
@@ -545,7 +558,8 @@ class DashboardSelectionTest(unittest.TestCase):
 
             html = output_path.read_text(encoding="utf-8")
             self.assertIn("Imported Patch Comparisons", html)
-            self.assertIn("best imported patch undefended run", html)
+            self.assertIn("clean images, no attack unavailable in this report", html)
+            self.assertIn("Detection-Drop Views Unavailable", html)
 
     def test_summary_cards_ignore_zero_drop_attacks(self) -> None:
         sweeps = [

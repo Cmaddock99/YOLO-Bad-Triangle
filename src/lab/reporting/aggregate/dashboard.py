@@ -232,17 +232,6 @@ def _dedupe_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return deduped
 
 
-def _surrogate_baseline_selection_key(row: dict[str, str]) -> tuple[float, int, int, int, str]:
-    detections = _parse_float(row.get("total_detections"))
-    return (
-        detections if detections is not None else float("-inf"),
-        -_authority_priority(row.get("authority")),
-        -_validation_priority(row),
-        -_phase_priority(row.get("source_phase")),
-        str(row.get("run_name") or ""),
-    )
-
-
 def _resolve_baseline_row(rows: list[dict[str, str]]) -> tuple[dict[str, str] | None, str]:
     baseline_candidates = [
         row
@@ -252,17 +241,6 @@ def _resolve_baseline_row(rows: list[dict[str, str]]) -> tuple[dict[str, str] | 
     if baseline_candidates:
         baseline = min(baseline_candidates, key=_row_selection_key)
         return baseline, "clean images, no attack"
-
-    imported_patch_undefended = [
-        row
-        for row in rows
-        if _normalize_text(row.get("attack")) == "pretrained_patch"
-        and _normalize_text(row.get("defense")) in {"", "none"}
-        and _parse_float(row.get("total_detections")) is not None
-    ]
-    if imported_patch_undefended:
-        baseline = max(imported_patch_undefended, key=_surrogate_baseline_selection_key)
-        return baseline, "best imported patch undefended run"
 
     return None, ""
 
@@ -281,9 +259,16 @@ def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
     rows = _dedupe_rows(rows)
 
     baseline, baseline_label = _resolve_baseline_row(rows)
-    if not baseline or not baseline.get("total_detections"):
+    has_imported_patch_rows = any(
+        _normalize_text(row.get("attack")) == "pretrained_patch" for row in rows
+    )
+    if baseline is None and not has_imported_patch_rows:
         return None
-    baseline_det = float(baseline["total_detections"])
+    baseline_det = _parse_float(baseline.get("total_detections")) if baseline is not None else None
+    if baseline is not None and baseline_det is None:
+        return None
+    if baseline is None:
+        baseline_label = "clean images, no attack unavailable in this report"
     manifest = _manifest_for_report(report_dir)
     raw_identifier = str(manifest.get("sweep_id") or report_dir.name).strip() or report_dir.name
 
@@ -293,7 +278,9 @@ def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
             det = float(row["total_detections"])
         except (ValueError, TypeError):
             continue
-        drop = (baseline_det - det) / baseline_det if baseline_det else 0
+        drop: float | None = None
+        if baseline_det is not None and baseline_det != 0.0:
+            drop = (baseline_det - det) / baseline_det
         source_phase = _normalize_text(row.get("source_phase"))
         map50_authoritative = source_phase == "phase4"
         attack_artifact = str(row.get("attack_artifact") or "").strip()
@@ -308,7 +295,7 @@ def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
             "defense": row["defense"],
             "total_detections": det,
             "avg_confidence": float(row["avg_confidence"]) if row.get("avg_confidence") else None,
-            "detection_drop": round(drop * 100, 1),
+            "detection_drop": round(drop * 100, 1) if drop is not None else None,
             "mAP50": float(row["mAP50"]) if row.get("mAP50") and map50_authoritative else None,
             "source_phase": source_phase or "unknown",
         })
@@ -325,6 +312,7 @@ def _load_sweep(report_dir: Path) -> dict[str, Any] | None:
         "model": _shared_row_value(rows, "model"),
         "baseline_detections": baseline_det,
         "baseline_label": baseline_label,
+        "has_clean_baseline": baseline_det is not None,
         "runs": runs,
         "generated_at": _parse_generated_at(manifest.get("generated_at")),
     }
@@ -360,10 +348,14 @@ def _build_heatmap_data(
                 None,
             )
             if match:
-                row_z.append(cast(float | None, match.get("detection_drop")))
-                row_t.append(
-                    f"{match['detection_drop']}%<br>{int(match['total_detections'])} detections"
-                )
+                drop = cast(float | None, match.get("detection_drop"))
+                row_z.append(drop)
+                if drop is None:
+                    row_t.append(f"{int(match['total_detections'])} detections<br>no clean baseline")
+                else:
+                    row_t.append(
+                        f"{match['detection_drop']}%<br>{int(match['total_detections'])} detections"
+                    )
             else:
                 row_z.append(None)
                 row_t.append("n/a")
@@ -402,8 +394,11 @@ def _build_trend_data(sweeps: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 None,
             )
             if match:
+                drop = cast(float | None, match.get("detection_drop"))
+                if drop is None:
+                    continue
                 x.append(sweep["label"])
-                y.append(match["detection_drop"])
+                y.append(drop)
         if len(x) < 1:
             continue
         traces.append({
@@ -419,7 +414,13 @@ def _build_trend_data(sweeps: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _build_attack_bar_data(sweep: dict[str, Any]) -> list[dict[str, Any]]:
     """Bar chart of undefended attack detection drops."""
-    attacked = [row for row in sweep["runs"] if row["attack"] != "none" and row["defense"] in ("none", "")]
+    attacked = [
+        row
+        for row in sweep["runs"]
+        if row["attack"] != "none"
+        and row["defense"] in ("none", "")
+        and row["detection_drop"] is not None
+    ]
     return [
         {
             "x": [row["attack_label"] for row in attacked],
@@ -434,7 +435,12 @@ def _build_attack_bar_data(sweep: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _summary_cards_html(sweeps: list[dict[str, Any]]) -> str:
     latest = sweeps[-1]
-    defended = [row for row in latest["runs"] if row["defense"] not in ("none", "")]
+    has_clean_baseline = bool(latest.get("has_clean_baseline", latest.get("baseline_detections") is not None))
+    defended = [
+        row
+        for row in latest["runs"]
+        if row["defense"] not in ("none", "") and row["detection_drop"] is not None
+    ]
     best = min(
         defended,
         key=lambda row: row["detection_drop"] if row["detection_drop"] is not None else float("inf"),
@@ -459,15 +465,23 @@ def _summary_cards_html(sweeps: list[dict[str, Any]]) -> str:
             <div class="card-sub">{sub}</div>
         </div>"""
 
+    strongest_attack_value = "NO_EFFECTIVE_ATTACK" if has_clean_baseline else "N/A"
+    strongest_attack_sub = "all attacks had 0.0% drop" if has_clean_baseline else "clean baseline unavailable"
+    if worst_attack is not None:
+        strongest_attack_value = str(
+            worst_attack.get("attack_label") or worst_attack.get("attack") or "unknown"
+        ).upper()
+        strongest_attack_sub = f"−{worst_attack['detection_drop']}% detections"
+
     cards = [
         card("Total Sweeps", str(len(sweeps)), "runs recorded"),
-        card("Baseline Detections", str(int(latest["baseline_detections"])),
+        card("Baseline Detections", _fmt_count(latest["baseline_detections"]),
              str(latest.get("baseline_label") or "clean images, no attack"), "#2ca02c"),
-        card("Strongest Attack", str(worst_attack.get("attack_label") or worst_attack.get("attack") or "unknown").upper() if worst_attack else "NO_EFFECTIVE_ATTACK",
-             f"−{worst_attack['detection_drop']}% detections" if worst_attack else "all attacks had 0.0% drop",
+        card("Strongest Attack", strongest_attack_value,
+             strongest_attack_sub,
              "#C44E52"),
         card("Best Defense (latest)", best["defense"] if best else "—",
-             f"vs {best.get('attack_label') or best.get('attack')}: −{best['detection_drop']}%" if best else "",
+             f"vs {best.get('attack_label') or best.get('attack')}: −{best['detection_drop']}%" if best else "clean baseline unavailable",
              "#E377C2"),
     ]
     return '<div class="cards">' + "".join(cards) + "</div>"
@@ -508,7 +522,7 @@ def _build_imported_patch_comparison_rows(sweep: dict[str, Any]) -> list[dict[st
         groups.setdefault((artifact, placement), {})[_normalize_text(row.get("defense"))] = row
 
     rendered_rows: list[dict[str, Any]] = []
-    baseline_det = sweep["baseline_detections"]
+    baseline_det = cast(float | None, sweep.get("baseline_detections"))
     for artifact, placement in sorted(groups):
         group = groups[(artifact, placement)]
         attack_row = group.get("none")
@@ -583,16 +597,24 @@ def _run_table_html(sweep: dict[str, Any]) -> str:
     rows_html = ""
     defended = sorted(
         [row for row in sweep["runs"] if row["defense"] not in ("none", "")],
-        key=lambda row: row["detection_drop"],
+        key=lambda row: (
+            row["detection_drop"] is None,
+            row["detection_drop"] if row["detection_drop"] is not None else float("inf"),
+        ),
     )
     for row in defended:
         drop = row["detection_drop"]
-        color = "#c0392b" if drop > 60 else "#e67e22" if drop > 30 else "#27ae60"
+        if drop is None:
+            color = "#888888"
+            drop_text = "—"
+        else:
+            color = "#c0392b" if drop > 60 else "#e67e22" if drop > 30 else "#27ae60"
+            drop_text = f"{drop}%"
         rows_html += f"""
         <tr>
             <td><span class="badge attack">{row['attack_label']}</span></td>
             <td><span class="badge defense">{_defense_label(row['defense'])}</span></td>
-            <td style="color:{color}; font-weight:600">{drop}%</td>
+            <td style="color:{color}; font-weight:600">{drop_text}</td>
             <td>{int(row['total_detections'])}</td>
             <td>{round(row['avg_confidence'], 4) if row['avg_confidence'] else '—'}</td>
         </tr>"""
@@ -628,9 +650,16 @@ def generate_dashboard(
         raise RuntimeError(f"No usable sweep data found under {reports_root}")
 
     latest = sweeps[-1]
-    attacks, defense_labels, z, text = _build_heatmap_data(latest)
-    trend_traces = _build_trend_data(sweeps)
-    attack_bars = _build_attack_bar_data(latest)
+    comparable_sweeps = [sweep for sweep in sweeps if bool(sweep.get("has_clean_baseline"))]
+    comparable_latest = comparable_sweeps[-1] if comparable_sweeps else None
+    if comparable_latest is not None:
+        attacks, defense_labels, z, text = _build_heatmap_data(comparable_latest)
+        trend_traces = _build_trend_data(comparable_sweeps)
+        attack_bars = _build_attack_bar_data(comparable_latest)
+    else:
+        attacks, defense_labels, z, text = [], [], [], []
+        trend_traces = []
+        attack_bars = []
     latest_generated_at = latest.get("generated_at")
     if isinstance(latest_generated_at, datetime):
         if latest_generated_at.tzinfo is None:
@@ -666,6 +695,46 @@ def generate_dashboard(
 <h2>Imported Patch Comparisons — Latest Sweep</h2>
 <div class="chart-box" style="overflow-x:auto">
   {imported_patch_table}
+</div>"""
+
+    if comparable_latest is not None:
+        latest_is_comparable = comparable_latest is latest
+        all_sweeps_comparable = len(comparable_sweeps) == len(sweeps)
+        heatmap_heading = "Latest Sweep" if latest_is_comparable else "Latest Comparable Sweep"
+        recovery_heading = "Latest Sweep" if latest_is_comparable else "Latest Comparable Sweep"
+        trend_heading = "All Sweeps" if all_sweeps_comparable else "Comparable Sweeps"
+        core_sections_html = f"""
+<h2>{heatmap_heading} — Defense Heatmap ({comparable_latest['label']})</h2>
+<div class="chart-box">
+  <div id="heatmap" style="height:320px"></div>
+</div>
+
+<div class="two-col">
+  <div>
+    <h2>Attack Effectiveness (Undefended)</h2>
+    <div class="chart-box">
+      <div id="attack-bars" style="height:300px"></div>
+    </div>
+  </div>
+  <div>
+    <h2>Defense Recovery — {recovery_heading}</h2>
+    <div class="chart-box" style="overflow-x:auto">
+      {_run_table_html(comparable_latest)}
+    </div>
+  </div>
+</div>
+
+<h2>Detection Drop Over Time — {trend_heading}</h2>
+<div class="chart-box">
+  <div id="trend" style="height:380px"></div>
+</div>"""
+    else:
+        core_sections_html = """
+<h2>Detection-Drop Views Unavailable</h2>
+<div class="chart-box">
+  This report directory has no clean <code>attack=none, defense=none</code> baseline row, so the dashboard
+  omits cross-run detection-drop charts instead of inventing one. Use the imported-patch comparison table
+  below for per-placement counts from this report.
 </div>"""
 
     html = f"""<!DOCTYPE html>
@@ -800,32 +869,9 @@ def generate_dashboard(
 
 {_summary_cards_html(sweeps)}
 
-<h2>Latest Sweep — Defense Heatmap ({latest['label']})</h2>
-<div class="chart-box">
-  <div id="heatmap" style="height:320px"></div>
-</div>
-
-<div class="two-col">
-  <div>
-    <h2>Attack Effectiveness (Undefended)</h2>
-    <div class="chart-box">
-      <div id="attack-bars" style="height:300px"></div>
-    </div>
-  </div>
-  <div>
-    <h2>Defense Recovery — Latest Sweep</h2>
-    <div class="chart-box" style="overflow-x:auto">
-      {_run_table_html(latest)}
-    </div>
-  </div>
-</div>
+{core_sections_html}
 
 {imported_patch_section}
-
-<h2>Detection Drop Over Time — All Sweeps</h2>
-<div class="chart-box">
-  <div id="trend" style="height:380px"></div>
-</div>
 
 <script>
 const dark = {{
@@ -836,40 +882,45 @@ const dark = {{
   yaxis: {{ gridcolor: "#2a2d3a", zerolinecolor: "#2a2d3a" }},
   margin: {{ t: 20, r: 20, b: 50, l: 140 }},
 }};
-
-Plotly.newPlot("heatmap", {heatmap_json},
-  Object.assign({{}}, dark, {{
-    margin: {{ t: 20, r: 120, b: 60, l: 160 }},
-    xaxis: Object.assign({{}}, dark.xaxis, {{ title: "Attack" }}),
-    yaxis: Object.assign({{}}, dark.yaxis, {{ title: "" }}),
-  }}),
-  {{responsive: true, displayModeBar: false}}
-);
-
-Plotly.newPlot("attack-bars", {attack_bar_json},
-  Object.assign({{}}, dark, {{
-    margin: {{ t: 20, r: 20, b: 50, l: 60 }},
-    yaxis: Object.assign({{}}, dark.yaxis, {{
-      title: "Detection Drop %", range: [0, 100]
+if (document.getElementById("heatmap")) {{
+  Plotly.newPlot("heatmap", {heatmap_json},
+    Object.assign({{}}, dark, {{
+      margin: {{ t: 20, r: 120, b: 60, l: 160 }},
+      xaxis: Object.assign({{}}, dark.xaxis, {{ title: "Attack" }}),
+      yaxis: Object.assign({{}}, dark.yaxis, {{ title: "" }}),
     }}),
-    xaxis: Object.assign({{}}, dark.xaxis, {{ title: "Attack" }}),
-    showlegend: false,
-  }}),
-  {{responsive: true, displayModeBar: false}}
-);
+    {{responsive: true, displayModeBar: false}}
+  );
+}}
 
-Plotly.newPlot("trend", {trend_json},
-  Object.assign({{}}, dark, {{
-    margin: {{ t: 20, r: 20, b: 60, l: 60 }},
-    yaxis: Object.assign({{}}, dark.yaxis, {{
-      title: "Detection Drop %", range: [0, 105]
+if (document.getElementById("attack-bars")) {{
+  Plotly.newPlot("attack-bars", {attack_bar_json},
+    Object.assign({{}}, dark, {{
+      margin: {{ t: 20, r: 20, b: 50, l: 60 }},
+      yaxis: Object.assign({{}}, dark.yaxis, {{
+        title: "Detection Drop %", range: [0, 100]
+      }}),
+      xaxis: Object.assign({{}}, dark.xaxis, {{ title: "Attack" }}),
+      showlegend: false,
     }}),
-    xaxis: Object.assign({{}}, dark.xaxis, {{ title: "Sweep" }}),
-    legend: {{ bgcolor: "#1a1d27", bordercolor: "#2a2d3a", borderwidth: 1 }},
-    hovermode: "x unified",
-  }}),
-  {{responsive: true, displayModeBar: false}}
-);
+    {{responsive: true, displayModeBar: false}}
+  );
+}}
+
+if (document.getElementById("trend")) {{
+  Plotly.newPlot("trend", {trend_json},
+    Object.assign({{}}, dark, {{
+      margin: {{ t: 20, r: 20, b: 60, l: 60 }},
+      yaxis: Object.assign({{}}, dark.yaxis, {{
+        title: "Detection Drop %", range: [0, 105]
+      }}),
+      xaxis: Object.assign({{}}, dark.xaxis, {{ title: "Sweep" }}),
+      legend: {{ bgcolor: "#1a1d27", bordercolor: "#2a2d3a", borderwidth: 1 }},
+      hovermode: "x unified",
+    }}),
+    {{responsive: true, displayModeBar: false}}
+  );
+}}
 </script>
 </body>
 </html>"""

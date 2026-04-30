@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YOLO Adversarial Robustness Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #0f1117; color: #e0e0e0; padding: 24px; }
+  h1 { font-size: 1.6rem; font-weight: 700; color: #ffffff; margin-bottom: 4px; }
+  .subtitle { color: #888; font-size: 0.85rem; margin-bottom: 28px; }
+  h2 { font-size: 1.1rem; font-weight: 600; color: #ccc; margin: 32px 0 12px; }
+  .cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .card { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px;
+           padding: 18px 24px; min-width: 180px; flex: 1; }
+  .card-title { font-size: 0.75rem; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.05em; margin-bottom: 6px; }
+  .card-value { font-size: 1.8rem; font-weight: 700; margin-bottom: 4px; }
+  .card-sub { font-size: 0.78rem; color: #666; }
+  .chart-box { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px;
+                padding: 20px; margin-bottom: 20px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th { text-align: left; padding: 10px 14px; color: #888; font-weight: 500;
+        border-bottom: 1px solid #2a2d3a; text-transform: uppercase;
+        font-size: 0.75rem; letter-spacing: 0.05em; }
+  td { padding: 10px 14px; border-bottom: 1px solid #1e2130; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #20243a; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px;
+            font-size: 0.78rem; font-weight: 600; }
+  .badge.attack { background: #1e2a40; color: #7aabff; }
+  .badge.defense { background: #2a1e3a; color: #d4a6ff; }
+  @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+  details { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px;
+             padding: 18px 24px; margin-bottom: 28px; }
+  summary { font-size: 0.95rem; font-weight: 600; color: #aaa; cursor: pointer;
+             letter-spacing: 0.02em; list-style: none; display: flex;
+             align-items: center; gap: 8px; }
+  summary::before { content: "▶"; font-size: 0.7rem; color: #555;
+                     transition: transform 0.2s; }
+  details[open] summary::before { transform: rotate(90deg); }
+  summary::-webkit-details-marker { display: none; }
+  .context p { color: #999; font-size: 0.88rem; line-height: 1.75;
+                margin-bottom: 12px; max-width: 860px; }
+  .context p:last-child { margin-bottom: 0; }
+  .context strong { color: #ccc; font-weight: 600; }
+  .glossary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 32px;
+               margin-top: 14px; }
+  .glossary dt { color: #7aabff; font-size: 0.82rem; font-weight: 600;
+                  margin-bottom: 2px; }
+  .glossary dd { color: #888; font-size: 0.82rem; line-height: 1.5;
+                  margin-bottom: 8px; }
+  @media (max-width: 800px) {
+    .two-col { grid-template-columns: 1fr; }
+    .glossary { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>YOLO Adversarial Robustness Dashboard</h1>
+<div class="subtitle">Pipeline profile: yolo11n_patch_eval_v1 &nbsp;·&nbsp; Model: yolo
+  &nbsp;·&nbsp; 1 report(s) &nbsp;·&nbsp; Generated: 2026-04-30 03:29 UTC</div>
+
+<details>
+  <summary>About this research</summary>
+  <div class="context" style="margin-top:16px">
+    <p>
+      This dashboard tracks an ongoing research programme testing the <strong>reliability of
+      AI-based object detection</strong> under deliberate interference — and evaluating methods
+      to restore that reliability.
+    </p>
+    <p>
+      The AI system under study — a computer vision model called YOLO — is trained to identify
+      objects in photographs: people, vehicles, animals, and hundreds of other categories. In
+      normal conditions it performs with high accuracy. The question this research asks is:
+      <strong>how easily can that accuracy be undermined, and can it be protected?</strong>
+    </p>
+    <p>
+      The interference method is called an <strong>adversarial attack</strong>. An attacker
+      makes mathematically precise, often imperceptible changes to the pixels of an image —
+      changes invisible to the human eye — that cause the AI to miss objects it would otherwise
+      detect with confidence. This is not a theoretical concern: the same class of models
+      underpins real-world systems in autonomous vehicles, medical imaging, and security
+      infrastructure.
+    </p>
+    <p>
+      Each experiment runs 500 unmodified photographs through the model to establish a
+      <strong>baseline</strong> (how many objects it finds under normal conditions), then repeats
+      the process on versions of those same images that have been subjected to each attack. The
+      percentage drop in detections is the primary measure of an attack's severity.
+    </p>
+    <p>
+      The <strong>defenses</strong> are pre-processing steps applied to attacked images before
+      the model sees them — essentially attempting to reverse or neutralise the interference.
+      The central defense under development here (DPC-UNet) is a purpose-trained neural network
+      that has been iteratively fine-tuned across multiple experimental rounds to better preserve
+      the visual detail the model relies on for detection. The trend charts below reflect that
+      improvement over time.
+    </p>
+    <dl class="glossary">
+      <dt>Detection Drop</dt>
+      <dd>The percentage reduction in objects identified compared to unmodified images.
+          Lower is better. A 90% drop means the model missed 9 in 10 objects it would
+          normally find.</dd>
+      <dt>Baseline</dt>
+      <dd>The model's performance on clean, unaltered photographs — the reference point
+          against which all attacks and defenses are measured.</dd>
+      <dt>FGSM / PGD / Blur</dt>
+      <dd>Relatively mild attack methods that cause 12–17% detection loss. The model
+          retains most of its capability under these conditions.</dd>
+      <dt>DeepFool</dt>
+      <dd>A precision attack that identifies the mathematically minimal pixel change
+          sufficient to cause failure. Consistently the most damaging attack tested,
+          causing up to 78% detection loss without a defense.</dd>
+      <dt>DPC-UNet (c_dog)</dt>
+      <dd>The primary defense under development — a neural network trained to reconstruct
+          attacked images before the detector sees them. Performance improves with each
+          fine-tuning iteration.</dd>
+      <dt>Median Filter</dt>
+      <dd>A classical signal-processing defense that smooths irregular pixel patterns.
+          Simpler than the neural approach and currently more effective against mild
+          attacks, though less adaptable.</dd>
+    </dl>
+  </div>
+</details>
+
+<div class="cards">
+        <div class="card">
+            <div class="card-title">Total Sweeps</div>
+            <div class="card-value" style="color:#4C72B0">1</div>
+            <div class="card-sub">runs recorded</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Baseline Detections</div>
+            <div class="card-value" style="color:#2ca02c">—</div>
+            <div class="card-sub">clean images, no attack unavailable in this report</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Strongest Attack</div>
+            <div class="card-value" style="color:#C44E52">N/A</div>
+            <div class="card-sub">clean baseline unavailable</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Best Defense (latest)</div>
+            <div class="card-value" style="color:#E377C2">—</div>
+            <div class="card-sub">clean baseline unavailable</div>
+        </div></div>
+
+
+<h2>Detection-Drop Views Unavailable</h2>
+<div class="chart-box">
+  This report directory has no clean <code>attack=none, defense=none</code> baseline row, so the dashboard
+  omits cross-run detection-drop charts instead of inventing one. Use the imported-patch comparison table
+  below for per-placement counts from this report.
+</div>
+
+
+<h2>Imported Patch Comparisons — Latest Sweep</h2>
+<div class="chart-box" style="overflow-x:auto">
+  
+    <table>
+        <thead>
+            <tr>
+                <th>Artifact</th><th>Placement</th><th>Defense</th>
+                <th>Detections</th><th>Detection Drop</th>
+                <th>Recovery Over Undefended</th><th>Gap To Oracle</th><th>Avg Confidence</th>
+            </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>yolo11n_patch_v2</td>
+            <td>largest_person_torso</td>
+            <td><span class="badge defense">Undefended</span></td>
+            <td>2</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>0.8524</td>
+        </tr>
+        <tr>
+            <td>yolo11n_patch_v2</td>
+            <td>largest_person_torso</td>
+            <td><span class="badge defense">Blind Patch Recover</span></td>
+            <td>2</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>0.857</td>
+        </tr>
+        <tr>
+            <td>yolo11n_patch_v2</td>
+            <td>largest_person_torso</td>
+            <td><span class="badge defense">Oracle Patch Recover (upper bound)</span></td>
+            <td>2</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>0.857</td>
+        </tr>
+        <tr>
+            <td>yolo11n_patch_v2</td>
+            <td>off_object_fixed</td>
+            <td><span class="badge defense">Undefended</span></td>
+            <td>4</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>0.7396</td>
+        </tr>
+        <tr>
+            <td>yolo11n_patch_v2</td>
+            <td>off_object_fixed</td>
+            <td><span class="badge defense">Blind Patch Recover</span></td>
+            <td>3</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>0.8148</td>
+        </tr>
+        <tr>
+            <td>yolo11n_patch_v2</td>
+            <td>off_object_fixed</td>
+            <td><span class="badge defense">Oracle Patch Recover (upper bound)</span></td>
+            <td>3</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>0.815</td>
+        </tr></tbody>
+    </table>
+</div>
+
+<script>
+const dark = {
+  paper_bgcolor: "#1a1d27",
+  plot_bgcolor: "#1a1d27",
+  font: { color: "#cccccc", family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+  xaxis: { gridcolor: "#2a2d3a", zerolinecolor: "#2a2d3a" },
+  yaxis: { gridcolor: "#2a2d3a", zerolinecolor: "#2a2d3a" },
+  margin: { t: 20, r: 20, b: 50, l: 140 },
+};
+if (document.getElementById("heatmap")) {
+  Plotly.newPlot("heatmap", [{"type": "heatmap", "x": [], "y": [], "z": [], "text": [], "hovertemplate": "<b>%{x}</b> + <b>%{y}</b><br>Drop: %{z}%<extra></extra>", "colorscale": [[0, "#27ae60"], [0.5, "#f39c12"], [1, "#c0392b"]], "zmin": 0, "zmax": 100, "showscale": true, "colorbar": {"title": "Detection Drop %"}, "texttemplate": "%{text}", "textfont": {"size": 12, "color": "white"}}],
+    Object.assign({}, dark, {
+      margin: { t: 20, r: 120, b: 60, l: 160 },
+      xaxis: Object.assign({}, dark.xaxis, { title: "Attack" }),
+      yaxis: Object.assign({}, dark.yaxis, { title: "" }),
+    }),
+    {responsive: true, displayModeBar: false}
+  );
+}
+
+if (document.getElementById("attack-bars")) {
+  Plotly.newPlot("attack-bars", [],
+    Object.assign({}, dark, {
+      margin: { t: 20, r: 20, b: 50, l: 60 },
+      yaxis: Object.assign({}, dark.yaxis, {
+        title: "Detection Drop %", range: [0, 100]
+      }),
+      xaxis: Object.assign({}, dark.xaxis, { title: "Attack" }),
+      showlegend: false,
+    }),
+    {responsive: true, displayModeBar: false}
+  );
+}
+
+if (document.getElementById("trend")) {
+  Plotly.newPlot("trend", [],
+    Object.assign({}, dark, {
+      margin: { t: 20, r: 20, b: 60, l: 60 },
+      yaxis: Object.assign({}, dark.yaxis, {
+        title: "Detection Drop %", range: [0, 105]
+      }),
+      xaxis: Object.assign({}, dark.xaxis, { title: "Sweep" }),
+      legend: { bgcolor: "#1a1d27", bordercolor: "#2a2d3a", borderwidth: 1 },
+      hovermode: "x unified",
+    }),
+    {responsive: true, displayModeBar: false}
+  );
+}
+</script>
+</body>
+</html>

@@ -12,10 +12,12 @@ venv/
 
 # Experiment outputs — ignore raw run data but keep summaries and reports
 outputs/framework_runs/
+outputs/patch_matrix/
 outputs/report_tables/
 outputs/summaries/
 outputs/training_data/
 outputs/training_exports/
+outputs/training_runs/
 outputs/cycle_state.json
 outputs/cw_tune_state.json
 outputs/.cycle.lock
