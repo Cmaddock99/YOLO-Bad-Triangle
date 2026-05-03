@@ -1,17 +1,17 @@
 {
   "checkpoint_a": {
     "path": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned.pt",
-    "mAP50": 0.568834,
-    "detections": 1559
+    "mAP50": 0.084483,
+    "detections": 45
   },
   "checkpoint_b": {
     "path": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/checkpoints/cycle_20260326_112654_signal_candidate.pt",
-    "mAP50": 0.565635,
-    "detections": 1549
+    "mAP50": 0.082892,
+    "detections": 44
   },
-  "delta_mAP50": -0.003199,
+  "delta_mAP50": -0.001591,
   "verdict": "B is within tolerance \u2014 safe to deploy",
-  "attack": "none",
+  "attack": "deepfool",
   "defense": "c_dog",
-  "images_evaluated": 500
+  "images_evaluated": 100
 }

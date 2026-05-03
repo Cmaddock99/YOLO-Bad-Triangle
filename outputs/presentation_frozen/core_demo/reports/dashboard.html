@@ -62,8 +62,8 @@
 <body>
 
 <h1>YOLO Adversarial Robustness Dashboard</h1>
-<div class="subtitle">Pipeline profile: yolo11n_patch_eval_v1 &nbsp;·&nbsp; Model: yolo
-  &nbsp;·&nbsp; 1 report(s) &nbsp;·&nbsp; Generated: 2026-05-03 20:19 UTC</div>
+<div class="subtitle">Pipeline profile: unknown &nbsp;·&nbsp; Model: yolo
+  &nbsp;·&nbsp; 1 report(s) &nbsp;·&nbsp; Generated: 2026-05-01 04:50 UTC</div>
 
 <details>
   <summary>About this research</summary>
@@ -136,103 +136,63 @@
         </div>
         <div class="card">
             <div class="card-title">Baseline Detections</div>
-            <div class="card-value" style="color:#2ca02c">—</div>
-            <div class="card-sub">clean images, no attack unavailable in this report</div>
+            <div class="card-value" style="color:#2ca02c">31</div>
+            <div class="card-sub">clean images, no attack</div>
         </div>
         <div class="card">
             <div class="card-title">Strongest Attack</div>
-            <div class="card-value" style="color:#C44E52">N/A</div>
-            <div class="card-sub">clean baseline unavailable</div>
+            <div class="card-value" style="color:#C44E52">FGSM</div>
+            <div class="card-sub">−3.2% detections</div>
         </div>
         <div class="card">
             <div class="card-title">Best Defense (latest)</div>
-            <div class="card-value" style="color:#E377C2">—</div>
-            <div class="card-sub">clean baseline unavailable</div>
+            <div class="card-value" style="color:#E377C2">median_preprocess</div>
+            <div class="card-sub">vs fgsm: −32.3%</div>
         </div></div>
 
 
-<h2>Detection-Drop Views Unavailable</h2>
+<h2>Latest Sweep — Defense Heatmap (reports)</h2>
 <div class="chart-box">
-  This report directory has no clean <code>attack=none, defense=none</code> baseline row, so the dashboard
-  omits cross-run detection-drop charts instead of inventing one. Use the imported-patch comparison table
-  below for per-placement counts from this report.
+  <div id="heatmap" style="height:320px"></div>
 </div>
 
-
-<h2>Imported Patch Comparisons — Latest Sweep</h2>
-<div class="chart-box" style="overflow-x:auto">
-  
+<div class="two-col">
+  <div>
+    <h2>Attack Effectiveness (Undefended)</h2>
+    <div class="chart-box">
+      <div id="attack-bars" style="height:300px"></div>
+    </div>
+  </div>
+  <div>
+    <h2>Defense Recovery — Latest Sweep</h2>
+    <div class="chart-box" style="overflow-x:auto">
+      
     <table>
         <thead>
             <tr>
-                <th>Artifact</th><th>Placement</th><th>Defense</th>
-                <th>Detections</th><th>Detection Drop</th>
-                <th>Recovery Over Undefended</th><th>Gap To Oracle</th><th>Avg Confidence</th>
+                <th>Attack</th><th>Defense</th>
+                <th>Detection Drop</th><th>Detections</th><th>Avg Confidence</th>
             </tr>
         </thead>
         <tbody>
         <tr>
-            <td>yolo11n_patch_v2</td>
-            <td>largest_person_torso</td>
-            <td><span class="badge defense">Undefended</span></td>
-            <td>2</td>
-            <td>—</td>
-            <td>—</td>
-            <td>—</td>
-            <td>0.8524</td>
-        </tr>
-        <tr>
-            <td>yolo11n_patch_v2</td>
-            <td>largest_person_torso</td>
-            <td><span class="badge defense">Blind Patch Recover</span></td>
-            <td>2</td>
-            <td>—</td>
-            <td>—</td>
-            <td>—</td>
-            <td>0.857</td>
-        </tr>
-        <tr>
-            <td>yolo11n_patch_v2</td>
-            <td>largest_person_torso</td>
-            <td><span class="badge defense">Oracle Patch Recover (upper bound)</span></td>
-            <td>2</td>
-            <td>—</td>
-            <td>—</td>
-            <td>—</td>
-            <td>0.857</td>
-        </tr>
-        <tr>
-            <td>yolo11n_patch_v2</td>
-            <td>off_object_fixed</td>
-            <td><span class="badge defense">Undefended</span></td>
-            <td>4</td>
-            <td>—</td>
-            <td>—</td>
-            <td>—</td>
-            <td>0.7396</td>
-        </tr>
-        <tr>
-            <td>yolo11n_patch_v2</td>
-            <td>off_object_fixed</td>
-            <td><span class="badge defense">Blind Patch Recover</span></td>
-            <td>3</td>
-            <td>—</td>
-            <td>—</td>
-            <td>—</td>
-            <td>0.8148</td>
-        </tr>
-        <tr>
-            <td>yolo11n_patch_v2</td>
-            <td>off_object_fixed</td>
-            <td><span class="badge defense">Oracle Patch Recover (upper bound)</span></td>
-            <td>3</td>
-            <td>—</td>
-            <td>—</td>
-            <td>—</td>
-            <td>0.815</td>
+            <td><span class="badge attack">fgsm</span></td>
+            <td><span class="badge defense">Median Filter</span></td>
+            <td style="color:#e67e22; font-weight:600">32.3%</td>
+            <td>21</td>
+            <td>0.6834</td>
         </tr></tbody>
     </table>
+    </div>
+  </div>
 </div>
+
+<h2>Detection Drop Over Time — All Sweeps</h2>
+<div class="chart-box">
+  <div id="trend" style="height:380px"></div>
+</div>
+
+
 
 <script>
 const dark = {
@@ -244,7 +204,7 @@ const dark = {
   margin: { t: 20, r: 20, b: 50, l: 140 },
 };
 if (document.getElementById("heatmap")) {
-  Plotly.newPlot("heatmap", [{"type": "heatmap", "x": [], "y": [], "z": [], "text": [], "hovertemplate": "<b>%{x}</b> + <b>%{y}</b><br>Drop: %{z}%<extra></extra>", "colorscale": [[0, "#27ae60"], [0.5, "#f39c12"], [1, "#c0392b"]], "zmin": 0, "zmax": 100, "showscale": true, "colorbar": {"title": "Detection Drop %"}, "texttemplate": "%{text}", "textfont": {"size": 12, "color": "white"}}],
+  Plotly.newPlot("heatmap", [{"type": "heatmap", "x": ["fgsm"], "y": ["Median Filter"], "z": [[32.3]], "text": [["32.3%<br>21 detections"]], "hovertemplate": "<b>%{x}</b> + <b>%{y}</b><br>Drop: %{z}%<extra></extra>", "colorscale": [[0, "#27ae60"], [0.5, "#f39c12"], [1, "#c0392b"]], "zmin": 0, "zmax": 100, "showscale": true, "colorbar": {"title": "Detection Drop %"}, "texttemplate": "%{text}", "textfont": {"size": 12, "color": "white"}}],
     Object.assign({}, dark, {
       margin: { t: 20, r: 120, b: 60, l: 160 },
       xaxis: Object.assign({}, dark.xaxis, { title: "Attack" }),
@@ -255,7 +215,7 @@ if (document.getElementById("heatmap")) {
 }
 
 if (document.getElementById("attack-bars")) {
-  Plotly.newPlot("attack-bars", [],
+  Plotly.newPlot("attack-bars", [{"x": ["fgsm"], "y": [3.2], "type": "bar", "marker": {"color": ["#4C72B0"]}, "text": ["3.2%"], "textposition": "outside"}],
     Object.assign({}, dark, {
       margin: { t: 20, r: 20, b: 50, l: 60 },
       yaxis: Object.assign({}, dark.yaxis, {
@@ -269,7 +229,7 @@ if (document.getElementById("attack-bars")) {
 }
 
 if (document.getElementById("trend")) {
-  Plotly.newPlot("trend", [],
+  Plotly.newPlot("trend", [{"x": ["reports"], "y": [32.3], "name": "fgsm + Median Filter", "mode": "lines+markers", "line": {"color": "#4C72B0", "width": 2}, "marker": {"size": 8, "symbol": "square"}}],
     Object.assign({}, dark, {
       margin: { t: 20, r: 20, b: 60, l: 60 },
       yaxis: Object.assign({}, dark.yaxis, {

@@ -1704,7 +1704,7 @@ def _update_cycle_report() -> None:
     try:
         import importlib.util
         spec = importlib.util.spec_from_file_location(
-            "generate_cycle_report", REPO / "scripts" / "generate_cycle_report.py"
+            "generate_cycle_report", REPO / "scripts" / "reporting" / "generate_cycle_report.py"
         )
         if spec and spec.loader:
             mod = importlib.util.module_from_spec(spec)

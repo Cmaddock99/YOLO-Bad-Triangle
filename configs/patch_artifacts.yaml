@@ -7,7 +7,7 @@ overrides:
   - runner.seed=42
 
 artifacts:
-  - name: yolov8n_patch_v2
+  - name: canonical_patch_artifact
     artifact_path: ${ADV_PATCH_ARTIFACT_PATH}
     placement_modes:
       - largest_person_torso

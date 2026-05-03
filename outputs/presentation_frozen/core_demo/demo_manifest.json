@@ -1,0 +1,117 @@
+{
+  "schema_version": "demo_manifest/v1",
+  "reproducibility": {
+    "git_commit": "8e9b22efc0e4a0017e38827cf1d3cc91c57186c9",
+    "git_dirty": false,
+    "seed": 42,
+    "torch_version": "2.5.1",
+    "python_version": "3.11.15 (main, Mar  3 2026, 15:47:15) [Clang 21.1.4 ]",
+    "platform": "macOS-26.4.1-arm64-arm-64bit"
+  },
+  "config": {
+    "config_file": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/configs/demo.yaml",
+    "config_fingerprint": "6d34d9546f1ee408e4ac44cda9471868d50a98d6e5ea69e884fc9f22f28ac6a4",
+    "model_name": "yolo26n",
+    "dataset_name": "val2017_subset500",
+    "dataset_path": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/coco/val2017_subset500/images",
+    "images_count": 4,
+    "seed": 42,
+    "conf": 0.25,
+    "iou": 0.45,
+    "imgsz": 640
+  },
+  "source_files": [
+    "scripts/run_demo.py",
+    "scripts/run_unified.py",
+    "scripts/sweep_and_report.py",
+    "scripts/generate_auto_summary.py",
+    "src/lab/runners/run_experiment.py"
+  ],
+  "runs": [
+    {
+      "run_name": "baseline_none",
+      "attack_name": "none",
+      "attack_params": {},
+      "epsilon": null,
+      "norm_type": null,
+      "defense_name": "none",
+      "defense_params": {},
+      "run_dir": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/runs/baseline_none",
+      "validation_passed": true,
+      "noop_warnings": []
+    },
+    {
+      "run_name": "attack_fgsm",
+      "attack_name": "fgsm",
+      "attack_params": {
+        "epsilon": 0.01
+      },
+      "epsilon": 0.01,
+      "norm_type": null,
+      "defense_name": "none",
+      "defense_params": {},
+      "run_dir": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/runs/attack_fgsm",
+      "validation_passed": true,
+      "noop_warnings": []
+    },
+    {
+      "run_name": "defended_fgsm_median_preprocess",
+      "attack_name": "fgsm",
+      "attack_params": {
+        "epsilon": 0.01
+      },
+      "epsilon": 0.01,
+      "norm_type": null,
+      "defense_name": "median_preprocess",
+      "defense_params": {},
+      "run_dir": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/runs/defended_fgsm_median_preprocess",
+      "validation_passed": true,
+      "noop_warnings": []
+    }
+  ],
+  "artifacts": {
+    "checksums": {
+      "runs/baseline_none/metrics.json": "64b0e6de3b9defa08d4e53486342a4b1e5d9e4e58270b029efc0fdf5bab1c047",
+      "runs/baseline_none/run_summary.json": "92dcc54f66b041d4b9f67a2bbb565069fdef2b6cddf71d76f2fbb03310b02cf3",
+      "runs/baseline_none/predictions.jsonl": "ce1aee6187862bc90ec0636748d957e820d58dfe92118d2e36e977f6dbb8ee1d",
+      "runs/baseline_none/resolved_config.yaml": "cb5a62c2c3c80c9fd5bf69a22ea6c7ff0d1deff8c0f65b4450072f5cc234d30c",
+      "runs/attack_fgsm/metrics.json": "6b33c1eb99729553931d943f4c0bbac673520e6794f8010345c701384c3d23e9",
+      "runs/attack_fgsm/run_summary.json": "6505f665338dc6ec673340ab84da3317dfbeadebde1c74f36f2255767a6e7758",
+      "runs/attack_fgsm/predictions.jsonl": "cf06df7dc8e91d868b0aef4e0d2a143f3313d09ebc5c79e6d52a65152dabcdfe",
+      "runs/attack_fgsm/resolved_config.yaml": "fdb83f7eaf6f55dc059a4c5b91b953f9e45e0455f8f392897a44fb2c5c8bc080",
+      "runs/defended_fgsm_median_preprocess/metrics.json": "7067a6077330fe03b8bfd06a4d019294470a9dc07d77892d5803862cc174fac0",
+      "runs/defended_fgsm_median_preprocess/run_summary.json": "6d284f70ac3534a3dde63204269b2174ffdd07b745bc059a0e61fafef06b16b5",
+      "runs/defended_fgsm_median_preprocess/predictions.jsonl": "7435591e3b4dbe1cdde3cd50ae48b21c67dad607f2ad9e9a0e0e3eabd1a78220",
+      "runs/defended_fgsm_median_preprocess/resolved_config.yaml": "18910a72637c76dbde1d63b103565a43e5534ddc4e9ed0141dac26abd70d1395",
+      "reports/framework_run_summary.csv": "955be3e52df61782c61df44b203092e0b271d846bd0f1ffec54dbb15d28e61bc",
+      "reports/framework_run_report.md": "da348db3cfd11d03bdbf7019d9805cb8bdc75d911b62d3c1e589e41dc5a4b7f8",
+      "reports/dashboard.html": "80d276ed733243d8b3f86e15687ed84128322791e4265b1ec063f86e67322caf",
+      "summary/summary.json": "7843f48a9e3813ba7e960b159bdcdd0a60bfc3191a49c96285235b665eb9d118",
+      "summary/summary.md": "c1656c96259ff44b6921ca936d180b181a7ff26da2da850034249c63a8d571ec",
+      "summary/headline_metrics.csv": "cfa991efe2f787977cccc4dce84ba17f470610ddbf2f112c38d06659da981256",
+      "summary/per_class_vulnerability.csv": "095ff082dd8ffec965c9b7d0b8fa35464084366771a329921ca84e20aa3675c8",
+      "summary/warnings.json": "e4a93c5beb11b4da2ae73244f683c914ad8efe65651ff4d5937c9968da22a988"
+    }
+  },
+  "timing": {
+    "start_time": "2026-05-01T04:49:19Z",
+    "end_time": "2026-05-01T04:50:22Z",
+    "duration_seconds": 62.35
+  },
+  "outcome": {
+    "exit_code": 0,
+    "exit_reason": "success",
+    "failed_runs": [],
+    "noop_warnings": [],
+    "validation_errors": {
+      "baseline_none": [],
+      "attack_fgsm": [],
+      "defended_fgsm_median_preprocess": []
+    }
+  },
+  "bootstrap": {
+    "n": 500,
+    "seed": 42,
+    "note": "Reduced from default 2000 for demo speed"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "attack_gate": {
+    "attack": "deepfool",
+    "attack_params": {
+      "attack.params.epsilon": 0.1,
+      "attack.params.steps": 50
+    },
+    "defense": "c_dog",
+    "delta_mAP50": -0.001591,
+    "result_path": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/training_runs/cycle_20260326_112654/attack_gate_result.json",
+    "verdict": "passed"
+  },
+  "authoritative_metric": null,
+  "baseline_checkpoint": {
+    "path": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/dpc_unet_adversarial_finetuned.pt",
+    "sha256": "bd95680941d4ec5f6c1576c3dafda353b6c5db174e8ef89017a4e62107091801"
+  },
+  "candidate_checkpoint": {
+    "path": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/checkpoints/cycle_20260326_112654_signal_candidate.pt",
+    "sha256": "0f024d9ec0fcb26bbd3f880b1cdc47ac10599523e73b744fdf27de4466f50dcd"
+  },
+  "clean_gate": {
+    "delta_mAP50": -0.003199,
+    "result_path": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/training_runs/cycle_20260326_112654/clean_gate_result.json",
+    "verdict": "passed"
+  },
+  "cycle_id": "cycle_20260326_112654",
+  "final_verdict": "passed_both_manual_promotion_required",
+  "generated_at": "2026-05-03T20:21:30.284673+00:00",
+  "learned_defense_compatibility": null,
+  "pipeline_profile": null,
+  "profile_compatibility": null,
+  "resolved_attack_params": {
+    "attack.params.epsilon": 0.1,
+    "attack.params.steps": 50
+  },
+  "signal_path": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/cycle_training_signal.json",
+  "signal_payload": {
+    "all_attack_avg_recovery": {
+      "blur": -0.1001,
+      "deepfool": -0.1734
+    },
+    "attacked_mAP50": 0.218773,
+    "authoritative_metric": "mAP50",
+    "baseline_mAP50": 0.598366,
+    "checkpoint_path": "",
+    "cycle_id": "cycle_20260326_112654",
+    "generated_at": "2026-03-26T23:01:13.324905",
+    "pipeline_profile": "yolo11n_lab_v1",
+    "ranking_source": "phase4_map50",
+    "runs_root": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260326_112654",
+    "weakest_defense": "c_dog",
+    "weakest_defense_recovery": -0.2391,
+    "worst_attack": "deepfool",
+    "worst_attack_damage_pct": 63.44,
+    "worst_attack_params": {
+      "attack.params.epsilon": 0.1,
+      "attack.params.steps": 50
+    }
+  },
+  "training_args": [
+    "--preset",
+    "signal_driven",
+    "--training-zip",
+    "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/training_exports/cycle_20260326_112654_training_data.zip",
+    "--output",
+    "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/checkpoints/cycle_20260326_112654_signal_candidate.pt",
+    "--resume",
+    "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/checkpoints/cycle_20260326_112654_signal_resume.pt"
+  ],
+  "training_zip_path": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/training_exports/cycle_20260326_112654_training_data.zip"
+}

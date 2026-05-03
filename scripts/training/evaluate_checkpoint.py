@@ -49,6 +49,7 @@ from lab.config.profiles import (
 
 REPO = Path(__file__).resolve().parents[2]
 PYTHON = REPO / ".venv" / "bin" / "python"
+GATE_TOLERANCE = -0.005
 
 # Written automatically when --attack none is used. Presence of this file
 # enables research_brief.py to run after every cycle in auto_cycle.py.
@@ -199,6 +200,8 @@ def evaluate(
         verdict = "B is equivalent — safe to deploy"
     elif delta > 0:
         verdict = "B is better — deploy"
+    elif delta >= GATE_TOLERANCE:
+        verdict = "B is within tolerance — safe to deploy"
     else:
         verdict = "B is worse — do NOT deploy"
 
@@ -244,9 +247,9 @@ def evaluate(
         print(f"\nClean validation sentinel written to: {CLEAN_VALIDATION_SENTINEL}")
         print("research_brief.py will now run automatically after each cycle.")
 
-    # Threshold kept in sync with _GATE_THRESHOLD in train_from_signal.py (-0.005).
-    # A candidate with delta in [-0.005, 0) should pass (evaluation noise floor).
-    return 0 if delta >= -0.005 else 1
+    # A candidate with delta in [GATE_TOLERANCE, 0) should pass to absorb
+    # validation noise without contradicting the human-readable verdict.
+    return 0 if delta >= GATE_TOLERANCE else 1
 
 
 def main() -> None:

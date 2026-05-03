@@ -1,0 +1,26 @@
+[21:50:21] Sweep starting
+  Runs root:    /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/runs
+  Reports root: /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/reports
+  Attacks:      ['fgsm']
+  Defenses:     ['median_preprocess']
+  Phases:       4:reports
+  Total runs:   0
+
+[21:50:21] Phase 1/baseline: skipped (not in --phases)
+[21:50:21] Phase 2/attacks: skipped (not in --phases)
+[21:50:21] Phase 3/defenses: skipped (not in --phases)
+[21:50:21] Phase 4/reports: generating (2 report(s))...
+  reports:   0%|          | 0/2 [00:00<?, ?report/s]  reports | framework report done:   0%|          | 0/2 [00:00<?, ?report/s]  reports | dashboard done:  50%|█████     | 1/2 [00:00<00:00, 139.63report/s]  reports | dashboard done: 100%|██████████| 2/2 [00:00<00:00, 276.50report/s]
+[21:50:21] Phase 4/reports: done (0.0s)
+
+============================================================
+Sweep complete — total time: 0.5s
+Phase breakdown:
+  Phase 4/reports    0.0s
+
+Per-attack summaries: /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/reports/summary_*.txt
+Aggregate CSV:        /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/reports/framework_run_summary.csv
+Aggregate Markdown:   /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/reports/framework_run_report.md
+Dashboard (local):    /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/reports/dashboard.html
+============================================================
+2026-05-01T04:50:21.127927+00:00 [run-unified] INFO: $ /Users/lurch/ml-labs/YOLO-Bad-Triangle/.venv/bin/python /Users/lurch/ml-labs/YOLO-Bad-Triangle/scripts/sweep_and_report.py --config /Users/lurch/ml-labs/YOLO-Bad-Triangle/configs/demo.yaml --runs-root /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/runs --report-root /Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/demo_audit/20260501T044919Z/reports --attacks fgsm --defenses median_preprocess --workers 1 --phases 4 --seed 42 --no-team-summary --no-failure-gallery --no-compat-dashboard --validation-enabled
