@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
 from lab.health_checks import validate_output_bundle
+from lab.health_checks.schema import (
+    validate_framework_predictions_jsonl,
+    validate_framework_report_dir,
+)
 
 
 class SchemaContractsTest(unittest.TestCase):
@@ -28,6 +33,7 @@ class SchemaContractsTest(unittest.TestCase):
         self.assertTrue(inputs.metrics_json.is_file())
         self.assertTrue(inputs.run_summary_json.is_file())
         self.assertTrue(inputs.legacy_csv.is_file())
+        self.assertTrue(inputs.predictions_jsonl.is_file())
 
     def test_invalid_fixture_fails_validation(self) -> None:
         repo_root = Path(".").resolve()
@@ -39,6 +45,18 @@ class SchemaContractsTest(unittest.TestCase):
                 framework_run_dir=framework_run,
                 legacy_compat_csv=legacy_csv,
             )
+
+    def test_framework_report_csv_fixture_validates(self) -> None:
+        repo_root = Path(".").resolve()
+        report_dir = repo_root / "tests" / "fixtures" / "reports"
+        validate_framework_report_dir(repo_root=repo_root, report_dir=report_dir)
+
+    def test_malformed_predictions_jsonl_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "predictions.jsonl"
+            path.write_text("not-json\n", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                validate_framework_predictions_jsonl(path=path)
 
 
 class WS6SchemaContractsTest(unittest.TestCase):

@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from lab.health_checks import assert_required_artifacts, log_event, validate_output_bundle
+from lab.health_checks.schema import validate_framework_report_dir
 
 
 def main() -> None:
@@ -27,6 +28,10 @@ def main() -> None:
         "--require-schema",
         action="store_true",
         help="Require schema validation bundle inputs; fail if args are missing.",
+    )
+    parser.add_argument(
+        "--framework-report-dir",
+        help="Optional directory containing framework_run_summary.csv (e.g. outputs/framework_reports/ci).",
     )
     args = parser.parse_args()
 
@@ -48,6 +53,13 @@ def main() -> None:
             legacy_compat_csv=legacy_csv,
         )
         log_event(component="schema-gate", severity="INFO", message="Schema validation PASS")
+
+    if args.framework_report_dir:
+        validate_framework_report_dir(
+            repo_root=ROOT,
+            report_dir=Path(args.framework_report_dir),
+        )
+        log_event(component="report-schema-gate", severity="INFO", message="Framework report CSV validation PASS")
 
 
 if __name__ == "__main__":

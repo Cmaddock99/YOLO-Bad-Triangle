@@ -264,9 +264,12 @@ def assert_not_all_zero_attack(
         return
 
     def _is_all_zero(metric_values: tuple[float | None, ...]) -> bool:
-        if any(value is None for value in metric_values):
-            return False
-        return all(abs(float(value)) <= zero_epsilon for value in metric_values)
+        concrete: list[float] = []
+        for value in metric_values:
+            if value is None:
+                return False
+            concrete.append(float(value))
+        return all(abs(value) <= zero_epsilon for value in concrete)
 
     if all(_is_all_zero(metric_tuple(row)) for row in attack_rows):
         raise ValueError(

@@ -59,6 +59,13 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from lab.config.contracts import (
+    CURRENT_PIPELINE_TRANSFORM_ORDER,
+    LEGACY_PIPELINE_TRANSFORM_ORDER,
+    PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
+    PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK,
+    PIPELINE_SEMANTIC_LEGACY_UNKNOWN,
+)
 from lab.config.profiles import (
     authoritative_metric as resolved_authoritative_metric,
     build_profile_config,
@@ -91,21 +98,9 @@ ACTIVE_CONFIG_PATH = RUN_SINGLE_CONFIG
 ACTIVE_PIPELINE_PROFILE: str | None = None
 ACTIVE_AUTHORITATIVE_METRIC: str | None = None
 _REQUIRED_RUN_ARTIFACTS = REQUIRED_RUN_ARTIFACTS
-CURRENT_PIPELINE_SEMANTICS = "attack_then_defense"
-LEGACY_PIPELINE_SEMANTICS = "defense_then_attack"
-UNKNOWN_PIPELINE_SEMANTICS = "legacy_unknown"
-CURRENT_PIPELINE_TRANSFORM_ORDER = (
-    "attack.apply",
-    "defense.preprocess",
-    "model.predict",
-    "defense.postprocess",
-)
-LEGACY_PIPELINE_TRANSFORM_ORDER = (
-    "defense.preprocess",
-    "attack.apply",
-    "model.predict",
-    "defense.postprocess",
-)
+CURRENT_PIPELINE_SEMANTICS = PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE
+LEGACY_PIPELINE_SEMANTICS = PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK
+UNKNOWN_PIPELINE_SEMANTICS = PIPELINE_SEMANTIC_LEGACY_UNKNOWN
 
 # ── Attack / defense catalogues ───────────────────────────────────────────────
 

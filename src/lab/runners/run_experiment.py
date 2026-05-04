@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import platform as _platform
 import random
@@ -53,6 +54,8 @@ from lab.runners.run_intent import (
     resolved_reporting_context as _resolved_reporting_context,
 )
 from lab.runners.cli_utils import apply_override, as_mapping, load_yaml_mapping, sanitize_segment
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _collect_images(source_dir: Path, max_images: int) -> list[Path]:
@@ -491,6 +494,11 @@ class UnifiedExperimentRunner:
 
                 raw_validation_metrics = model.validate(str(attacked_yaml), **validation_params)
             except Exception as exc:  # pragma: no cover - runtime path
+                _LOGGER.warning(
+                    "validation_runtime_error: %s: %s",
+                    type(exc).__name__,
+                    exc,
+                )
                 validation_error = str(exc)
                 validation_traceback = traceback.format_exc(limit=12)
         if isinstance(raw_validation_metrics, dict):
@@ -505,8 +513,8 @@ class UnifiedExperimentRunner:
             if capability_reason is None and validation_enabled:
                 capability_reason = "validation_runtime_error"
         if state == "partial":
-            print(
-                "WARNING: validation metrics are partial — some metrics could not be computed. "
+            _LOGGER.warning(
+                "validation metrics are partial — some metrics could not be computed. "
                 "Check that a validation dataset was provided and is accessible."
             )
         return {
@@ -567,8 +575,8 @@ class UnifiedExperimentRunner:
             current_defense_signature=current_defense_signature,
         )
         if baseline_metrics is None or attack_metrics is None:
-            print(
-                "WARNING: Summary generation skipped; related baseline/attack framework runs were not found."
+            _LOGGER.warning(
+                "Summary generation skipped; related baseline/attack framework runs were not found."
             )
             return
         experiment_summary = generate_summary(
@@ -580,7 +588,7 @@ class UnifiedExperimentRunner:
         experiment_summary_file.write_text(
             json.dumps(experiment_summary, indent=2, sort_keys=True), encoding="utf-8"
         )
-        print(f"Experiment summary written: {experiment_summary_file}")
+        _LOGGER.info("Experiment summary written: %s", experiment_summary_file)
 
     def run(self) -> dict[str, Any]:
         model_cfg = as_mapping(self.config, "model")
@@ -715,6 +723,8 @@ class UnifiedExperimentRunner:
                 "transform_order": list(CURRENT_PIPELINE_TRANSFORM_ORDER),
                 "semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
                 "attack_applied": attack is not None,
+                "legacy_transform_order_supported": False,
+                "runner_semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
             },
             "runtime": dict(runtime_payload),
         }
@@ -785,6 +795,8 @@ class UnifiedExperimentRunner:
                 "transform_order": list(CURRENT_PIPELINE_TRANSFORM_ORDER),
                 "semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
                 "attack_applied": attack is not None,
+                "legacy_transform_order_supported": False,
+                "runner_semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
             },
             "predict": predict_cfg,
             "validation": metrics_payload["validation"],
