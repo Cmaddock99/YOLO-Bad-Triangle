@@ -63,7 +63,7 @@
 
 <h1>YOLO Adversarial Robustness Dashboard</h1>
 <div class="subtitle">Pipeline profile: yolo11n_lab_v1 &nbsp;·&nbsp; Model: yolo
-  &nbsp;·&nbsp; 1 report(s) &nbsp;·&nbsp; Generated: 2026-05-01 06:27 UTC</div>
+  &nbsp;·&nbsp; 1 report(s) &nbsp;·&nbsp; Generated: 2026-04-26 03:07 UTC</div>
 
 <details>
   <summary>About this research</summary>
@@ -150,8 +150,7 @@
             <div class="card-sub">vs square: −93.1%</div>
         </div></div>
 
-
-<h2>Latest Sweep — Defense Heatmap (Apr 30 13:58)</h2>
+<h2>Latest Sweep — Defense Heatmap (Apr 25 14:43)</h2>
 <div class="chart-box">
   <div id="heatmap" style="height:320px"></div>
 </div>
@@ -243,12 +242,12 @@
   </div>
 </div>
 
+
+
 <h2>Detection Drop Over Time — All Sweeps</h2>
 <div class="chart-box">
   <div id="trend" style="height:380px"></div>
 </div>
-
-
 
 <script>
 const dark = {
@@ -259,45 +258,40 @@ const dark = {
   yaxis: { gridcolor: "#2a2d3a", zerolinecolor: "#2a2d3a" },
   margin: { t: 20, r: 20, b: 50, l: 140 },
 };
-if (document.getElementById("heatmap")) {
-  Plotly.newPlot("heatmap", [{"type": "heatmap", "x": ["deepfool", "dispersion_reduction", "square"], "y": ["bit_depth", "jpeg_preprocess", "Median Filter"], "z": [[100.0, 98.6, 93.8], [100.0, 98.2, 95.1], [100.0, 96.6, 93.1]], "text": [["100.0%<br>0 detections", "98.6%<br>22 detections", "93.8%<br>97 detections"], ["100.0%<br>0 detections", "98.2%<br>29 detections", "95.1%<br>77 detections"], ["100.0%<br>0 detections", "96.6%<br>54 detections", "93.1%<br>109 detections"]], "hovertemplate": "<b>%{x}</b> + <b>%{y}</b><br>Drop: %{z}%<extra></extra>", "colorscale": [[0, "#27ae60"], [0.5, "#f39c12"], [1, "#c0392b"]], "zmin": 0, "zmax": 100, "showscale": true, "colorbar": {"title": "Detection Drop %"}, "texttemplate": "%{text}", "textfont": {"size": 12, "color": "white"}}],
-    Object.assign({}, dark, {
-      margin: { t: 20, r: 120, b: 60, l: 160 },
-      xaxis: Object.assign({}, dark.xaxis, { title: "Attack" }),
-      yaxis: Object.assign({}, dark.yaxis, { title: "" }),
-    }),
-    {responsive: true, displayModeBar: false}
-  );
-}
 
-if (document.getElementById("attack-bars")) {
-  Plotly.newPlot("attack-bars", [{"x": ["blur", "deepfool", "dispersion_reduction", "eot_pgd", "fgsm", "pgd", "square"], "y": [94.2, 100.0, 98.9, 97.3, 94.0, 93.7, 94.0], "type": "bar", "marker": {"color": ["#55A868", "#C44E52", "#999999", "#999999", "#4C72B0", "#DD8452", "#999999"]}, "text": ["94.2%", "100.0%", "98.9%", "97.3%", "94.0%", "93.7%", "94.0%"], "textposition": "outside"}],
-    Object.assign({}, dark, {
-      margin: { t: 20, r: 20, b: 50, l: 60 },
-      yaxis: Object.assign({}, dark.yaxis, {
-        title: "Detection Drop %", range: [0, 100]
-      }),
-      xaxis: Object.assign({}, dark.xaxis, { title: "Attack" }),
-      showlegend: false,
-    }),
-    {responsive: true, displayModeBar: false}
-  );
-}
+Plotly.newPlot("heatmap", [{"type": "heatmap", "x": ["deepfool", "dispersion_reduction", "square"], "y": ["bit_depth", "jpeg_preprocess", "Median Filter"], "z": [[100.0, 98.6, 93.8], [100.0, 98.2, 95.1], [100.0, 96.6, 93.1]], "text": [["100.0%<br>0 detections", "98.6%<br>22 detections", "93.8%<br>97 detections"], ["100.0%<br>0 detections", "98.2%<br>29 detections", "95.1%<br>77 detections"], ["100.0%<br>0 detections", "96.6%<br>54 detections", "93.1%<br>109 detections"]], "hovertemplate": "<b>%{x}</b> + <b>%{y}</b><br>Drop: %{z}%<extra></extra>", "colorscale": [[0, "#27ae60"], [0.5, "#f39c12"], [1, "#c0392b"]], "zmin": 0, "zmax": 100, "showscale": true, "colorbar": {"title": "Detection Drop %"}, "texttemplate": "%{text}", "textfont": {"size": 12, "color": "white"}}],
+  Object.assign({}, dark, {
+    margin: { t: 20, r: 120, b: 60, l: 160 },
+    xaxis: Object.assign({}, dark.xaxis, { title: "Attack" }),
+    yaxis: Object.assign({}, dark.yaxis, { title: "" }),
+  }),
+  {responsive: true, displayModeBar: false}
+);
 
-if (document.getElementById("trend")) {
-  Plotly.newPlot("trend", [{"x": ["Apr 30 13:58"], "y": [100.0], "name": "deepfool + bit_depth", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 30 13:58"], "y": [100.0], "name": "deepfool + jpeg_preprocess", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 30 13:58"], "y": [100.0], "name": "deepfool + Median Filter", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 30 13:58"], "y": [98.6], "name": "dispersion_reduction + bit_depth", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 30 13:58"], "y": [98.2], "name": "dispersion_reduction + jpeg_preprocess", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 30 13:58"], "y": [96.6], "name": "dispersion_reduction + Median Filter", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 30 13:58"], "y": [93.8], "name": "square + bit_depth", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 30 13:58"], "y": [95.1], "name": "square + jpeg_preprocess", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 30 13:58"], "y": [93.1], "name": "square + Median Filter", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}],
-    Object.assign({}, dark, {
-      margin: { t: 20, r: 20, b: 60, l: 60 },
-      yaxis: Object.assign({}, dark.yaxis, {
-        title: "Detection Drop %", range: [0, 105]
-      }),
-      xaxis: Object.assign({}, dark.xaxis, { title: "Sweep" }),
-      legend: { bgcolor: "#1a1d27", bordercolor: "#2a2d3a", borderwidth: 1 },
-      hovermode: "x unified",
+Plotly.newPlot("attack-bars", [{"x": ["blur", "deepfool", "dispersion_reduction", "eot_pgd", "fgsm", "pgd", "square"], "y": [94.2, 100.0, 98.9, 97.3, 94.0, 93.7, 94.0], "type": "bar", "marker": {"color": ["#55A868", "#C44E52", "#999999", "#999999", "#4C72B0", "#DD8452", "#999999"]}, "text": ["94.2%", "100.0%", "98.9%", "97.3%", "94.0%", "93.7%", "94.0%"], "textposition": "outside"}],
+  Object.assign({}, dark, {
+    margin: { t: 20, r: 20, b: 50, l: 60 },
+    yaxis: Object.assign({}, dark.yaxis, {
+      title: "Detection Drop %", range: [0, 100]
     }),
-    {responsive: true, displayModeBar: false}
-  );
-}
+    xaxis: Object.assign({}, dark.xaxis, { title: "Attack" }),
+    showlegend: false,
+  }),
+  {responsive: true, displayModeBar: false}
+);
+
+Plotly.newPlot("trend", [{"x": ["Apr 25 14:43"], "y": [100.0], "name": "deepfool + bit_depth", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 25 14:43"], "y": [100.0], "name": "deepfool + jpeg_preprocess", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 25 14:43"], "y": [100.0], "name": "deepfool + Median Filter", "mode": "lines+markers", "line": {"color": "#C44E52", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 25 14:43"], "y": [98.6], "name": "dispersion_reduction + bit_depth", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 25 14:43"], "y": [98.2], "name": "dispersion_reduction + jpeg_preprocess", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 25 14:43"], "y": [96.6], "name": "dispersion_reduction + Median Filter", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 25 14:43"], "y": [93.8], "name": "square + bit_depth", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 25 14:43"], "y": [95.1], "name": "square + jpeg_preprocess", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}, {"x": ["Apr 25 14:43"], "y": [93.1], "name": "square + Median Filter", "mode": "lines+markers", "line": {"color": "#999999", "width": 2}, "marker": {"size": 8, "symbol": "square"}}],
+  Object.assign({}, dark, {
+    margin: { t: 20, r: 20, b: 60, l: 60 },
+    yaxis: Object.assign({}, dark.yaxis, {
+      title: "Detection Drop %", range: [0, 105]
+    }),
+    xaxis: Object.assign({}, dark.xaxis, { title: "Sweep" }),
+    legend: { bgcolor: "#1a1d27", bordercolor: "#2a2d3a", borderwidth: 1 },
+    hovermode: "x unified",
+  }),
+  {responsive: true, displayModeBar: false}
+);
 </script>
 </body>
 </html>

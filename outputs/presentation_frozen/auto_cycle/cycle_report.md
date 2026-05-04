@@ -14,21 +14,21 @@ Generated from 23 completed cycle(s) in `outputs/cycle_history/`.
 | 6 | 2026-03-25 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
 | 7 | 2026-03-26 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
 | 8 | 2026-03-26 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
-| 9 | 2026-03-26 | 0.5984 | 0.2631 | blur+bit_depth | deepfool |
+| 9 | 2026-03-27 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
 | 10 | 2026-03-27 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
 | 11 | 2026-03-27 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
-| 12 | 2026-03-27 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
-| 13 | 2026-03-28 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
-| 14 | 2026-03-28 | 0.6002 | n/a | n/a | n/a |
-| 15 | 2026-03-29 | 0.6002 | 0.2403 | deepfool+c_dog | deepfool |
-| 16 | 2026-03-30 | 0.6002 | 0.3890 | square+c_dog | dispersion_reduction |
-| 17 | 2026-03-31 | 0.6002 | 0.3890 | square+c_dog | dispersion_reduction |
-| 18 | 2026-04-01 | 0.6002 | 0.3890 | square+c_dog | dispersion_reduction |
-| 19 | 2026-04-04 | 0.6002 | 0.3624 | square+c_dog | dispersion_reduction |
-| 20 | 2026-04-05 | 0.6002 | 0.3656 | deepfool+median_preprocess | dispersion_reduction |
-| 21 | 2026-04-06 | 0.6002 | 0.3656 | deepfool+median_preprocess | dispersion_reduction |
-| 22 | 2026-04-07 | 0.6002 | 0.3656 | deepfool+median_preprocess | dispersion_reduction |
-| 23 | 2026-04-09 | 0.6002 | 0.3942 | square+c_dog | dispersion_reduction |
+| 12 | 2026-03-28 | 0.6002 | 0.2615 | blur+bit_depth | deepfool |
+| 13 | 2026-03-28 | 0.6002 | n/a | n/a | n/a |
+| 14 | 2026-03-29 | 0.6002 | 0.2403 | deepfool+c_dog | deepfool |
+| 15 | 2026-03-30 | 0.6002 | 0.3890 | square+c_dog | dispersion_reduction |
+| 16 | 2026-03-31 | 0.6002 | 0.3890 | square+c_dog | dispersion_reduction |
+| 17 | 2026-04-01 | 0.6002 | 0.3890 | square+c_dog | dispersion_reduction |
+| 18 | 2026-04-04 | 0.6002 | 0.3624 | square+c_dog | dispersion_reduction |
+| 19 | 2026-04-05 | 0.6002 | 0.3656 | deepfool+median_preprocess | dispersion_reduction |
+| 20 | 2026-04-06 | 0.6002 | 0.3656 | deepfool+median_preprocess | dispersion_reduction |
+| 21 | 2026-04-07 | 0.6002 | 0.3656 | deepfool+median_preprocess | dispersion_reduction |
+| 22 | 2026-04-09 | 0.6002 | 0.3942 | square+c_dog | dispersion_reduction |
+| 23 | 2026-05-01 | 0.5765 | 0.4013 | square+bit_depth | dispersion_reduction |
 
 ## Comparability Notes
 
@@ -36,11 +36,11 @@ Cycle history includes catalogue eras with different attack/defense sets.
 Current trends focus on the latest catalogue; legacy trends are shown separately.
 Pipeline semantics are also tracked so post-switch defended runs can be distinguished from older eras.
 
-- Comparable cycles (latest-catalogue aligned): **9**
-- Legacy/non-comparable cycles: **14**
-- `attack_then_defense` cycles: **5**
+- Comparable cycles (latest-catalogue aligned): **10**
+- Legacy/non-comparable cycles: **13**
+- `attack_then_defense` cycles: **6**
 - `defense_then_attack` cycles: **0**
-- `legacy_unknown` cycles: **18**
+- `legacy_unknown` cycles: **17**
 - `mixed` cycles: **0**
 
 Treat defended results from the `attack_then_defense` era as the canonical post-switch series.
@@ -60,8 +60,8 @@ Upward trend = model fortification is working.
 | 6 | 0.6002 | +0.0000 |
 | 7 | 0.6002 | +0.0000 |
 | 8 | 0.6002 | +0.0000 |
-| 9 | 0.5984 | -0.0018 |
-| 10 | 0.6002 | +0.0018 |
+| 9 | 0.6002 | +0.0000 |
+| 10 | 0.6002 | +0.0000 |
 | 11 | 0.6002 | +0.0000 |
 | 12 | 0.6002 | +0.0000 |
 | 13 | 0.6002 | +0.0000 |
@@ -74,7 +74,7 @@ Upward trend = model fortification is working.
 | 20 | 0.6002 | +0.0000 |
 | 21 | 0.6002 | +0.0000 |
 | 22 | 0.6002 | +0.0000 |
-| 23 | 0.6002 | +0.0000 |
+| 23 | 0.5765 | -0.0237 |
 
 ## Current Catalogue Trends
 
@@ -83,87 +83,87 @@ Higher = better defense. Baseline mAP50 shown for reference.
 
 ### Attack: deepfool
 
-| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | c_dog | jpeg_preprocess | median_preprocess |
-|---|---:|---:|---:|---:|---:|---:|
-| 1 | n/a | n/a | n/a | n/a | n/a | n/a |
-| 2 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 3 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 4 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 5 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 6 | 0.6002 | 0.2184 | 0.2276 | n/a | 0.1837 | n/a |
-| 7 | 0.6002 | 0.2184 | 0.2276 | n/a | 0.1837 | 0.1215 |
-| 8 | 0.6002 | 0.2184 | 0.2276 | n/a | 0.1837 | 0.1215 |
-| 9 | 0.5984 | 0.2188 | 0.2222 | 0.1280 | 0.1967 | 0.0649 |
-| 10 | 0.6002 | 0.2184 | 0.2276 | n/a | 0.1837 | 0.1215 |
-| 11 | 0.6002 | 0.2184 | 0.2276 | n/a | 0.1837 | 0.1215 |
-| 12 | 0.6002 | 0.2184 | 0.2276 | n/a | 0.1837 | 0.1215 |
-| 13 | 0.6002 | 0.2184 | 0.2276 | n/a | 0.1837 | 0.1215 |
-| 14 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 15 | 0.6002 | 0.2184 | 0.2229 | 0.2403 | 0.1663 | n/a |
-| 16 | 0.6002 | 0.2184 | 0.2229 | 0.2403 | 0.1663 | n/a |
-| 17 | 0.6002 | 0.2184 | 0.2229 | 0.2403 | 0.1663 | n/a |
-| 18 | 0.6002 | 0.2184 | 0.2229 | 0.2403 | n/a | 0.1522 |
-| 19 | 0.6002 | 0.2184 | 0.2290 | 0.2065 | 0.3175 | n/a |
-| 20 | 0.6002 | 0.2184 | n/a | 0.2238 | 0.3175 | 0.3656 |
-| 21 | 0.6002 | 0.2184 | n/a | 0.2238 | 0.3175 | 0.3656 |
-| 22 | 0.6002 | 0.2184 | n/a | 0.2238 | 0.3175 | 0.3656 |
-| 23 | 0.6002 | 0.2422 | n/a | n/a | n/a | n/a |
+| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | median_preprocess |
+|---|---:|---:|---:|---:|---:|
+| 1 | n/a | n/a | n/a | n/a | n/a |
+| 2 | 0.6002 | n/a | n/a | n/a | n/a |
+| 3 | 0.6002 | n/a | n/a | n/a | n/a |
+| 4 | 0.6002 | n/a | n/a | n/a | n/a |
+| 5 | 0.6002 | n/a | n/a | n/a | n/a |
+| 6 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | n/a |
+| 7 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 |
+| 8 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 |
+| 9 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 |
+| 10 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 |
+| 11 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 |
+| 12 | 0.6002 | 0.2184 | 0.2276 | 0.1837 | 0.1215 |
+| 13 | 0.6002 | n/a | n/a | n/a | n/a |
+| 14 | 0.6002 | 0.2184 | 0.2229 | 0.1663 | n/a |
+| 15 | 0.6002 | 0.2184 | 0.2229 | 0.1663 | n/a |
+| 16 | 0.6002 | 0.2184 | 0.2229 | 0.1663 | n/a |
+| 17 | 0.6002 | 0.2184 | 0.2229 | n/a | 0.1522 |
+| 18 | 0.6002 | 0.2184 | 0.2290 | 0.3175 | n/a |
+| 19 | 0.6002 | 0.2184 | n/a | 0.3175 | 0.3656 |
+| 20 | 0.6002 | 0.2184 | n/a | 0.3175 | 0.3656 |
+| 21 | 0.6002 | 0.2184 | n/a | 0.3175 | 0.3656 |
+| 22 | 0.6002 | 0.2422 | n/a | n/a | n/a |
+| 23 | 0.5765 | 0.0363 | 0.0359 | 0.0304 | 0.0248 |
 
 ### Attack: dispersion_reduction
 
-| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | c_dog | jpeg_preprocess | median_preprocess |
-|---|---:|---:|---:|---:|---:|---:|
-| 1 | n/a | n/a | n/a | n/a | n/a | n/a |
-| 2 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 3 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 4 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 5 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 6 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 7 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 8 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 9 | 0.5984 | n/a | n/a | n/a | n/a | n/a |
-| 10 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 11 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 12 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 13 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 14 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 15 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 16 | 0.6002 | 0.2381 | 0.2319 | 0.2632 | 0.2015 | n/a |
-| 17 | 0.6002 | 0.2381 | 0.2319 | 0.2632 | 0.2015 | n/a |
-| 18 | 0.6002 | 0.2381 | 0.2319 | 0.2632 | n/a | 0.1758 |
-| 19 | 0.6002 | 0.2381 | 0.2448 | 0.2164 | 0.2040 | n/a |
-| 20 | 0.6002 | 0.2381 | n/a | 0.2306 | 0.2040 | 0.3082 |
-| 21 | 0.6002 | 0.2381 | n/a | 0.2306 | 0.2040 | 0.3082 |
-| 22 | 0.6002 | 0.2381 | n/a | 0.2306 | 0.2040 | 0.3082 |
-| 23 | 0.6002 | 0.2381 | 0.2416 | 0.2218 | 0.2076 | 0.3042 |
+| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | median_preprocess |
+|---|---:|---:|---:|---:|---:|
+| 1 | n/a | n/a | n/a | n/a | n/a |
+| 2 | 0.6002 | n/a | n/a | n/a | n/a |
+| 3 | 0.6002 | n/a | n/a | n/a | n/a |
+| 4 | 0.6002 | n/a | n/a | n/a | n/a |
+| 5 | 0.6002 | n/a | n/a | n/a | n/a |
+| 6 | 0.6002 | n/a | n/a | n/a | n/a |
+| 7 | 0.6002 | n/a | n/a | n/a | n/a |
+| 8 | 0.6002 | n/a | n/a | n/a | n/a |
+| 9 | 0.6002 | n/a | n/a | n/a | n/a |
+| 10 | 0.6002 | n/a | n/a | n/a | n/a |
+| 11 | 0.6002 | n/a | n/a | n/a | n/a |
+| 12 | 0.6002 | n/a | n/a | n/a | n/a |
+| 13 | 0.6002 | n/a | n/a | n/a | n/a |
+| 14 | 0.6002 | n/a | n/a | n/a | n/a |
+| 15 | 0.6002 | 0.2381 | 0.2319 | 0.2015 | n/a |
+| 16 | 0.6002 | 0.2381 | 0.2319 | 0.2015 | n/a |
+| 17 | 0.6002 | 0.2381 | 0.2319 | n/a | 0.1758 |
+| 18 | 0.6002 | 0.2381 | 0.2448 | 0.2040 | n/a |
+| 19 | 0.6002 | 0.2381 | n/a | 0.2040 | 0.3082 |
+| 20 | 0.6002 | 0.2381 | n/a | 0.2040 | 0.3082 |
+| 21 | 0.6002 | 0.2381 | n/a | 0.2040 | 0.3082 |
+| 22 | 0.6002 | 0.2381 | 0.2416 | 0.2076 | 0.3042 |
+| 23 | 0.5765 | 0.1725 | 0.1858 | 0.1679 | 0.2892 |
 
 ### Attack: square
 
-| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | c_dog | jpeg_preprocess | median_preprocess |
-|---|---:|---:|---:|---:|---:|---:|
-| 1 | n/a | n/a | n/a | n/a | n/a | n/a |
-| 2 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 3 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 4 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 5 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 6 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 7 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 8 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 9 | 0.5984 | n/a | n/a | n/a | n/a | n/a |
-| 10 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 11 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 12 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 13 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 14 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 15 | 0.6002 | n/a | n/a | n/a | n/a | n/a |
-| 16 | 0.6002 | 0.3630 | 0.3863 | 0.3890 | 0.3767 | n/a |
-| 17 | 0.6002 | 0.3630 | 0.3863 | 0.3890 | 0.3767 | n/a |
-| 18 | 0.6002 | 0.3630 | 0.3863 | 0.3890 | n/a | 0.3336 |
-| 19 | 0.6002 | 0.3630 | 0.3499 | 0.3624 | 0.3247 | n/a |
-| 20 | 0.6002 | 0.3630 | n/a | 0.3503 | 0.3247 | 0.2768 |
-| 21 | 0.6002 | 0.3630 | n/a | 0.3503 | 0.3247 | 0.2768 |
-| 22 | 0.6002 | 0.3630 | n/a | 0.3503 | 0.3247 | 0.2768 |
-| 23 | 0.6002 | 0.3630 | 0.3026 | 0.3942 | 0.3247 | 0.2768 |
+| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | jpeg_preprocess | median_preprocess |
+|---|---:|---:|---:|---:|---:|
+| 1 | n/a | n/a | n/a | n/a | n/a |
+| 2 | 0.6002 | n/a | n/a | n/a | n/a |
+| 3 | 0.6002 | n/a | n/a | n/a | n/a |
+| 4 | 0.6002 | n/a | n/a | n/a | n/a |
+| 5 | 0.6002 | n/a | n/a | n/a | n/a |
+| 6 | 0.6002 | n/a | n/a | n/a | n/a |
+| 7 | 0.6002 | n/a | n/a | n/a | n/a |
+| 8 | 0.6002 | n/a | n/a | n/a | n/a |
+| 9 | 0.6002 | n/a | n/a | n/a | n/a |
+| 10 | 0.6002 | n/a | n/a | n/a | n/a |
+| 11 | 0.6002 | n/a | n/a | n/a | n/a |
+| 12 | 0.6002 | n/a | n/a | n/a | n/a |
+| 13 | 0.6002 | n/a | n/a | n/a | n/a |
+| 14 | 0.6002 | n/a | n/a | n/a | n/a |
+| 15 | 0.6002 | 0.3630 | 0.3863 | 0.3767 | n/a |
+| 16 | 0.6002 | 0.3630 | 0.3863 | 0.3767 | n/a |
+| 17 | 0.6002 | 0.3630 | 0.3863 | n/a | 0.3336 |
+| 18 | 0.6002 | 0.3630 | 0.3499 | 0.3247 | n/a |
+| 19 | 0.6002 | 0.3630 | n/a | 0.3247 | 0.2768 |
+| 20 | 0.6002 | 0.3630 | n/a | 0.3247 | 0.2768 |
+| 21 | 0.6002 | 0.3630 | n/a | 0.3247 | 0.2768 |
+| 22 | 0.6002 | 0.3630 | 0.3026 | 0.3247 | 0.2768 |
+| 23 | 0.5765 | 0.3991 | 0.4013 | 0.3109 | 0.3280 |
 
 ## Legacy Catalogue Trends
 
@@ -171,59 +171,87 @@ Historical pairs from older catalogue configurations are listed separately.
 
 ### Attack: blur
 
-| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | c_dog | confidence_filter | jpeg_preprocess | median_preprocess | random_resize |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | n/a | n/a | n/a | n/a | 0.5260 | n/a | 0.4464 | n/a |
-| 2 | 0.6002 | 0.3160 | n/a | n/a | 0.3160 | n/a | 0.2724 | n/a |
-| 3 | 0.6002 | 0.3160 | n/a | n/a | 0.3160 | n/a | 0.2724 | n/a |
-| 4 | 0.6002 | 0.3160 | n/a | n/a | 0.3160 | n/a | 0.2724 | n/a |
-| 5 | 0.6002 | 0.3160 | n/a | n/a | 0.3160 | n/a | 0.2724 | n/a |
-| 6 | 0.6002 | 0.2636 | 0.2615 | n/a | n/a | 0.2603 | n/a | 0.1489 |
-| 7 | 0.6002 | 0.2636 | 0.2615 | n/a | n/a | 0.2603 | 0.2492 | n/a |
-| 8 | 0.6002 | 0.2636 | 0.2615 | n/a | n/a | 0.2603 | 0.2492 | n/a |
-| 9 | 0.5984 | 0.2629 | 0.2631 | 0.1763 | n/a | 0.2605 | 0.2173 | n/a |
-| 10 | 0.6002 | 0.2636 | 0.2615 | n/a | n/a | 0.2603 | 0.2492 | n/a |
-| 11 | 0.6002 | 0.2636 | 0.2615 | n/a | n/a | 0.2603 | 0.2492 | n/a |
-| 12 | 0.6002 | 0.2636 | 0.2615 | n/a | n/a | 0.2603 | 0.2492 | n/a |
-| 13 | 0.6002 | 0.2636 | 0.2615 | n/a | n/a | 0.2603 | 0.2492 | n/a |
-| 14 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
-| 15 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
-| 16 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
-| 17 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
-| 18 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
-| 19 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
-| 20 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
-| 21 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
-| 22 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
-| 23 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
+| Cycle | Baseline mAP50 | Attack mAP50 | bit_depth | confidence_filter | jpeg_preprocess | median_preprocess | random_resize |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | n/a | n/a | n/a | 0.5260 | n/a | 0.4464 | n/a |
+| 2 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
+| 3 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
+| 4 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
+| 5 | 0.6002 | 0.3160 | n/a | 0.3160 | n/a | 0.2724 | n/a |
+| 6 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | n/a | 0.1489 |
+| 7 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 8 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 9 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 10 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 11 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 12 | 0.6002 | 0.2636 | 0.2615 | n/a | 0.2603 | 0.2492 | n/a |
+| 13 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 14 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 15 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 16 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 17 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 18 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 19 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 20 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 21 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 22 | 0.6002 | n/a | n/a | n/a | n/a | n/a | n/a |
+| 23 | 0.5765 | n/a | n/a | n/a | n/a | n/a | n/a |
 
 ### Attack: deepfool
 
-| Cycle | Baseline mAP50 | Attack mAP50 | random_resize |
+| Cycle | Baseline mAP50 | Attack mAP50 | c_dog | random_resize |
+|---|---:|---:|---:|---:|
+| 1 | n/a | n/a | n/a | n/a |
+| 2 | 0.6002 | n/a | n/a | n/a |
+| 3 | 0.6002 | n/a | n/a | n/a |
+| 4 | 0.6002 | n/a | n/a | n/a |
+| 5 | 0.6002 | n/a | n/a | n/a |
+| 6 | 0.6002 | 0.2184 | n/a | 0.1185 |
+| 7 | 0.6002 | 0.2184 | n/a | n/a |
+| 8 | 0.6002 | 0.2184 | n/a | n/a |
+| 9 | 0.6002 | 0.2184 | n/a | n/a |
+| 10 | 0.6002 | 0.2184 | n/a | n/a |
+| 11 | 0.6002 | 0.2184 | n/a | n/a |
+| 12 | 0.6002 | 0.2184 | n/a | n/a |
+| 13 | 0.6002 | n/a | n/a | n/a |
+| 14 | 0.6002 | 0.2184 | 0.2403 | n/a |
+| 15 | 0.6002 | 0.2184 | 0.2403 | n/a |
+| 16 | 0.6002 | 0.2184 | 0.2403 | n/a |
+| 17 | 0.6002 | 0.2184 | 0.2403 | n/a |
+| 18 | 0.6002 | 0.2184 | 0.2065 | n/a |
+| 19 | 0.6002 | 0.2184 | 0.2238 | n/a |
+| 20 | 0.6002 | 0.2184 | 0.2238 | n/a |
+| 21 | 0.6002 | 0.2184 | 0.2238 | n/a |
+| 22 | 0.6002 | 0.2422 | n/a | n/a |
+| 23 | 0.5765 | 0.0363 | n/a | n/a |
+
+### Attack: dispersion_reduction
+
+| Cycle | Baseline mAP50 | Attack mAP50 | c_dog |
 |---|---:|---:|---:|
 | 1 | n/a | n/a | n/a |
 | 2 | 0.6002 | n/a | n/a |
 | 3 | 0.6002 | n/a | n/a |
 | 4 | 0.6002 | n/a | n/a |
 | 5 | 0.6002 | n/a | n/a |
-| 6 | 0.6002 | 0.2184 | 0.1185 |
-| 7 | 0.6002 | 0.2184 | n/a |
-| 8 | 0.6002 | 0.2184 | n/a |
-| 9 | 0.5984 | 0.2188 | n/a |
-| 10 | 0.6002 | 0.2184 | n/a |
-| 11 | 0.6002 | 0.2184 | n/a |
-| 12 | 0.6002 | 0.2184 | n/a |
-| 13 | 0.6002 | 0.2184 | n/a |
+| 6 | 0.6002 | n/a | n/a |
+| 7 | 0.6002 | n/a | n/a |
+| 8 | 0.6002 | n/a | n/a |
+| 9 | 0.6002 | n/a | n/a |
+| 10 | 0.6002 | n/a | n/a |
+| 11 | 0.6002 | n/a | n/a |
+| 12 | 0.6002 | n/a | n/a |
+| 13 | 0.6002 | n/a | n/a |
 | 14 | 0.6002 | n/a | n/a |
-| 15 | 0.6002 | 0.2184 | n/a |
-| 16 | 0.6002 | 0.2184 | n/a |
-| 17 | 0.6002 | 0.2184 | n/a |
-| 18 | 0.6002 | 0.2184 | n/a |
-| 19 | 0.6002 | 0.2184 | n/a |
-| 20 | 0.6002 | 0.2184 | n/a |
-| 21 | 0.6002 | 0.2184 | n/a |
-| 22 | 0.6002 | 0.2184 | n/a |
-| 23 | 0.6002 | 0.2422 | n/a |
+| 15 | 0.6002 | 0.2381 | 0.2632 |
+| 16 | 0.6002 | 0.2381 | 0.2632 |
+| 17 | 0.6002 | 0.2381 | 0.2632 |
+| 18 | 0.6002 | 0.2381 | 0.2164 |
+| 19 | 0.6002 | 0.2381 | 0.2306 |
+| 20 | 0.6002 | 0.2381 | 0.2306 |
+| 21 | 0.6002 | 0.2381 | 0.2306 |
+| 22 | 0.6002 | 0.2381 | 0.2218 |
+| 23 | 0.5765 | 0.1725 | n/a |
 
 ### Attack: eot_pgd
 
@@ -237,7 +265,7 @@ Historical pairs from older catalogue configurations are listed separately.
 | 6 | 0.6002 | 0.2529 | 0.2555 | 0.2284 |
 | 7 | 0.6002 | n/a | n/a | n/a |
 | 8 | 0.6002 | n/a | n/a | n/a |
-| 9 | 0.5984 | n/a | n/a | n/a |
+| 9 | 0.6002 | n/a | n/a | n/a |
 | 10 | 0.6002 | n/a | n/a | n/a |
 | 11 | 0.6002 | n/a | n/a | n/a |
 | 12 | 0.6002 | n/a | n/a | n/a |
@@ -251,7 +279,7 @@ Historical pairs from older catalogue configurations are listed separately.
 | 20 | 0.6002 | n/a | n/a | n/a |
 | 21 | 0.6002 | n/a | n/a | n/a |
 | 22 | 0.6002 | n/a | n/a | n/a |
-| 23 | 0.6002 | n/a | n/a | n/a |
+| 23 | 0.5765 | n/a | n/a | n/a |
 
 ### Attack: gaussian_blur
 
@@ -265,7 +293,7 @@ Historical pairs from older catalogue configurations are listed separately.
 | 6 | 0.6002 | n/a | n/a | n/a |
 | 7 | 0.6002 | n/a | n/a | n/a |
 | 8 | 0.6002 | n/a | n/a | n/a |
-| 9 | 0.5984 | n/a | n/a | n/a |
+| 9 | 0.6002 | n/a | n/a | n/a |
 | 10 | 0.6002 | n/a | n/a | n/a |
 | 11 | 0.6002 | n/a | n/a | n/a |
 | 12 | 0.6002 | n/a | n/a | n/a |
@@ -279,7 +307,7 @@ Historical pairs from older catalogue configurations are listed separately.
 | 20 | 0.6002 | n/a | n/a | n/a |
 | 21 | 0.6002 | n/a | n/a | n/a |
 | 22 | 0.6002 | n/a | n/a | n/a |
-| 23 | 0.6002 | n/a | n/a | n/a |
+| 23 | 0.5765 | n/a | n/a | n/a |
 
 ### Attack: pgd
 
@@ -293,7 +321,7 @@ Historical pairs from older catalogue configurations are listed separately.
 | 6 | 0.6002 | n/a | n/a | n/a |
 | 7 | 0.6002 | n/a | n/a | n/a |
 | 8 | 0.6002 | n/a | n/a | n/a |
-| 9 | 0.5984 | n/a | n/a | n/a |
+| 9 | 0.6002 | n/a | n/a | n/a |
 | 10 | 0.6002 | n/a | n/a | n/a |
 | 11 | 0.6002 | n/a | n/a | n/a |
 | 12 | 0.6002 | n/a | n/a | n/a |
@@ -307,7 +335,35 @@ Historical pairs from older catalogue configurations are listed separately.
 | 20 | 0.6002 | n/a | n/a | n/a |
 | 21 | 0.6002 | n/a | n/a | n/a |
 | 22 | 0.6002 | n/a | n/a | n/a |
-| 23 | 0.6002 | n/a | n/a | n/a |
+| 23 | 0.5765 | n/a | n/a | n/a |
+
+### Attack: square
+
+| Cycle | Baseline mAP50 | Attack mAP50 | c_dog |
+|---|---:|---:|---:|
+| 1 | n/a | n/a | n/a |
+| 2 | 0.6002 | n/a | n/a |
+| 3 | 0.6002 | n/a | n/a |
+| 4 | 0.6002 | n/a | n/a |
+| 5 | 0.6002 | n/a | n/a |
+| 6 | 0.6002 | n/a | n/a |
+| 7 | 0.6002 | n/a | n/a |
+| 8 | 0.6002 | n/a | n/a |
+| 9 | 0.6002 | n/a | n/a |
+| 10 | 0.6002 | n/a | n/a |
+| 11 | 0.6002 | n/a | n/a |
+| 12 | 0.6002 | n/a | n/a |
+| 13 | 0.6002 | n/a | n/a |
+| 14 | 0.6002 | n/a | n/a |
+| 15 | 0.6002 | 0.3630 | 0.3890 |
+| 16 | 0.6002 | 0.3630 | 0.3890 |
+| 17 | 0.6002 | 0.3630 | 0.3890 |
+| 18 | 0.6002 | 0.3630 | 0.3624 |
+| 19 | 0.6002 | 0.3630 | 0.3503 |
+| 20 | 0.6002 | 0.3630 | 0.3503 |
+| 21 | 0.6002 | 0.3630 | 0.3503 |
+| 22 | 0.6002 | 0.3630 | 0.3942 |
+| 23 | 0.5765 | 0.3991 | n/a |
 
 ## Training Signal History
 
@@ -323,18 +379,18 @@ The worst_attack identified after each cycle drives DPC-UNet retraining in Colab
 | 6 | eot_pgd | jpeg_preprocess | -0.061 |
 | 7 | deepfool | median_preprocess | -0.134 |
 | 8 | deepfool | median_preprocess | -0.134 |
-| 9 | blur | c_dog | -0.274 |
+| 9 | deepfool | median_preprocess | -0.134 |
 | 10 | deepfool | median_preprocess | -0.134 |
 | 11 | deepfool | median_preprocess | -0.134 |
 | 12 | deepfool | median_preprocess | -0.134 |
-| 13 | deepfool | median_preprocess | -0.134 |
-| 14 | n/a | n/a | n/a |
+| 13 | n/a | n/a | n/a |
+| 14 | deepfool | jpeg_preprocess | -0.073 |
 | 15 | deepfool | jpeg_preprocess | -0.073 |
 | 16 | deepfool | jpeg_preprocess | -0.073 |
-| 17 | deepfool | jpeg_preprocess | -0.073 |
-| 18 | deepfool | median_preprocess | -0.065 |
-| 19 | square | jpeg_preprocess | -0.017 |
+| 17 | deepfool | median_preprocess | -0.065 |
+| 18 | square | jpeg_preprocess | -0.017 |
+| 19 | square | median_preprocess | -0.032 |
 | 20 | square | median_preprocess | -0.032 |
 | 21 | square | median_preprocess | -0.032 |
 | 22 | square | median_preprocess | -0.032 |
-| 23 | square | median_preprocess | -0.032 |
+| 23 | square | jpeg_preprocess | -0.012 |

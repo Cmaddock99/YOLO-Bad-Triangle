@@ -1,0 +1,8 @@
+----------------------------------
+Attack effectiveness: +15.2%
+Defense recovery: n/a
+Confidence drop: -0.4%
+
+Conclusion:
+Strong attack effect
+----------------------------------

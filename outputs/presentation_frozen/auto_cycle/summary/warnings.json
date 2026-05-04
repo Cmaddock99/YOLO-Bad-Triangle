@@ -1,49 +1,6 @@
 {
-  "runs_root": "/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260326_112654",
+  "runs_root": "/home/lurch/YOLO-Bad-Triangle/outputs/framework_runs/cycle_20260430_135845",
   "schema_version": "warnings/v1",
-  "warning_count": 7,
-  "warnings": [
-    {
-      "baseline_used": "baseline_none",
-      "candidate_count": 2,
-      "code": "MULTIPLE_BASELINES",
-      "message": "2 no-attack/no-defense runs found; 'baseline_none' selected (first alphabetically). Runs with different image counts or validation status may produce misleading comparisons."
-    },
-    {
-      "attack": "blur",
-      "avg_conf_effectiveness": 0.0073595955936419785,
-      "code": "ATTACK_BELOW_NOISE",
-      "message": "Attack 'blur' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
-    },
-    {
-      "attack": "deepfool",
-      "avg_conf_effectiveness": 0.04644664537487034,
-      "code": "ATTACK_BELOW_NOISE",
-      "message": "Attack 'deepfool' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
-    },
-    {
-      "attack": "eot_pgd",
-      "avg_conf_effectiveness": -0.021373905521727504,
-      "code": "ATTACK_BELOW_NOISE",
-      "message": "Attack 'eot_pgd' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
-    },
-    {
-      "attack": "fgsm",
-      "avg_conf_effectiveness": -0.018467824081153404,
-      "code": "ATTACK_BELOW_NOISE",
-      "message": "Attack 'fgsm' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
-    },
-    {
-      "attack": "pgd",
-      "avg_conf_effectiveness": 0.02088990915964354,
-      "code": "ATTACK_BELOW_NOISE",
-      "message": "Attack 'pgd' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
-    },
-    {
-      "attack": "square",
-      "avg_conf_effectiveness": 0.024914311532956427,
-      "code": "ATTACK_BELOW_NOISE",
-      "message": "Attack 'square' shows < 5% confidence suppression \u2014 may be within noise or misconfigured."
-    }
-  ]
+  "warning_count": 0,
+  "warnings": []
 }
