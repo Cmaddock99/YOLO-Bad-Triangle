@@ -58,6 +58,9 @@ Thumbs.db
 
 # Local scratch files (do not commit)
 outputs/audi_tracker.md
+outputs/cycle_warm_start.json
+outputs/demo_audit/
+outputs/pre_completion_snapshot/
 MESSAGES_FOR_*.md
 
 # Local handoff artifacts (do not commit)
