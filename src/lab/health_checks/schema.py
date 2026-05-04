@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from lab.eval.prediction_schema import validate_prediction_record
+
 from .artifacts import assert_files_exist
 
 
@@ -18,19 +20,22 @@ class SchemaValidationInputs:
     metrics_json: Path
     run_summary_json: Path
     legacy_csv: Path
+    predictions_jsonl: Path
 
 
 def resolve_schema_validation_inputs(*, framework_run_dir: Path, legacy_compat_csv: Path) -> SchemaValidationInputs:
     metrics_json = framework_run_dir / "metrics.json"
     run_summary_json = framework_run_dir / "run_summary.json"
+    predictions_jsonl = framework_run_dir / "predictions.jsonl"
     assert_files_exist(
-        paths=[metrics_json, run_summary_json, legacy_compat_csv],
+        paths=[metrics_json, run_summary_json, predictions_jsonl, legacy_compat_csv],
         context="Schema validation",
     )
     return SchemaValidationInputs(
         metrics_json=metrics_json,
         run_summary_json=run_summary_json,
         legacy_csv=legacy_compat_csv,
+        predictions_jsonl=predictions_jsonl,
     )
 
 
@@ -84,6 +89,39 @@ def validate_legacy_csv_file(*, path: Path, schema_file: Path) -> None:
                 )
 
 
+def validate_framework_predictions_jsonl(*, path: Path) -> None:
+    """Ensure each non-empty line is a JSON object matching the prediction record contract."""
+    text = path.read_text(encoding="utf-8")
+    record_index = 0
+    saw_record = False
+    for line_no, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{path} line {line_no}: invalid JSON ({exc})") from exc
+        if not isinstance(payload, dict):
+            raise ValueError(f"{path} line {line_no}: expected one JSON object per line")
+        validate_prediction_record(payload, index=record_index)
+        saw_record = True
+        record_index += 1
+    if not saw_record:
+        raise ValueError(f"{path} contains no prediction records (need at least one non-empty JSON line)")
+
+
+def validate_framework_report_dir(*, repo_root: Path, report_dir: Path) -> None:
+    """Validate ``framework_run_summary.csv`` under a sweep/report output directory."""
+    csv_path = report_dir.expanduser().resolve() / "framework_run_summary.csv"
+    assert_files_exist(paths=[csv_path], context="Framework report validation")
+    schema_root = schema_root_for_repo(repo_root)
+    validate_legacy_csv_file(
+        path=csv_path,
+        schema_file=schema_root / "framework_run_summary_csv.schema.json",
+    )
+
+
 def validate_output_bundle(
     *,
     repo_root: Path,
@@ -107,6 +145,7 @@ def validate_output_bundle(
         path=inputs.legacy_csv,
         schema_file=schema_root / "legacy_compat_csv.schema.json",
     )
+    validate_framework_predictions_jsonl(path=inputs.predictions_jsonl)
     return inputs
 
 

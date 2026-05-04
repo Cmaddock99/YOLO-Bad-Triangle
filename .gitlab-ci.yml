@@ -40,21 +40,23 @@ ci:
         --set runner.output_root=outputs/framework_runs/ci \
         --set runner.run_name=ci_demo
     - |
+      python scripts/generate_framework_report.py \
+        --runs-root outputs/framework_runs/ci \
+        --output-dir outputs/framework_reports/ci
+    - |
       python scripts/ci/validate_outputs.py \
         --output-root outputs/framework_runs/ci/ci_demo \
         --contract-name framework_run \
         --framework-run-dir outputs/framework_runs/ci/ci_demo \
         --legacy-compat-csv tests/fixtures/schema/valid/legacy_compat.csv \
-        --require-schema
-    - |
-      python scripts/generate_framework_report.py \
-        --runs-root outputs/framework_runs/ci \
-        --output-dir outputs/framework_reports/ci
+        --require-schema \
+        --framework-report-dir outputs/framework_reports/ci
     - cp outputs/framework_reports/ci/framework_run_summary.csv outputs/metrics_summary.csv
     - test -s outputs/metrics_summary.csv
     - echo "=== metrics_summary.csv (head) ==="
     - head -n 6 outputs/metrics_summary.csv
     - python scripts/ci/check_tracked_outputs.py
+    - python scripts/ci/verify_presentation_freeze.py
   artifacts:
     when: always
     paths:
