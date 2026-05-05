@@ -75,7 +75,9 @@ class _RecordingAttack:
         self.input_means: list[int] = []
         self.seeds: list[int] = []
 
-    def apply(self, image: np.ndarray, *, model: Any, seed: int) -> tuple[np.ndarray, dict[str, Any]]:
+    def apply(
+        self, image: np.ndarray, *, model: Any, seed: int
+    ) -> tuple[np.ndarray, dict[str, Any]]:
         del model
         self.input_means.append(int(image.mean()))
         self.seeds.append(seed)
@@ -99,7 +101,9 @@ class _RecordingDefense:
         defended = np.clip(image.astype(np.int16) + 10, 0, 255).astype(np.uint8)
         return defended, {}
 
-    def postprocess(self, records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    def postprocess(
+        self, records: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         return list(records), {}
 
 
@@ -113,7 +117,9 @@ class _ResolvedAttackWithOptionalParam:
     preserve_weight: float = 0.25
     attack_roi: str | None = None
 
-    def apply(self, image: np.ndarray, *, model: Any, seed: int) -> tuple[np.ndarray, dict[str, Any]]:
+    def apply(
+        self, image: np.ndarray, *, model: Any, seed: int
+    ) -> tuple[np.ndarray, dict[str, Any]]:
         del model, seed
         return image, {
             "objective_mode": self.objective_mode,
@@ -134,7 +140,9 @@ class _PassthroughDefense:
         del attack_hint, kwargs
         return image, {}
 
-    def postprocess(self, records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    def postprocess(
+        self, records: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         return list(records), {}
 
 
@@ -245,11 +253,21 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "contract_ok"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 42,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "contract_ok",
+                },
             }
 
-            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+            with patch(
+                "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+            ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
             run_dir = Path(summary["run_dir"])
@@ -263,7 +281,11 @@ class FrameworkOutputContractTests(unittest.TestCase):
             self.assertTrue(run_summary_path.exists())
             self.assertTrue(resolved_config_path.exists())
 
-            lines = [line for line in predictions_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            lines = [
+                line
+                for line in predictions_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
             self.assertGreater(len(lines), 0)
 
             metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
@@ -271,7 +293,9 @@ class FrameworkOutputContractTests(unittest.TestCase):
             self.assertIn("validation", metrics)
             self.assertIn("runtime", metrics)
             self.assertIn("status", metrics["validation"])
-            self.assertIn(metrics["validation"]["status"], {"missing", "partial", "complete", "error"})
+            self.assertIn(
+                metrics["validation"]["status"], {"missing", "partial", "complete", "error"}
+            )
             for key in ("image_count", "images_with_detections", "total_detections"):
                 self.assertIn(key, metrics["predictions"])
             confidence_mean = metrics["predictions"]["confidence"]["mean"]
@@ -289,7 +313,12 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 self.assertIn(key, metrics["runtime"])
 
             run_summary = json.loads(run_summary_path.read_text(encoding="utf-8"))
-            for key in ("run_dir", "metrics_path", "processed_image_count", "prediction_record_count"):
+            for key in (
+                "run_dir",
+                "metrics_path",
+                "processed_image_count",
+                "prediction_record_count",
+            ):
                 self.assertIn(key, run_summary)
             self.assertNotIn("reporting_context", run_summary)
             self.assertIn("pipeline_profile", run_summary)
@@ -302,6 +331,10 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
             self.assertEqual(run_summary["pipeline"]["semantic_order"], "attack_then_defense")
+            self.assertIs(run_summary["pipeline"]["legacy_transform_order_supported"], False)
+            self.assertEqual(
+                run_summary["pipeline"]["runner_semantic_order"], "attack_then_defense"
+            )
             self.assertIn("signature", run_summary["attack"])
             self.assertIn("signature", run_summary["defense"])
             self.assertIn("provenance", metrics)
@@ -313,6 +346,8 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
             self.assertEqual(metrics["provenance"]["semantic_order"], "attack_then_defense")
+            self.assertIs(metrics["provenance"]["legacy_transform_order_supported"], False)
+            self.assertEqual(metrics["provenance"]["runner_semantic_order"], "attack_then_defense")
             self.assertIn(run_summary["runtime"]["device_hint"], {"cpu", "mps", "cuda"})
             self.assertIn("python_version", run_summary["runtime"])
             self.assertIn("platform", run_summary["runtime"])
@@ -341,15 +376,27 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": True, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "validation": {
+                    "enabled": True,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
                 "reporting_context": reporting_context,
-                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "contract_reporting_ctx"},
+                "runner": {
+                    "seed": 42,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "contract_reporting_ctx",
+                },
             }
 
-            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+            with patch(
+                "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+            ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
-            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            run_summary = json.loads(
+                Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8")
+            )
             self.assertEqual(run_summary["reporting_context"], reporting_context)
 
     def test_validation_exception_sets_error_status_without_crash(self) -> None:
@@ -365,8 +412,16 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": True, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 7, "output_root": str(root / "outputs"), "run_name": "contract_val_error"},
+                "validation": {
+                    "enabled": True,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 7,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "contract_val_error",
+                },
             }
 
             with patch(
@@ -393,8 +448,16 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": True, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 7, "output_root": str(root / "outputs"), "run_name": "contract_val_unsupported"},
+                "validation": {
+                    "enabled": True,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 7,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "contract_val_unsupported",
+                },
             }
 
             with patch(
@@ -425,11 +488,21 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 11, "output_root": str(root / "outputs"), "run_name": "contract_empty_pred"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 11,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "contract_empty_pred",
+                },
             }
 
-            with patch("lab.runners.run_experiment.build_model", return_value=_DummyEmptyPredictionModel()):
+            with patch(
+                "lab.runners.run_experiment.build_model", return_value=_DummyEmptyPredictionModel()
+            ):
                 with self.assertRaises(RuntimeError):
                     UnifiedExperimentRunner(config=config).run()
 
@@ -459,11 +532,21 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 99, "output_root": str(root / "outputs"), "run_name": "contract_bad_schema"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 99,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "contract_bad_schema",
+                },
             }
 
-            with patch("lab.runners.run_experiment.build_model", return_value=_DummyMalformedModel()):
+            with patch(
+                "lab.runners.run_experiment.build_model", return_value=_DummyMalformedModel()
+            ):
                 with self.assertRaises(ValueError):
                     UnifiedExperimentRunner(config=config).run()
 
@@ -482,12 +565,22 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "fgsm", "params": {}},
                 "defense": {"name": "median_preprocess", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 123, "output_root": str(root / "outputs"), "run_name": "attack_then_defense"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 123,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "attack_then_defense",
+                },
             }
 
             with (
-                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
+                patch(
+                    "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+                ),
                 patch("lab.runners.run_intent.build_attack_plugin", return_value=attack),
                 patch("lab.runners.run_intent.build_defense_plugin", return_value=defense),
             ):
@@ -507,11 +600,17 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
             self.assertEqual(metrics["provenance"]["semantic_order"], "attack_then_defense")
+            self.assertIs(metrics["provenance"]["legacy_transform_order_supported"], False)
+            self.assertEqual(metrics["provenance"]["runner_semantic_order"], "attack_then_defense")
             self.assertEqual(
                 run_summary["pipeline"]["transform_order"],
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
             self.assertEqual(run_summary["pipeline"]["semantic_order"], "attack_then_defense")
+            self.assertIs(run_summary["pipeline"]["legacy_transform_order_supported"], False)
+            self.assertEqual(
+                run_summary["pipeline"]["runner_semantic_order"], "attack_then_defense"
+            )
 
     def test_pretrained_patch_metadata_is_split_between_run_and_prediction_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -532,11 +631,21 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 },
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "pretrained_patch_contract"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 42,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "pretrained_patch_contract",
+                },
             }
 
-            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+            with patch(
+                "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+            ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
             run_dir = Path(summary["run_dir"])
@@ -605,11 +714,21 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 },
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "pretrained_patch_provenance"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 42,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "pretrained_patch_provenance",
+                },
             }
 
-            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+            with patch(
+                "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+            ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
             run_dir = Path(summary["run_dir"])
@@ -670,12 +789,22 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "pgd", "params": {"epsilon": None, "steps": 4}},
                 "defense": {"name": "median_preprocess", "params": {"kernel_size": None}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 21, "output_root": str(root / "outputs"), "run_name": "contract_null_params"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 21,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "contract_null_params",
+                },
             }
 
             with (
-                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
+                patch(
+                    "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+                ),
                 patch("lab.runners.run_intent.build_attack_plugin", side_effect=_build_attack),
                 patch("lab.runners.run_intent.build_defense_plugin", side_effect=_build_defense),
             ):
@@ -738,11 +867,21 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 1, "output_root": str(root / "outputs"), "run_name": "parity_disabled"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 1,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "parity_disabled",
+                },
             }
 
-            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+            with patch(
+                "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+            ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
             run_dir = Path(summary["run_dir"])
@@ -761,17 +900,29 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
                 "summary": {"enabled": True},
-                "runner": {"seed": 13, "output_root": str(root / "outputs"), "run_name": "summary_baseline"},
+                "runner": {
+                    "seed": 13,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "summary_baseline",
+                },
             }
 
-            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+            with patch(
+                "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+            ):
                 summary = UnifiedExperimentRunner(config=config).run()
             run_dir = Path(summary["run_dir"])
             self.assertFalse((run_dir / "experiment_summary.json").exists())
 
-    def test_run_summary_captures_defense_checkpoint_provenance_for_checkpointed_defense(self) -> None:
+    def test_run_summary_captures_defense_checkpoint_provenance_for_checkpointed_defense(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "images"
@@ -790,17 +941,32 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "provenance_checkpointed"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 42,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "provenance_checkpointed",
+                },
             }
 
             with (
-                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
-                patch("lab.runners.run_intent.build_defense_plugin", return_value=_CheckpointedDefense()),
+                patch(
+                    "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+                ),
+                patch(
+                    "lab.runners.run_intent.build_defense_plugin",
+                    return_value=_CheckpointedDefense(),
+                ),
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
-            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            run_summary = json.loads(
+                Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8")
+            )
             self.assertEqual(run_summary["provenance"]["defense_checkpoints"], fake_record)
             # YOLO model "dummy.pt" does not exist on disk — fingerprint stays None
             self.assertIsNone(run_summary["provenance"]["checkpoint_fingerprint_sha256"])
@@ -833,25 +999,44 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "provenance_distinct"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 42,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "provenance_distinct",
+                },
             }
 
             with (
-                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
-                patch("lab.runners.run_intent.build_defense_plugin", return_value=_CheckpointedDefense()),
+                patch(
+                    "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+                ),
+                patch(
+                    "lab.runners.run_intent.build_defense_plugin",
+                    return_value=_CheckpointedDefense(),
+                ),
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
-            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            run_summary = json.loads(
+                Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8")
+            )
             self.assertEqual(run_summary["provenance"]["checkpoint_fingerprint_sha256"], yolo_sha)
-            self.assertTrue(Path(run_summary["provenance"]["checkpoint_fingerprint_source"]).samefile(yolo_path))
+            self.assertTrue(
+                Path(run_summary["provenance"]["checkpoint_fingerprint_source"]).samefile(yolo_path)
+            )
             self.assertEqual(
                 run_summary["provenance"]["defense_checkpoints"],
                 [{"path": str(defense_path.resolve()), "sha256": defense_sha}],
             )
 
-    def test_run_summary_defense_checkpoint_provenance_empty_for_non_checkpoint_defense(self) -> None:
+    def test_run_summary_defense_checkpoint_provenance_empty_for_non_checkpoint_defense(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "images"
@@ -868,21 +1053,38 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "provenance_empty"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 42,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "provenance_empty",
+                },
             }
 
             with (
-                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
-                patch("lab.runners.run_intent.build_defense_plugin", return_value=_ExplicitEmptyDefense()),
+                patch(
+                    "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+                ),
+                patch(
+                    "lab.runners.run_intent.build_defense_plugin",
+                    return_value=_ExplicitEmptyDefense(),
+                ),
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
-            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            run_summary = json.loads(
+                Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8")
+            )
             self.assertIn("defense_checkpoints", run_summary["provenance"])
             self.assertEqual(run_summary["provenance"]["defense_checkpoints"], [])
 
-    def test_run_summary_defense_checkpoint_provenance_gracefully_empty_when_stub_has_no_method(self) -> None:
+    def test_run_summary_defense_checkpoint_provenance_gracefully_empty_when_stub_has_no_method(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "images"
@@ -895,18 +1097,33 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
-                "runner": {"seed": 42, "output_root": str(root / "outputs"), "run_name": "provenance_no_method"},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
+                "runner": {
+                    "seed": 42,
+                    "output_root": str(root / "outputs"),
+                    "run_name": "provenance_no_method",
+                },
             }
 
             # _PassthroughDefense has no checkpoint_provenance method
             with (
-                patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()),
-                patch("lab.runners.run_intent.build_defense_plugin", return_value=_PassthroughDefense()),
+                patch(
+                    "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+                ),
+                patch(
+                    "lab.runners.run_intent.build_defense_plugin",
+                    return_value=_PassthroughDefense(),
+                ),
             ):
                 summary = UnifiedExperimentRunner(config=config).run()
 
-            run_summary = json.loads(Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8"))
+            run_summary = json.loads(
+                Path(summary["run_dir"]).joinpath("run_summary.json").read_text(encoding="utf-8")
+            )
             self.assertIn("defense_checkpoints", run_summary["provenance"])
             self.assertEqual(run_summary["provenance"]["defense_checkpoints"], [])
 
@@ -943,12 +1160,18 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 "attack": {"name": "none", "params": {}},
                 "defense": {"name": "none", "params": {}},
                 "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-                "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+                "validation": {
+                    "enabled": False,
+                    "dataset": "configs/coco_subset500.yaml",
+                    "params": {},
+                },
                 "summary": {"enabled": True},
                 "runner": {"seed": 17, "output_root": str(outputs), "run_name": "summary_observer"},
             }
 
-            with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):
+            with patch(
+                "lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()
+            ):
                 summary = UnifiedExperimentRunner(config=config).run()
             report_path = Path(summary["run_dir"]) / "experiment_summary.json"
             self.assertTrue(report_path.exists())
@@ -977,7 +1200,9 @@ class WS1ThreeArtifactContractTest(unittest.TestCase):
             (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
             # Only metrics.json — incomplete
             complete = all((run_dir / f).exists() for f in _REQUIRED_RUN_ARTIFACTS)
-            self.assertFalse(complete, "metrics.json alone must not satisfy the three-artifact check")
+            self.assertFalse(
+                complete, "metrics.json alone must not satisfy the three-artifact check"
+            )
 
     def test_all_three_artifacts_present_is_complete(self) -> None:
         from scripts.auto_cycle import _REQUIRED_RUN_ARTIFACTS
@@ -998,6 +1223,7 @@ class WS1ThreeArtifactContractTest(unittest.TestCase):
         source.mkdir()
         image = np.full((40, 60, 3), 127, dtype=np.uint8)
         import cv2 as _cv2
+
         _cv2.imwrite(str(source / "a.jpg"), image)
 
         config = {
@@ -1006,7 +1232,11 @@ class WS1ThreeArtifactContractTest(unittest.TestCase):
             "attack": {"name": "none", "params": {}},
             "defense": {"name": "none", "params": {}},
             "predict": {"conf": 0.5, "iou": 0.7, "imgsz": 640},
-            "validation": {"enabled": False, "dataset": "configs/coco_subset500.yaml", "params": {}},
+            "validation": {
+                "enabled": False,
+                "dataset": "configs/coco_subset500.yaml",
+                "params": {},
+            },
             "runner": {"seed": 99, "output_root": str(root / "outputs"), "run_name": "no_tmp_test"},
         }
         with patch("lab.runners.run_experiment.build_model", return_value=_DummyFrameworkModel()):

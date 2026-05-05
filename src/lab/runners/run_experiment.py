@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import platform as _platform
 import random
@@ -61,6 +62,8 @@ from lab.runners.run_intent import (
 from lab.runners.run_intent import (
     resolved_reporting_context as _resolved_reporting_context,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _collect_images(source_dir: Path, max_images: int) -> list[Path]:
@@ -212,7 +215,9 @@ def _collect_summary_candidates(
                 "attack_signature": _build_attack_signature(
                     attack_name=str((summary_payload.get("attack") or {}).get("name", "none")),
                     attack_params=dict((summary_payload.get("attack") or {}).get("params") or {}),
-                    resolved_objective=dict((summary_payload.get("attack") or {}).get("resolved_objective") or {}),
+                    resolved_objective=dict(
+                        (summary_payload.get("attack") or {}).get("resolved_objective") or {}
+                    ),
                 ),
                 "defense_signature": _build_defense_signature(
                     defense_name=str((summary_payload.get("defense") or {}).get("name", "none")),
@@ -235,7 +240,8 @@ def _select_related_summary_metrics(
         (
             item
             for item in candidates
-            if _is_none_name(str(item.get("attack", "none"))) and _is_none_name(str(item.get("defense", "none")))
+            if _is_none_name(str(item.get("attack", "none")))
+            and _is_none_name(str(item.get("defense", "none")))
         ),
         None,
     )
@@ -280,8 +286,12 @@ def _select_related_summary_metrics(
         None,
     )
     baseline_metrics = cast(dict[str, Any], baseline_candidate.get("metrics"))
-    attack_metrics = cast(dict[str, Any] | None, attack_candidate.get("metrics") if attack_candidate else None)
-    defense_metrics = cast(dict[str, Any] | None, defense_candidate.get("metrics") if defense_candidate else None)
+    attack_metrics = cast(
+        dict[str, Any] | None, attack_candidate.get("metrics") if attack_candidate else None
+    )
+    defense_metrics = cast(
+        dict[str, Any] | None, defense_candidate.get("metrics") if defense_candidate else None
+    )
     return baseline_metrics, attack_metrics, defense_metrics
 
 
@@ -361,7 +371,9 @@ class UnifiedExperimentRunner:
                     seed=int(seed) + index,
                 )
                 attack_elapsed += time.monotonic() - attack_started
-                run_attack_meta, prediction_attack_meta = _split_attack_metadata_payload(attack_meta)
+                run_attack_meta, prediction_attack_meta = _split_attack_metadata_payload(
+                    attack_meta
+                )
                 if run_attack_meta and not attack_metadata:
                     attack_metadata = cast(dict[str, Any], dict(run_attack_meta))
             defense_started = time.monotonic()
@@ -393,22 +405,34 @@ class UnifiedExperimentRunner:
             attack_metadata = {
                 **attack_metadata,
                 "images_with_person_detection": sum(
-                    1 for meta in attack_prediction_metadata.values() if bool(meta.get("person_found"))
+                    1
+                    for meta in attack_prediction_metadata.values()
+                    if bool(meta.get("person_found"))
                 ),
                 "images_with_center_fallback": sum(
-                    1 for meta in attack_prediction_metadata.values() if bool(meta.get("fallback_used"))
+                    1
+                    for meta in attack_prediction_metadata.values()
+                    if bool(meta.get("fallback_used"))
                 ),
                 "images_with_patch_downscale": sum(
                     1
                     for meta in attack_prediction_metadata.values()
-                    if base_patch_size is not None and meta.get("applied_patch_size") != base_patch_size
+                    if base_patch_size is not None
+                    and meta.get("applied_patch_size") != base_patch_size
                 ),
             }
-        return prepared_paths, skipped_unreadable, failed_writes, attack_metadata, attack_prediction_metadata, {
-            "attack_ms": round(attack_elapsed * 1000, 1),
-            "defense_preprocess_ms": round(defense_preprocess_elapsed * 1000, 1),
-            "image_write_ms": round(image_write_elapsed * 1000, 1),
-        }
+        return (
+            prepared_paths,
+            skipped_unreadable,
+            failed_writes,
+            attack_metadata,
+            attack_prediction_metadata,
+            {
+                "attack_ms": round(attack_elapsed * 1000, 1),
+                "defense_preprocess_ms": round(defense_preprocess_elapsed * 1000, 1),
+                "image_write_ms": round(image_write_elapsed * 1000, 1),
+            },
+        )
 
     def _run_inference(
         self,
@@ -491,14 +515,23 @@ class UnifiedExperimentRunner:
 
                 # Write a minimal dataset YAML that points val at images/.
                 attacked_yaml = run_dir / "val_attacked_dataset.yaml"
-                attacked_cfg = {k: v for k, v in orig_cfg.items() if k not in ("path", "train", "val", "test")}
+                attacked_cfg = {
+                    k: v for k, v in orig_cfg.items() if k not in ("path", "train", "val", "test")
+                }
                 attacked_cfg["path"] = str(run_dir)
                 attacked_cfg["train"] = "images"
                 attacked_cfg["val"] = "images"
-                attacked_yaml.write_text(yaml.safe_dump(attacked_cfg, sort_keys=False), encoding="utf-8")
+                attacked_yaml.write_text(
+                    yaml.safe_dump(attacked_cfg, sort_keys=False), encoding="utf-8"
+                )
 
                 raw_validation_metrics = model.validate(str(attacked_yaml), **validation_params)
             except Exception as exc:  # pragma: no cover - runtime path
+                _LOGGER.warning(
+                    "validation_runtime_error: %s: %s",
+                    type(exc).__name__,
+                    exc,
+                )
                 validation_error = str(exc)
                 validation_traceback = traceback.format_exc(limit=12)
         if isinstance(raw_validation_metrics, dict):
@@ -513,8 +546,8 @@ class UnifiedExperimentRunner:
             if capability_reason is None and validation_enabled:
                 capability_reason = "validation_runtime_error"
         if state == "partial":
-            print(
-                "WARNING: validation metrics are partial — some metrics could not be computed. "
+            _LOGGER.warning(
+                "validation metrics are partial — some metrics could not be computed. "
                 "Check that a validation dataset was provided and is accessible."
             )
         return {
@@ -545,9 +578,11 @@ class UnifiedExperimentRunner:
             return
         from lab.reporting.local import generate_summary
 
-        output_root = Path(
-            str(runner_cfg.get("output_root", "outputs/framework_runs"))
-        ).expanduser().resolve()
+        output_root = (
+            Path(str(runner_cfg.get("output_root", "outputs/framework_runs")))
+            .expanduser()
+            .resolve()
+        )
         candidates = _collect_summary_candidates(
             output_root=output_root,
             model_name=model_name,
@@ -575,8 +610,8 @@ class UnifiedExperimentRunner:
             current_defense_signature=current_defense_signature,
         )
         if baseline_metrics is None or attack_metrics is None:
-            print(
-                "WARNING: Summary generation skipped; related baseline/attack framework runs were not found."
+            _LOGGER.warning(
+                "Summary generation skipped; related baseline/attack framework runs were not found."
             )
             return
         experiment_summary = generate_summary(
@@ -588,7 +623,7 @@ class UnifiedExperimentRunner:
         experiment_summary_file.write_text(
             json.dumps(experiment_summary, indent=2, sort_keys=True), encoding="utf-8"
         )
-        print(f"Experiment summary written: {experiment_summary_file}")
+        _LOGGER.info("Experiment summary written: %s", experiment_summary_file)
 
     def run(self) -> dict[str, Any]:
         model_cfg = as_mapping(self.config, "model")
@@ -723,6 +758,8 @@ class UnifiedExperimentRunner:
                 "transform_order": list(CURRENT_PIPELINE_TRANSFORM_ORDER),
                 "semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
                 "attack_applied": attack is not None,
+                "legacy_transform_order_supported": False,
+                "runner_semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
             },
             "runtime": dict(runtime_payload),
         }
@@ -730,10 +767,14 @@ class UnifiedExperimentRunner:
         resolved_config_file = run_dir / "resolved_config.yaml"
         resolved_config_text = resolved_config_yaml_text(self.config)
         run_intent = build_run_intent(self.config, cwd=Path.cwd())
-        config_fingerprint = str(run_intent.get("config_fingerprint_sha256") or config_fingerprint_sha256(self.config))
+        config_fingerprint = str(
+            run_intent.get("config_fingerprint_sha256") or config_fingerprint_sha256(self.config)
+        )
         checkpoint_fingerprint = run_intent.get("checkpoint_fingerprint_sha256")
         checkpoint_source = run_intent.get("checkpoint_fingerprint_source")
-        defense_checkpoint_provenance = list(run_intent.get("defense_checkpoints") or defense_checkpoint_provenance)
+        defense_checkpoint_provenance = list(
+            run_intent.get("defense_checkpoints") or defense_checkpoint_provenance
+        )
         pipeline_profile = run_intent.get("pipeline_profile")
         authoritative_metric = run_intent.get("authoritative_metric")
         profile_compatibility = run_intent.get("profile_compatibility")
@@ -793,6 +834,8 @@ class UnifiedExperimentRunner:
                 "transform_order": list(CURRENT_PIPELINE_TRANSFORM_ORDER),
                 "semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
                 "attack_applied": attack is not None,
+                "legacy_transform_order_supported": False,
+                "runner_semantic_order": PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
             },
             "predict": predict_cfg,
             "validation": metrics_payload["validation"],
@@ -846,7 +889,9 @@ class UnifiedExperimentRunner:
         # artifacts on disk (missing total_ms / finished_at_utc) if a crash
         # occurred between the two writes; the single write eliminates that window.
 
-        runtime_payload["artifact_write_ms"] = round((time.monotonic() - artifact_write_started) * 1000, 1)
+        runtime_payload["artifact_write_ms"] = round(
+            (time.monotonic() - artifact_write_started) * 1000, 1
+        )
         run_finished_at = datetime.now(timezone.utc)
         runtime_payload["finished_at_utc"] = run_finished_at.isoformat()
         runtime_payload["total_ms"] = round((time.monotonic() - run_started_mono) * 1000, 1)
@@ -865,7 +910,9 @@ class UnifiedExperimentRunner:
         os.replace(summary_tmp, summary_file)
 
         metrics_tmp = metrics_file.with_suffix(".json.tmp")
-        metrics_tmp.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
+        metrics_tmp.write_text(
+            json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
         os.replace(metrics_tmp, metrics_file)
         return run_summary
 

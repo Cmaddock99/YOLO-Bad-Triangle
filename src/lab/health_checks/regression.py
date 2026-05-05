@@ -67,7 +67,9 @@ def resolve_runtime_profile(profile: str) -> dict[str, Any]:
 
     canonical = alias_to_name.get(requested, requested)
     config = profiles.get(canonical, {}) if isinstance(profiles.get(canonical), dict) else {}
-    default_attack = str(config.get("default_attack") or PROFILE_DEFAULT_ATTACK.get(canonical, "fgsm"))
+    default_attack = str(
+        config.get("default_attack") or PROFILE_DEFAULT_ATTACK.get(canonical, "fgsm")
+    )
     return {
         "requested": requested,
         "name": canonical,
@@ -115,9 +117,7 @@ def latest_rows_by_run(rows: list[dict[str, str]]) -> list[dict[str, str]]:
 
 def latest_session_id(rows: list[dict[str, str]]) -> str | None:
     with_session = [
-        row
-        for row in rows
-        if row.get("run_session_id") and row.get("run_started_at_utc")
+        row for row in rows if row.get("run_session_id") and row.get("run_started_at_utc")
     ]
     if not with_session:
         return None
@@ -132,7 +132,9 @@ def choose_attack_name(*, profile: str, attack: str | None) -> str:
     return str(resolved.get("default_attack", "fgsm"))
 
 
-def filter_rows_by_session(rows: list[dict[str, str]], *, session_id: str | None) -> list[dict[str, str]]:
+def filter_rows_by_session(
+    rows: list[dict[str, str]], *, session_id: str | None
+) -> list[dict[str, str]]:
     if not session_id:
         return rows
     return [row for row in rows if row.get("run_session_id") == session_id]
@@ -176,9 +178,7 @@ def assert_attack_sweeps_not_flat(
     suspicious: list[str] = []
     for key, group in groups.items():
         attack_param_variants = {
-            row.get("attack_params_json", "")
-            for row in group
-            if row.get("attack_params_json")
+            row.get("attack_params_json", "") for row in group if row.get("attack_params_json")
         }
         if len(attack_param_variants) < 2:
             if allow_sparse_fgsm:
@@ -209,9 +209,7 @@ def assert_attack_sweep_nonflat_strict(rows: list[dict[str, str]], *, attack_nam
             f"Need at least two '{attack_name}' rows to check sweep trend, found {len(attack_rows)}."
         )
     params = {
-        row.get("attack_params_json", "")
-        for row in attack_rows
-        if row.get("attack_params_json")
+        row.get("attack_params_json", "") for row in attack_rows if row.get("attack_params_json")
     }
     if len(params) < 2:
         raise ValueError(
@@ -263,9 +261,12 @@ def assert_not_all_zero_attack(
         return
 
     def _is_all_zero(metric_values: tuple[float | None, ...]) -> bool:
-        if any(value is None for value in metric_values):
-            return False
-        return all(abs(float(value)) <= zero_epsilon for value in metric_values)
+        concrete: list[float] = []
+        for value in metric_values:
+            if value is None:
+                return False
+            concrete.append(float(value))
+        return all(abs(value) <= zero_epsilon for value in concrete)
 
     if all(_is_all_zero(metric_tuple(row)) for row in attack_rows):
         raise ValueError(
@@ -361,5 +362,3 @@ def load_rolling_baseline(*, history_path: Path, window: int) -> tuple[dict[str,
     averaged["generated_at_utc"] = str(recent[-1].get("generated_at_utc", ""))
     averaged["window_size"] = len(recent)
     return averaged, []
-
-

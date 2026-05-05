@@ -60,6 +60,13 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from lab.config.contracts import (
+    CURRENT_PIPELINE_TRANSFORM_ORDER,
+    LEGACY_PIPELINE_TRANSFORM_ORDER,
+    PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
+    PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK,
+    PIPELINE_SEMANTIC_LEGACY_UNKNOWN,
+)
 from lab.config.profiles import (
     authoritative_metric as resolved_authoritative_metric,
 )
@@ -82,7 +89,7 @@ REPO = Path(__file__).resolve().parents[2]
 OUTPUTS = REPO / "outputs"
 STATE_FILE = OUTPUTS / "cycle_state.json"
 WARM_START_FILE = OUTPUTS / "cycle_warm_start.json"
-LOCK_FILE  = OUTPUTS / ".cycle.lock"
+LOCK_FILE = OUTPUTS / ".cycle.lock"
 PAUSE_FILE = OUTPUTS / ".cycle.pause"
 HISTORY_DIR = OUTPUTS / "cycle_history"
 LOG_DIR = REPO / "logs"
@@ -94,30 +101,26 @@ ACTIVE_CONFIG_PATH = RUN_SINGLE_CONFIG
 ACTIVE_PIPELINE_PROFILE: str | None = None
 ACTIVE_AUTHORITATIVE_METRIC: str | None = None
 _REQUIRED_RUN_ARTIFACTS = REQUIRED_RUN_ARTIFACTS
-CURRENT_PIPELINE_SEMANTICS = "attack_then_defense"
-LEGACY_PIPELINE_SEMANTICS = "defense_then_attack"
-UNKNOWN_PIPELINE_SEMANTICS = "legacy_unknown"
-CURRENT_PIPELINE_TRANSFORM_ORDER = (
-    "attack.apply",
-    "defense.preprocess",
-    "model.predict",
-    "defense.postprocess",
-)
-LEGACY_PIPELINE_TRANSFORM_ORDER = (
-    "defense.preprocess",
-    "attack.apply",
-    "model.predict",
-    "defense.postprocess",
-)
+CURRENT_PIPELINE_SEMANTICS = PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE
+LEGACY_PIPELINE_SEMANTICS = PIPELINE_SEMANTIC_DEFENSE_THEN_ATTACK
+UNKNOWN_PIPELINE_SEMANTICS = PIPELINE_SEMANTIC_LEGACY_UNKNOWN
 
 # ── Attack / defense catalogues ───────────────────────────────────────────────
 
 DEFAULT_ALL_ATTACKS = [
-    "blur", "deepfool", "dispersion_reduction", "eot_pgd", "fgsm", "pgd", "square",
+    "blur",
+    "deepfool",
+    "dispersion_reduction",
+    "eot_pgd",
+    "fgsm",
+    "pgd",
+    "square",
     # jpeg_attack temporarily removed — no-op behavior under current defaults
 ]
 DEFAULT_ALL_DEFENSES = [
-    "bit_depth", "c_dog", "jpeg_preprocess",
+    "bit_depth",
+    "c_dog",
+    "jpeg_preprocess",
     # c_dog_ensemble temporarily removed — underperforming single c_dog
     "median_preprocess",
     # random_resize removed — inherent mAP50 cost (−0.25) exceeds any attack-recovery benefit
@@ -126,7 +129,7 @@ ALL_ATTACKS: list[str] = list(DEFAULT_ALL_ATTACKS)
 ALL_DEFENSES: list[str] = list(DEFAULT_ALL_DEFENSES)
 
 TOP_N_ATTACKS = 3
-TOP_N_DEFENSES = 3   # bumped from 2 — catalogue now has 6 defenses
+TOP_N_DEFENSES = 3  # bumped from 2 — catalogue now has 6 defenses
 MIN_PHASE4_DEFENSES = 2
 RANKING_SMOKE_MAX_IMAGES = 32
 
@@ -139,48 +142,120 @@ RANKING_SMOKE_MAX_IMAGES = 32
 
 ATTACK_PARAM_SPACE: dict[str, dict[str, dict]] = {
     "fgsm": {
-        "attack.params.epsilon": {"init": 0.01,  "min": 0.001, "max": 0.3,  "scale": "log", "factor": 2.0},
+        "attack.params.epsilon": {
+            "init": 0.01,
+            "min": 0.001,
+            "max": 0.3,
+            "scale": "log",
+            "factor": 2.0,
+        },
     },
     "pgd": {
-        "attack.params.epsilon": {"init": 0.016, "min": 0.002, "max": 0.25, "scale": "log", "factor": 2.0},
-        "attack.params.steps":   {"init": 20,    "min": 5,     "max": 80,   "scale": "int",  "step": 10},
+        "attack.params.epsilon": {
+            "init": 0.016,
+            "min": 0.002,
+            "max": 0.25,
+            "scale": "log",
+            "factor": 2.0,
+        },
+        "attack.params.steps": {"init": 20, "min": 5, "max": 80, "scale": "int", "step": 10},
     },
     "deepfool": {
-        "attack.params.epsilon": {"init": 0.05,  "min": 0.005, "max": 0.3,  "scale": "log", "factor": 2.0},
-        "attack.params.steps":   {"init": 50,    "min": 10,    "max": 200,  "scale": "int",  "step": 30},
+        "attack.params.epsilon": {
+            "init": 0.05,
+            "min": 0.005,
+            "max": 0.3,
+            "scale": "log",
+            "factor": 2.0,
+        },
+        "attack.params.steps": {"init": 50, "min": 10, "max": 200, "scale": "int", "step": 30},
     },
     "dispersion_reduction": {
-        "attack.params.epsilon": {"init": 0.05,  "min": 0.01,  "max": 0.15, "scale": "log", "factor": 2.0},
-        "attack.params.steps":   {"init": 50,    "min": 20,    "max": 100,  "scale": "int",  "step": 20},
+        "attack.params.epsilon": {
+            "init": 0.05,
+            "min": 0.01,
+            "max": 0.15,
+            "scale": "log",
+            "factor": 2.0,
+        },
+        "attack.params.steps": {"init": 50, "min": 20, "max": 100, "scale": "int", "step": 20},
     },
     "eot_pgd": {
-        "attack.params.epsilon":    {"init": 0.016, "min": 0.002, "max": 0.3,  "scale": "log", "factor": 2.0},
-        "attack.params.alpha":      {"init": 0.0015, "min": 0.0005, "max": 0.02, "scale": "log", "factor": 2.0},
-        "attack.params.eot_samples":{"init": 4,     "min": 2,     "max": 16,   "scale": "int",  "step": 2},
+        "attack.params.epsilon": {
+            "init": 0.016,
+            "min": 0.002,
+            "max": 0.3,
+            "scale": "log",
+            "factor": 2.0,
+        },
+        "attack.params.alpha": {
+            "init": 0.0015,
+            "min": 0.0005,
+            "max": 0.02,
+            "scale": "log",
+            "factor": 2.0,
+        },
+        "attack.params.eot_samples": {"init": 4, "min": 2, "max": 16, "scale": "int", "step": 2},
     },
     "blur": {
-        "attack.params.kernel_size": {"init": 25, "min": 3, "max": 51, "scale": "odd_int", "step": 4},
+        "attack.params.kernel_size": {
+            "init": 25,
+            "min": 3,
+            "max": 51,
+            "scale": "odd_int",
+            "step": 4,
+        },
     },
     "jpeg_attack": {
         "attack.params.quality": {"init": 75, "min": 10, "max": 95, "scale": "int", "step": 15},
     },
     "square": {
-        "attack.params.eps":       {"init": 0.05,  "min": 0.01, "max": 0.3,  "scale": "log", "factor": 2.0},
-        "attack.params.n_queries": {"init": 100,   "min": 50,   "max": 500,  "scale": "int",  "step": 50},
+        "attack.params.eps": {"init": 0.05, "min": 0.01, "max": 0.3, "scale": "log", "factor": 2.0},
+        "attack.params.n_queries": {"init": 100, "min": 50, "max": 500, "scale": "int", "step": 50},
     },
 }
 
 DEFENSE_PARAM_SPACE: dict[str, dict[str, dict]] = {
     "median_preprocess": {
-        "defense.params.kernel_size": {"init": 7,    "min": 3,   "max": 31,  "scale": "odd_int",      "step": 2},
+        "defense.params.kernel_size": {
+            "init": 7,
+            "min": 3,
+            "max": 31,
+            "scale": "odd_int",
+            "step": 2,
+        },
     },
     "c_dog": {
-        "defense.params.timestep":      {"init": 50.0, "min": 10.0, "max": 90.0, "scale": "linear_float", "step": 15.0},
-        "defense.params.sharpen_alpha": {"init": 0.0,  "min": 0.0,  "max": 0.7,  "scale": "linear_float", "step": 0.2},
+        "defense.params.timestep": {
+            "init": 50.0,
+            "min": 10.0,
+            "max": 90.0,
+            "scale": "linear_float",
+            "step": 15.0,
+        },
+        "defense.params.sharpen_alpha": {
+            "init": 0.0,
+            "min": 0.0,
+            "max": 0.7,
+            "scale": "linear_float",
+            "step": 0.2,
+        },
     },
     "c_dog_ensemble": {
-        "defense.params.sharpen_alpha": {"init": 0.3,  "min": 0.0,  "max": 0.7,  "scale": "linear_float", "step": 0.15},
-        "defense.params.median_kernel": {"init": 3,    "min": 3,    "max": 11,   "scale": "odd_int",      "step": 2},
+        "defense.params.sharpen_alpha": {
+            "init": 0.3,
+            "min": 0.0,
+            "max": 0.7,
+            "scale": "linear_float",
+            "step": 0.15,
+        },
+        "defense.params.median_kernel": {
+            "init": 3,
+            "min": 3,
+            "max": 11,
+            "scale": "odd_int",
+            "step": 2,
+        },
     },
     "jpeg_preprocess": {
         "defense.params.quality": {"init": 75, "min": 40, "max": 95, "scale": "int", "step": 15},
@@ -194,8 +269,8 @@ TUNE_MAX_IMAGES = 16
 CONSISTENCY_CHECK_MAX_IMAGES = 50
 
 TUNE_MAX_IMAGES_BY_ATTACK: dict[str, int] = {
-    "square":               8,
-    "eot_pgd":             12,
+    "square": 8,
+    "eot_pgd": 12,
     "dispersion_reduction": 12,
 }
 
@@ -207,36 +282,36 @@ SLOW_ATTACKS: set[str] = {"square", "eot_pgd", "dispersion_reduction", "deepfool
 #   square ~126s/img × 50 imgs ≈ 1.75h   eot_pgd ~48s × 50 ≈ 40min
 #   disp_red ~60s × 50 ≈ 50min          deepfool ~40s × 50 ≈ 35min
 PHASE4_MAX_IMAGES_BY_ATTACK: dict[str, int] = {
-    "square":               50,
-    "eot_pgd":              50,
+    "square": 50,
+    "eot_pgd": 50,
     "dispersion_reduction": 50,
-    "deepfool":             50,
+    "deepfool": 50,
 }
 
 # Phase 1 characterize image cap for slow attacks (default: RANKING_SMOKE_MAX_IMAGES).
 # Limits characterization smoke runs without affecting Phase 2/3 if not in top attacks.
 CHARACTERIZE_MAX_IMAGES_BY_ATTACK: dict[str, int] = {
-    "square":               8,
-    "eot_pgd":             12,
+    "square": 8,
+    "eot_pgd": 12,
     "dispersion_reduction": 12,
 }
 
 # Coordinate descent settings
-TUNE_MAX_ITERS = 15          # max passes over all parameters (global default)
-TUNE_TOLERANCE_REL = 0.05    # minimum *relative* improvement to count as a gain
-                              # relative keeps weak attacks from accepting noise
-                              # and strong attacks from missing real gains
-TUNE_TOLERANCE_ABS = 0.005   # absolute floor: when current_score ≈ 0 the relative
-                              # threshold collapses to 0, disabling early exit
+TUNE_MAX_ITERS = 15  # max passes over all parameters (global default)
+TUNE_TOLERANCE_REL = 0.05  # minimum *relative* improvement to count as a gain
+# relative keeps weak attacks from accepting noise
+# and strong attacks from missing real gains
+TUNE_TOLERANCE_ABS = 0.005  # absolute floor: when current_score ≈ 0 the relative
+# threshold collapses to 0, disabling early exit
 
 # Per-defense iteration cap. Small param spaces converge in 2-3 passes;
 # running 15 wastes hours when slow attacks are in the catalogue.
 TUNE_MAX_ITERS_BY_DEFENSE: dict[str, int] = {
-    "c_dog_ensemble":    3,   # 2 params, small ranges — converges fast
-    "bit_depth":         3,   # 1 param, 5 discrete values
-    "jpeg_preprocess":   5,   # 1 param, moderate range
-    "median_preprocess": 6,   # 1 param, wide range
-    "c_dog":             8,   # 2 params, wider ranges
+    "c_dog_ensemble": 3,  # 2 params, small ranges — converges fast
+    "bit_depth": 3,  # 1 param, 5 discrete values
+    "jpeg_preprocess": 5,  # 1 param, moderate range
+    "median_preprocess": 6,  # 1 param, wide range
+    "c_dog": 8,  # 2 params, wider ranges
 }
 
 # Defenses known to carry high inherent accuracy cost even without attacks.
@@ -261,6 +336,7 @@ PHASE4_DEMOTED_DEFENSES: set[str] = set()
 
 # ── Startup param-space validation ────────────────────────────────────────────
 
+
 def _validate_param_spaces() -> None:
     """Assert that every 'init' value lies within [min, max] bounds.
 
@@ -275,14 +351,15 @@ def _validate_param_spaces() -> None:
             for param, cfg in params.items():
                 lo, hi, init = cfg["min"], cfg["max"], cfg["init"]
                 assert lo <= init <= hi, (
-                    f"{space_name}[{item}][{param}] init={init} "
-                    f"out of bounds [{lo}, {hi}]"
+                    f"{space_name}[{item}][{param}] init={init} out of bounds [{lo}, {hi}]"
                 )
+
 
 _validate_param_spaces()
 
 
 # ── Logging ───────────────────────────────────────────────────────────────────
+
 
 def log(msg: str) -> None:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -295,7 +372,11 @@ def log(msg: str) -> None:
     try:
         stdout_stat = os.fstat(sys.stdout.fileno())
         file_stat = os.stat(log_path) if log_path.exists() else None
-        if file_stat and stdout_stat.st_dev == file_stat.st_dev and stdout_stat.st_ino == file_stat.st_ino:
+        if (
+            file_stat
+            and stdout_stat.st_dev == file_stat.st_dev
+            and stdout_stat.st_ino == file_stat.st_ino
+        ):
             return
     except Exception:
         # If fd/stat probing fails, fall back to explicit file append.
@@ -306,6 +387,7 @@ def log(msg: str) -> None:
 
 
 # ── State ─────────────────────────────────────────────────────────────────────
+
 
 def init_state() -> dict:
     cycle_id = datetime.now().strftime("cycle_%Y%m%d_%H%M%S")
@@ -323,7 +405,7 @@ def init_state() -> dict:
         # filled in after each analysis step
         "top_attacks": [],
         "top_defenses": [],
-        "best_attack_params": {},   # {attack_name: {set_key: value, ...}}
+        "best_attack_params": {},  # {attack_name: {set_key: value, ...}}
         "best_defense_params": {},  # {defense_name: {set_key: value, ...}}
         "checkpoint_fingerprint": None,
         "pipeline_profile": ACTIVE_PIPELINE_PROFILE,
@@ -367,13 +449,17 @@ def _set_active_runtime_profile(profile_name: str | None, config_path: Path | No
 
     if profile_name:
         ACTIVE_PIPELINE_PROFILE = profile_name
-        ACTIVE_AUTHORITATIVE_METRIC = resolved_authoritative_metric(build_profile_config(profile_name))
+        ACTIVE_AUTHORITATIVE_METRIC = resolved_authoritative_metric(
+            build_profile_config(profile_name)
+        )
         ALL_ATTACKS = list(profile_canonical_attacks(profile_name))
         ALL_DEFENSES = list(profile_canonical_defenses(profile_name))
         compatibility = learned_defense_compatibility(profile_name)
         if bool(compatibility.get("trainable", False)):
             default_defense = str(compatibility.get("default_defense") or "").strip()
-            PINNED_DEFENSES = [default_defense] if default_defense else list(DEFAULT_PINNED_DEFENSES)
+            PINNED_DEFENSES = (
+                [default_defense] if default_defense else list(DEFAULT_PINNED_DEFENSES)
+            )
         else:
             PINNED_DEFENSES = []
         return
@@ -388,6 +474,7 @@ def _set_active_runtime_profile(profile_name: str | None, config_path: Path | No
 
 
 # ── Metrics helpers ───────────────────────────────────────────────────────────
+
 
 def read_metrics(run_dir: Path) -> dict | None:
     f = run_dir / "metrics.json"
@@ -427,11 +514,15 @@ def get_map50(m: dict) -> float | None:
 
 
 def _infer_pipeline_semantics(summary_payload: dict, metrics_payload: dict) -> str:
-    semantic_order = str(
-        ((summary_payload.get("pipeline") or {}).get("semantic_order"))
-        or ((metrics_payload.get("provenance") or {}).get("semantic_order"))
-        or ""
-    ).strip().lower()
+    semantic_order = (
+        str(
+            ((summary_payload.get("pipeline") or {}).get("semantic_order"))
+            or ((metrics_payload.get("provenance") or {}).get("semantic_order"))
+            or ""
+        )
+        .strip()
+        .lower()
+    )
     if semantic_order in {
         CURRENT_PIPELINE_SEMANTICS,
         LEGACY_PIPELINE_SEMANTICS,
@@ -453,6 +544,7 @@ def _infer_pipeline_semantics(summary_payload: dict, metrics_payload: dict) -> s
 
 
 # ── Subprocess helpers ────────────────────────────────────────────────────────
+
 
 def _env() -> dict:
     cpu_count = str(os.cpu_count() or 4)
@@ -511,17 +603,26 @@ def run_sweep(
 ) -> bool:
     """Call the canonical public sweep entrypoint, which forwards to the compatibility backend."""
     cmd = [
-        str(PYTHON), "scripts/run_unified.py", "sweep",
+        str(PYTHON),
+        "scripts/run_unified.py",
+        "sweep",
         *_active_run_selector_args(),
-        "--attacks", ",".join(attacks),
-        "--defenses", ",".join(defenses),
-        "--runs-root", runs_root,
-        "--report-root", report_root,
-        "--preset", preset,
-        "--phases", sweep_phases,
+        "--attacks",
+        ",".join(attacks),
+        "--defenses",
+        ",".join(defenses),
+        "--runs-root",
+        runs_root,
+        "--report-root",
+        report_root,
+        "--preset",
+        preset,
+        "--phases",
+        sweep_phases,
         "--resume",
         "--skip-errors",
-        "--workers", str(workers),
+        "--workers",
+        str(workers),
     ]
     if max_images is not None:
         cmd += ["--max-images", str(max_images)]
@@ -545,8 +646,10 @@ def run_sweep(
         cmd.append("--compat-dashboard")
     if compat_dashboard is False:
         cmd.append("--no-compat-dashboard")
-    log(f"sweep phases={sweep_phases} attacks={attacks} defenses={defenses} "
-        f"preset={preset} validation={validation}")
+    log(
+        f"sweep phases={sweep_phases} attacks={attacks} defenses={defenses} "
+        f"preset={preset} validation={validation}"
+    )
     result = subprocess.run(cmd, cwd=str(REPO), env=_env())
     return result.returncode == 0
 
@@ -639,7 +742,9 @@ def run_single(
         log(f"  run: {run_name}")
 
     cmd = [
-        str(PYTHON), "scripts/run_unified.py", "run-one",
+        str(PYTHON),
+        "scripts/run_unified.py",
+        "run-one",
         *_active_run_selector_args(),
     ]
     for assignment in assignments:
@@ -662,7 +767,9 @@ def run_single(
         return False
 
 
-def _terminate_timed_out_run(proc: subprocess.Popen, *, run_name: str, grace_seconds: int = 5) -> None:
+def _terminate_timed_out_run(
+    proc: subprocess.Popen, *, run_name: str, grace_seconds: int = 5
+) -> None:
     """Terminate a timed-out run and its descendants.
 
     `run_single()` launches timeout-bound runs in a new session so a group kill
@@ -699,7 +806,7 @@ def generate_report(state: dict) -> None:
     """Regenerate only the local core report bundle over all runs collected so far."""
     log("Generating report...")
     run_sweep(
-        attacks=["none"],   # content doesn't matter for phase 4 (report only)
+        attacks=["none"],  # content doesn't matter for phase 4 (report only)
         defenses=["none"],
         runs_root=state["runs_root"],
         report_root=state["report_root"],
@@ -711,6 +818,7 @@ def generate_report(state: dict) -> None:
 
 
 # ── Phase 1 — Characterize ────────────────────────────────────────────────────
+
 
 def phase1(state: dict) -> bool:
     log("=== Phase 1: Characterize (all attacks, smoke) ===")
@@ -774,9 +882,11 @@ def _rank_attacks(state: dict) -> list[str]:
             continue
         health = _composite_score(m, baseline_conf, baseline_det)
         suppression = 1.0 - health  # higher = attack more effective
-        log(f"  {attack:20s}  suppression={suppression:+.4f}  "
+        log(
+            f"  {attack:20s}  suppression={suppression:+.4f}  "
             f"(conf={get_avg_conf(m) or 0.0:.4f}  "
-            f"det={get_total_detections(m)}/{baseline_det})")
+            f"det={get_total_detections(m)}/{baseline_det})"
+        )
         scores.append((suppression, attack))
 
     scores.sort(reverse=True)
@@ -784,6 +894,7 @@ def _rank_attacks(state: dict) -> list[str]:
 
 
 # ── Phase 2 — Matrix ──────────────────────────────────────────────────────────
+
 
 def phase2(state: dict) -> bool:
     log(f"=== Phase 2: Matrix ({state['top_attacks']} × all defenses, smoke) ===")
@@ -830,10 +941,14 @@ def _compute_phase4_demotions(validation_results: dict) -> list[str]:
 
     recovery_by_defense: dict[str, list[float]] = {}
     for key, val in validation_results.items():
-        if not key.startswith("validate_") or key.startswith("validate_atk_") or key == "validate_baseline":
+        if (
+            not key.startswith("validate_")
+            or key.startswith("validate_atk_")
+            or key == "validate_baseline"
+        ):
             continue
         # key format: validate_<attack>_<defense>
-        suffix = key[len("validate_"):]
+        suffix = key[len("validate_") :]
         # split on last underscore to get defense — handles multi-word attack names
         for defense in ALL_DEFENSES:
             if suffix.endswith(f"_{defense}"):
@@ -857,8 +972,10 @@ def _compute_phase4_demotions(validation_results: dict) -> list[str]:
         avg = sum(vals) / len(vals)
         if avg < 0.0:
             demoted.append(defense)
-            log(f"  [phase4-demotion] {defense}: avg mAP50 recovery={avg:+.3f} across "
-                f"{len(vals)} attack(s) — excluded from Phase 2 promotion next cycle")
+            log(
+                f"  [phase4-demotion] {defense}: avg mAP50 recovery={avg:+.3f} across "
+                f"{len(vals)} attack(s) — excluded from Phase 2 promotion next cycle"
+            )
     return demoted
 
 
@@ -901,12 +1018,15 @@ def _rank_defense_lists(state: dict) -> tuple[list[str], list[str]]:
     # Exclude defenses demoted by Phase 4 mAP50 evidence from the previous cycle.
     # PINNED_DEFENSES (c_dog) are never excluded regardless of demotion status.
     eligible = [
-        (score, d) for score, d in avg_scores
+        (score, d)
+        for score, d in avg_scores
         if d not in PHASE4_DEMOTED_DEFENSES or d in PINNED_DEFENSES
     ]
     for _, d in avg_scores:
         if d in PHASE4_DEMOTED_DEFENSES and d not in PINNED_DEFENSES:
-            log(f"  {d:25s}  DEMOTED — negative Phase 4 mAP50 recovery last cycle; skipping Phase 2 promotion")
+            log(
+                f"  {d:25s}  DEMOTED — negative Phase 4 mAP50 recovery last cycle; skipping Phase 2 promotion"
+            )
 
     top = [d for _, d in eligible[:TOP_N_DEFENSES]]
 
@@ -1044,17 +1164,22 @@ def _candidates(spec: dict, current, step_override: float | None = None) -> list
     return out
 
 
-def _run_and_score_attack(attack, params, run_name, runs_root,
-                          baseline_conf, baseline_det):
-    run_single(attack=attack, defense="none", run_name=run_name,
-               runs_root=runs_root, overrides=params, preset="tune",
-               max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(attack),
-               reporting_context=_reporting_context(
-                   run_role="tune",
-                   dataset_scope="tune",
-                   authority="diagnostic",
-                   source_phase="phase3",
-               ))
+def _run_and_score_attack(attack, params, run_name, runs_root, baseline_conf, baseline_det):
+    run_single(
+        attack=attack,
+        defense="none",
+        run_name=run_name,
+        runs_root=runs_root,
+        overrides=params,
+        preset="tune",
+        max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(attack),
+        reporting_context=_reporting_context(
+            run_role="tune",
+            dataset_scope="tune",
+            authority="diagnostic",
+            source_phase="phase3",
+        ),
+    )
     m = read_metrics(Path(runs_root) / run_name)
     if not m:
         return -1.0
@@ -1062,17 +1187,24 @@ def _run_and_score_attack(attack, params, run_name, runs_root,
     return 1.0 - _composite_score(m, baseline_conf, baseline_det)
 
 
-def _run_and_score_defense(attack, defense, params, run_name, runs_root,
-                            baseline_conf, baseline_det, attack_composite):
-    run_single(attack=attack, defense=defense, run_name=run_name,
-               runs_root=runs_root, overrides=params, preset="tune",
-               max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(attack),
-               reporting_context=_reporting_context(
-                   run_role="tune",
-                   dataset_scope="tune",
-                   authority="diagnostic",
-                   source_phase="phase3",
-               ))
+def _run_and_score_defense(
+    attack, defense, params, run_name, runs_root, baseline_conf, baseline_det, attack_composite
+):
+    run_single(
+        attack=attack,
+        defense=defense,
+        run_name=run_name,
+        runs_root=runs_root,
+        overrides=params,
+        preset="tune",
+        max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(attack),
+        reporting_context=_reporting_context(
+            run_role="tune",
+            dataset_scope="tune",
+            authority="diagnostic",
+            source_phase="phase3",
+        ),
+    )
     m = read_metrics(Path(runs_root) / run_name)
     if not m:
         return -1.0
@@ -1097,15 +1229,22 @@ def _run_and_score_defense_multi(
     scores = []
     for attack, atk_comp in zip(attacks, attack_composites, strict=False):
         name = f"{run_name_prefix}_vs_{attack}"
-        s = _run_and_score_defense(attack, defense, params, name,
-                                   runs_root, baseline_conf, baseline_det, atk_comp)
+        s = _run_and_score_defense(
+            attack, defense, params, name, runs_root, baseline_conf, baseline_det, atk_comp
+        )
         scores.append(s)
     return sum(scores) / len(scores) if scores else -1.0
 
 
-def _coordinate_descent(label, param_space, score_fn, run_prefix,
-                         existing_history=None, max_iters: int | None = None,
-                         initial_params: dict | None = None):
+def _coordinate_descent(
+    label,
+    param_space,
+    score_fn,
+    run_prefix,
+    existing_history=None,
+    max_iters: int | None = None,
+    initial_params: dict | None = None,
+):
     """Coordinate descent with adaptive steps, momentum, diagonal probes,
     param-fingerprint caching, and diminishing-returns early termination.
 
@@ -1129,14 +1268,19 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
     if initial_params:
         current.update(initial_params)
     current_score = _score(current)
-    log(f"  [{label}] init  score={current_score:.4f}  "
-        f"params={_fmt(current)}")
-    history.append({"iter": 0, "param": "init", "value": None,
-                    "score": current_score, "delta": 0.0, "improved": True})
+    log(f"  [{label}] init  score={current_score:.4f}  params={_fmt(current)}")
+    history.append(
+        {
+            "iter": 0,
+            "param": "init",
+            "value": None,
+            "score": current_score,
+            "delta": 0.0,
+            "improved": True,
+        }
+    )
 
-    current_steps: dict[str, float] = {
-        k: _initial_step(spec) for k, spec in param_space.items()
-    }
+    current_steps: dict[str, float] = {k: _initial_step(spec) for k, spec in param_space.items()}
     momentum: dict[str, int] = dict.fromkeys(param_space, 0)
     pass_gains: list[float] = []
 
@@ -1149,15 +1293,14 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
             best_candidate = None
             best_candidate_score = current_score
 
-            raw_cands = _candidates(spec, current[param_key],
-                                    step_override=current_steps.get(param_key))
+            raw_cands = _candidates(
+                spec, current[param_key], step_override=current_steps.get(param_key)
+            )
             if momentum.get(param_key, 0) != 0:
                 mom_dir = momentum[param_key]
                 ordered = sorted(
                     raw_cands,
-                    key=lambda c, _cur=current[param_key], _d=mom_dir: (
-                        -_d * (c - _cur)
-                    ),
+                    key=lambda c, _cur=current[param_key], _d=mom_dir: -_d * (c - _cur),
                 )
             else:
                 ordered = raw_cands
@@ -1167,14 +1310,20 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
                 test_params = {**current, param_key: candidate}
                 s = _score(test_params)
                 short = param_key.split(".")[-1]
-                log(f"  [{label}] iter={iteration}  {short}={candidate}  "
-                    f"score={s:.4f}  delta={s - current_score:+.4f}")
-                history.append({
-                    "iter": iteration, "param": param_key,
-                    "value": candidate, "score": round(s, 6),
-                    "delta": round(s - current_score, 6),
-                    "improved": False,
-                })
+                log(
+                    f"  [{label}] iter={iteration}  {short}={candidate}  "
+                    f"score={s:.4f}  delta={s - current_score:+.4f}"
+                )
+                history.append(
+                    {
+                        "iter": iteration,
+                        "param": param_key,
+                        "value": candidate,
+                        "score": round(s, 6),
+                        "delta": round(s - current_score, 6),
+                        "improved": False,
+                    }
+                )
                 if s > best_candidate_score:
                     best_candidate_score = s
                     best_candidate = candidate
@@ -1184,14 +1333,19 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
                 if momentum_hit and ci == 0 and best_candidate is not None:
                     break
 
-            if (best_candidate is not None and
-                    best_candidate_score - current_score
-                    > abs(current_score) * TUNE_TOLERANCE_REL):
+            if (
+                best_candidate is not None
+                and best_candidate_score - current_score > abs(current_score) * TUNE_TOLERANCE_REL
+            ):
                 direction = 1 if best_candidate > current[param_key] else -1
-                log(f"  [{label}] ✓ commit  {param_key.split('.')[-1]}  "
+                log(
+                    f"  [{label}] ✓ commit  {param_key.split('.')[-1]}  "
                     f"{current[param_key]} → {best_candidate}  "
-                    f"({current_score:.4f} → {best_candidate_score:.4f})")
-                iter_best_moves.append((param_key, best_candidate_score - current_score, best_candidate))
+                    f"({current_score:.4f} → {best_candidate_score:.4f})"
+                )
+                iter_best_moves.append(
+                    (param_key, best_candidate_score - current_score, best_candidate)
+                )
                 current = {**current, param_key: best_candidate}
                 current_score = best_candidate_score
                 history[-1]["improved"] = True
@@ -1223,18 +1377,22 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
 
             if diag_params != current:
                 s = _score(diag_params)
-                log(f"  [{label}] iter={iteration}  diagonal  "
-                    f"score={s:.4f}  delta={s - current_score:+.4f}")
-                history.append({
-                    "iter": iteration, "param": "diagonal",
-                    "value": {k: diag_params[k] for k in keys_to_move},
-                    "score": round(s, 6),
-                    "delta": round(s - current_score, 6),
-                    "improved": False,
-                })
-                if (s - current_score > abs(current_score) * TUNE_TOLERANCE_REL):
-                    log(f"  [{label}] ✓ commit diagonal  "
-                        f"({current_score:.4f} → {s:.4f})")
+                log(
+                    f"  [{label}] iter={iteration}  diagonal  "
+                    f"score={s:.4f}  delta={s - current_score:+.4f}"
+                )
+                history.append(
+                    {
+                        "iter": iteration,
+                        "param": "diagonal",
+                        "value": {k: diag_params[k] for k in keys_to_move},
+                        "score": round(s, 6),
+                        "delta": round(s - current_score, 6),
+                        "improved": False,
+                    }
+                )
+                if s - current_score > abs(current_score) * TUNE_TOLERANCE_REL:
+                    log(f"  [{label}] ✓ commit diagonal  ({current_score:.4f} → {s:.4f})")
                     current = dict(diag_params)
                     current_score = s
                     history[-1]["improved"] = True
@@ -1244,26 +1402,34 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
         pass_gains.append(pass_gain)
 
         if not pass_improved:
-            log(f"  [{label}] converged after {iteration} pass(es)  "
-                f"best={current_score:.4f}  {_fmt(current)}")
+            log(
+                f"  [{label}] converged after {iteration} pass(es)  "
+                f"best={current_score:.4f}  {_fmt(current)}"
+            )
             break
 
         if len(pass_gains) >= DIMINISHING_WINDOW:
             recent = pass_gains[-DIMINISHING_WINDOW:]
             threshold = max(2.0 * TUNE_TOLERANCE_REL * abs(current_score), TUNE_TOLERANCE_ABS)
             if sum(recent) < threshold:
-                log(f"  [{label}] diminishing returns after {iteration} pass(es)  "
+                log(
+                    f"  [{label}] diminishing returns after {iteration} pass(es)  "
                     f"cumulative_gain={sum(recent):.6f}  "
-                    f"best={current_score:.4f}  {_fmt(current)}")
+                    f"best={current_score:.4f}  {_fmt(current)}"
+                )
                 break
 
     # Warn if any param converged at its bound — search space may be too narrow.
     for k, v in current.items():
         spec = param_space.get(k, {})
         if spec.get("min") is not None and abs(float(v) - float(spec["min"])) < 1e-9:
-            log(f"  [{label}] WARN: {k}={v} converged at MIN bound — consider expanding param space")
+            log(
+                f"  [{label}] WARN: {k}={v} converged at MIN bound — consider expanding param space"
+            )
         elif spec.get("max") is not None and abs(float(v) - float(spec["max"])) < 1e-9:
-            log(f"  [{label}] WARN: {k}={v} converged at MAX bound — consider expanding param space")
+            log(
+                f"  [{label}] WARN: {k}={v} converged at MAX bound — consider expanding param space"
+            )
 
     return dict(current), current_score, history
 
@@ -1346,16 +1512,19 @@ def pre_tune_consistency_check(state: dict) -> list[str]:
     for d in defenses:
         if d not in reranked:
             reranked.append(d)
-    log(f"  Phase 3 consistency gate reranked defenses: {reranked[:len(defenses)]}")
+    log(f"  Phase 3 consistency gate reranked defenses: {reranked[: len(defenses)]}")
     return reranked[: len(defenses)]
 
 
 # ── Phase 3 — Tune ────────────────────────────────────────────────────────────
 
+
 def phase3(state: dict) -> bool:
-    log(f"=== Phase 3: Adaptive Tune "
+    log(
+        f"=== Phase 3: Adaptive Tune "
         f"({state['top_attacks']} × {state['top_defenses']}, "
-        f"{TUNE_MAX_IMAGES} imgs) ===")
+        f"{TUNE_MAX_IMAGES} imgs) ==="
+    )
     state["top_defenses"] = pre_tune_consistency_check(state)
     runs_root = state["runs_root"]
     tune_history = state.setdefault("tune_history", {})
@@ -1382,13 +1551,15 @@ def phase3(state: dict) -> bool:
         existing = tune_history.get(f"attack_{attack}", [])
 
         warm_atk = set((warm.get("attack_params") or {}).get(attack, {}).keys())
+
         def _atk_score(params, name, _a=attack, _bc=baseline_conf, _bd=baseline_det):
             return _run_and_score_attack(_a, params, name, runs_root, _bc, _bd)
 
         scan_overrides = _three_point_scan(space, warm_atk, _atk_score, f"tune_atk_{attack}")
 
         best_params, best_score, history = _coordinate_descent(
-            label=attack, param_space=space,
+            label=attack,
+            param_space=space,
             score_fn=_atk_score,
             run_prefix=f"tune_atk_{attack}",
             existing_history=existing,
@@ -1405,21 +1576,25 @@ def phase3(state: dict) -> bool:
     for atk in anchor_attacks:
         best_atk_params = state.get("best_attack_params", {}).get(atk, {})
         tuned_atk_run = f"tune_atk_{atk}_best"
-        run_single(attack=atk, defense="none",
-                   run_name=tuned_atk_run, runs_root=runs_root,
-                   overrides=best_atk_params, preset="tune",
-                   max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(atk),
-                   reporting_context=_reporting_context(
-                       run_role="tune",
-                       dataset_scope="tune",
-                       authority="diagnostic",
-                       source_phase="phase3",
-                   ))
+        run_single(
+            attack=atk,
+            defense="none",
+            run_name=tuned_atk_run,
+            runs_root=runs_root,
+            overrides=best_atk_params,
+            preset="tune",
+            max_images_override=TUNE_MAX_IMAGES_BY_ATTACK.get(atk),
+            reporting_context=_reporting_context(
+                run_role="tune",
+                dataset_scope="tune",
+                authority="diagnostic",
+                source_phase="phase3",
+            ),
+        )
         tuned_m = read_metrics(Path(runs_root) / tuned_atk_run)
         ac = _composite_score(tuned_m, baseline_conf, baseline_det) if tuned_m else 1.0
         attack_composites.append(ac)
-        log(f"  Tuned {atk} composite={ac:.4f}  "
-            f"(suppression={1.0 - ac:.4f} vs baseline)")
+        log(f"  Tuned {atk} composite={ac:.4f}  (suppression={1.0 - ac:.4f} vs baseline)")
 
     # ── Step 3: Tune each top defense against anchor attacks ──────────────────
     for defense in state["top_defenses"]:
@@ -1430,17 +1605,28 @@ def phase3(state: dict) -> bool:
             continue
 
         existing = tune_history.get(f"defense_{defense}", [])
+        anchors = tuple(anchor_attacks)
+        attack_scores = tuple(attack_composites)
 
-        def _def_score(params, name, _anchors=list(anchor_attacks), _d=defense,  # noqa: B006
-                       _bc=baseline_conf, _bd=baseline_det, _acs=list(attack_composites)):  # noqa: B006
+        def _def_score(
+            params,
+            name,
+            _anchors=anchors,
+            _d=defense,
+            _bc=baseline_conf,
+            _bd=baseline_det,
+            _acs=attack_scores,
+        ):
             return _run_and_score_defense_multi(
-                _anchors, _d, params, name, runs_root, _bc, _bd, _acs)
+                _anchors, _d, params, name, runs_root, _bc, _bd, _acs
+            )
 
         warm_def = set((warm.get("defense_params") or {}).get(defense, {}).keys())
         scan_overrides = _three_point_scan(space, warm_def, _def_score, f"tune_def_{defense}")
 
         best_params, best_score, history = _coordinate_descent(
-            label=defense, param_space=space,
+            label=defense,
+            param_space=space,
             score_fn=_def_score,
             run_prefix=f"tune_def_{defense}",
             existing_history=existing,
@@ -1461,6 +1647,7 @@ def phase3(state: dict) -> bool:
 
 
 # ── Phase 4 — Validate ────────────────────────────────────────────────────────
+
 
 def phase4(state: dict) -> bool:
     log("=== Phase 4: Validate (full dataset, mAP50) ===")
@@ -1499,11 +1686,13 @@ def phase4(state: dict) -> bool:
         if img_cap:
             log(f"  Phase 4 {attack}: capped at {img_cap} images (slow attack)")
         if not run_single(
-            attack=attack, defense="none",
+            attack=attack,
+            defense="none",
             run_name=f"validate_atk_{attack}",
             runs_root=runs_root,
             overrides=best_atk.get(attack),
-            preset="full", validation=True,
+            preset="full",
+            validation=True,
             timeout_seconds=_timeout_for_attack(attack),
             max_images_override=img_cap,
             reporting_context=_reporting_context(
@@ -1521,11 +1710,13 @@ def phase4(state: dict) -> bool:
         for defense in phase4_defenses:
             merged = {**(best_atk.get(attack) or {}), **(best_def.get(defense) or {})}
             if not run_single(
-                attack=attack, defense=defense,
+                attack=attack,
+                defense=defense,
                 run_name=f"validate_{attack}_{defense}",
                 runs_root=runs_root,
                 overrides=merged or None,
-                preset="full", validation=True,
+                preset="full",
+                validation=True,
                 timeout_seconds=_timeout_for_attack(attack),
                 max_images_override=img_cap,
                 reporting_context=_reporting_context(
@@ -1558,7 +1749,11 @@ def _phase4_validation_defenses(state: dict) -> list[str]:
     selected: list[str] = []
     base_defenses = list(state.get("top_defenses") or [])
     ranked_candidates = list(state.get("phase4_defense_candidates") or [])
-    target_count = 0 if not base_defenses else min(len(ALL_DEFENSES), max(len(base_defenses), MIN_PHASE4_DEFENSES))
+    target_count = (
+        0
+        if not base_defenses
+        else min(len(ALL_DEFENSES), max(len(base_defenses), MIN_PHASE4_DEFENSES))
+    )
 
     for defense in base_defenses:
         if defense not in selected:
@@ -1583,6 +1778,7 @@ def _phase4_validation_defenses(state: dict) -> list[str]:
 
 # ── Loop-mode helpers ─────────────────────────────────────────────────────────
 
+
 def save_cycle_history(state: dict) -> None:
     """Persist a summary of the completed cycle to outputs/cycle_history/."""
     HISTORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -1598,13 +1794,13 @@ def save_cycle_history(state: dict) -> None:
             pipeline_semantics = _infer_pipeline_semantics(s, m)
             pipeline_semantics_seen.add(pipeline_semantics)
             validation_results[mf.parent.name] = {
-                "attack":   s.get("attack",  {}).get("name"),
-                "defense":  s.get("defense", {}).get("name"),
+                "attack": s.get("attack", {}).get("name"),
+                "defense": s.get("defense", {}).get("name"),
                 "avg_conf": get_avg_conf(m),
-                "mAP50":    get_map50(m),
+                "mAP50": get_map50(m),
                 "mAP50_95": m.get("validation", {}).get("mAP50-95"),
-                "precision":m.get("validation", {}).get("precision"),
-                "recall":   m.get("validation", {}).get("recall"),
+                "precision": m.get("validation", {}).get("precision"),
+                "recall": m.get("validation", {}).get("recall"),
                 "detections": m["predictions"].get("total_detections"),
                 "pipeline_semantics": pipeline_semantics,
             }
@@ -1619,17 +1815,17 @@ def save_cycle_history(state: dict) -> None:
         cycle_pipeline_semantics = "mixed"
 
     summary = {
-        "cycle_id":          state["cycle_id"],
-        "started_at":        state.get("started_at"),
-        "finished_at":       state.get("finished_at"),
+        "cycle_id": state["cycle_id"],
+        "started_at": state.get("started_at"),
+        "finished_at": state.get("finished_at"),
         "pipeline_semantics": cycle_pipeline_semantics,
         "pipeline_profile": state.get("pipeline_profile"),
         "authoritative_metric": state.get("authoritative_metric"),
-        "top_attacks":       state.get("top_attacks", []),
-        "top_defenses":      state.get("top_defenses", []),
-        "best_attack_params":state.get("best_attack_params", {}),
-        "best_defense_params":state.get("best_defense_params", {}),
-        "validation_results":validation_results,
+        "top_attacks": state.get("top_attacks", []),
+        "top_defenses": state.get("top_defenses", []),
+        "best_attack_params": state.get("best_attack_params", {}),
+        "best_defense_params": state.get("best_defense_params", {}),
+        "validation_results": validation_results,
         "delegated_phase4_runs": state.get("delegated_phase4_runs", []),
     }
     delegated_expected = set(state.get("delegated_phase4_runs", []))
@@ -1663,9 +1859,16 @@ def _run_auto_summary(runs_root: str) -> None:
     """Generate auto-summary artifacts (bootstrap CI, per-class CSV, warnings) — non-fatal."""
     try:
         result = subprocess.run(
-            [str(PYTHON), "scripts/generate_auto_summary.py",
-             "--runs-root", runs_root, "--no-bootstrap"],
-            cwd=str(REPO), env=_env(), timeout=120,
+            [
+                str(PYTHON),
+                "scripts/generate_auto_summary.py",
+                "--runs-root",
+                runs_root,
+                "--no-bootstrap",
+            ],
+            cwd=str(REPO),
+            env=_env(),
+            timeout=120,
         )
         if result.returncode != 0:
             log(f"[warn] _run_auto_summary exited {result.returncode} (non-fatal)")
@@ -1684,16 +1887,25 @@ def _export_training_data(state: dict) -> None:
     output_zip = str(OUTPUTS / "training_exports" / f"{cycle_id}_training_data.zip")
     try:
         result = subprocess.run(
-            [str(PYTHON), "scripts/export_training_data.py",
-             "--sweep-root", runs_root,
-             "--output-zip", output_zip],
-            cwd=str(REPO), env=_env(), timeout=300,
+            [
+                str(PYTHON),
+                "scripts/export_training_data.py",
+                "--sweep-root",
+                runs_root,
+                "--output-zip",
+                output_zip,
+            ],
+            cwd=str(REPO),
+            env=_env(),
+            timeout=300,
         )
         if result.returncode == 0:
             if (REPO / output_zip).exists() or Path(output_zip).exists():
                 log(f"Training data exported → {output_zip}")
-                log(f"[brief] To finetune: python scripts/train_dpc_unet_local.py "
-                    f"--training-zip {output_zip}")
+                log(
+                    f"[brief] To finetune: python scripts/train_dpc_unet_local.py "
+                    f"--training-zip {output_zip}"
+                )
             # exit 0 with no zip = graceful skip (no attacked images found); already logged by script
         else:
             log(f"[warn] export_training_data exited {result.returncode} (non-fatal)")
@@ -1701,11 +1913,11 @@ def _export_training_data(state: dict) -> None:
         log(f"[warn] export_training_data failed (non-fatal): {exc}")
 
 
-
 def _update_cycle_report() -> None:
     """Regenerate outputs/cycle_report.csv + outputs/cycle_report.md (non-fatal)."""
     try:
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
             "generate_cycle_report", REPO / "scripts" / "reporting" / "generate_cycle_report.py"
         )
@@ -1733,6 +1945,7 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
     at worst_attack_params, targeting weakest_defense's training distribution.
     """
     try:
+
         def _trainable_pool(full: dict) -> dict:
             """Return subset of full where the defense plugin has is_trainable=True.
             Falls back to full dict if registry unavailable or no trainable entries found."""
@@ -1741,9 +1954,13 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
                     get_defense_plugin,
                     list_available_defense_plugins,
                 )
+
                 list_available_defense_plugins()  # trigger lazy adapter discovery
-                trainable = {d: v for d, v in full.items()
-                             if getattr(get_defense_plugin(d), "is_trainable", False)}
+                trainable = {
+                    d: v
+                    for d, v in full.items()
+                    if getattr(get_defense_plugin(d), "is_trainable", False)
+                }
                 return trainable if trainable else full
             except Exception:
                 return full
@@ -1826,7 +2043,8 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
             worst_atk_map50 = attack_rows[0][0]
             damage_pct = (
                 round((baseline_map50 - worst_atk_map50) / baseline_map50 * 100, 2)
-                if baseline_map50 else None
+                if baseline_map50
+                else None
             )
             signal = {
                 "cycle_id": state["cycle_id"],
@@ -1842,7 +2060,9 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
                 "worst_attack_damage_pct": damage_pct,
                 "weakest_defense": weakest_defense,
                 "weakest_defense_recovery": round(weakest_recovery, 4),
-                "all_attack_avg_recovery": {atk: round(score, 4) for atk, score in avg_recovery.items()},
+                "all_attack_avg_recovery": {
+                    atk: round(score, 4) for atk, score in avg_recovery.items()
+                },
                 "checkpoint_path": os.environ.get("DPC_UNET_CHECKPOINT_PATH", ""),
             }
             sig_path = OUTPUTS / "cycle_training_signal.json"
@@ -1981,18 +2201,29 @@ def git_pull() -> None:
     Self-restarts via os.execv() when new commits are merged, so updated
     Python code takes effect immediately without manual intervention."""
     import os as _os
+
     try:
         # Stash uncommitted local changes (output files) so merge stays clean
         stash = subprocess.run(
-            ["git", "stash", "push", "-u", "-m",
-             f"auto-stash-before-pull-{datetime.now().strftime('%Y%m%d%H%M%S')}"],
-            cwd=str(REPO), capture_output=True, text=True,
+            [
+                "git",
+                "stash",
+                "push",
+                "-u",
+                "-m",
+                f"auto-stash-before-pull-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            ],
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
         )
         stashed = stash.returncode == 0 and "No local changes" not in stash.stdout
 
         result = subprocess.run(
             ["git", "pull", "--no-rebase", "-X", "ours", "origin", "main"],
-            cwd=str(REPO), capture_output=True, text=True,
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
         )
 
         # Restore stash before anything else (even if pull failed)
@@ -2041,9 +2272,11 @@ def _write_cycle_status(state: dict, phase_num: int) -> Path:
         f"P1={state['phase1_complete']}  P2={state['phase2_complete']}  "
         f"P3={state['phase3_complete']}  P4={state['phase4_complete']}",
         "",
-        ("*** CYCLE COMPLETE ***"
-         if phase_num == 4
-         else f"*** PARTIAL — phases {phase_num+1}–4 still pending ***"),
+        (
+            "*** CYCLE COMPLETE ***"
+            if phase_num == 4
+            else f"*** PARTIAL — phases {phase_num + 1}–4 still pending ***"
+        ),
     ]
     status_file = OUTPUTS / "cycle_status.md"
     OUTPUTS.mkdir(parents=True, exist_ok=True)
@@ -2055,11 +2288,11 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
     """Commit a lightweight phase-complete snapshot so other sessions can track
     progress without waiting for a full cycle to finish."""
     phase_labels = {1: "characterize", 2: "matrix", 3: "tune", 4: "validate"}
-    phase_label  = phase_labels.get(phase_num, str(phase_num))
-    cycle_id     = state["cycle_id"]
+    phase_label = phase_labels.get(phase_num, str(phase_num))
+    cycle_id = state["cycle_id"]
 
     status_file = _write_cycle_status(state, phase_num)
-    report_dir  = Path(state.get("report_root", ""))
+    report_dir = Path(state.get("report_root", ""))
 
     paths_to_add = [str(status_file)]
     if report_dir.exists():
@@ -2067,9 +2300,7 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
 
     try:
         subprocess.run(["git", "add", *paths_to_add], cwd=str(REPO), check=True)
-        diff = subprocess.run(
-            ["git", "diff", "--cached", "--quiet"], cwd=str(REPO)
-        )
+        diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(REPO))
         if diff.returncode == 0:
             log(f"git_commit_phase {phase_num}: nothing new to commit")
             return
@@ -2095,7 +2326,7 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
         if phase_num < 4:
             msg_lines += [
                 "",
-                f"*** PARTIAL — phases {phase_num+1}–4 still pending ***",
+                f"*** PARTIAL — phases {phase_num + 1}–4 still pending ***",
                 "See outputs/cycle_status.md for live status.",
             ]
 
@@ -2104,31 +2335,36 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
         # Instead: write the staged tree as a commit object and push that hash directly
         # to nuc/cycle-snapshots, leaving the local branch graph unchanged.
         tree_result = subprocess.run(
-            ["git", "write-tree"], cwd=str(REPO), check=True,
-            capture_output=True, text=True,
+            ["git", "write-tree"],
+            cwd=str(REPO),
+            check=True,
+            capture_output=True,
+            text=True,
         )
         tree_hash = tree_result.stdout.strip()
 
         # Parent: tip of the remote snapshot branch (if it exists); otherwise orphan.
         parent_result = subprocess.run(
             ["git", "rev-parse", "origin/nuc/cycle-snapshots"],
-            cwd=str(REPO), capture_output=True, text=True,
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
         )
-        parent_args = (
-            ["-p", parent_result.stdout.strip()]
-            if parent_result.returncode == 0
-            else []
-        )
+        parent_args = ["-p", parent_result.stdout.strip()] if parent_result.returncode == 0 else []
 
         commit_result = subprocess.run(
             ["git", "commit-tree", tree_hash, *parent_args, "-m", "\n".join(msg_lines)],
-            cwd=str(REPO), check=True, capture_output=True, text=True,
+            cwd=str(REPO),
+            check=True,
+            capture_output=True,
+            text=True,
         )
         commit_hash = commit_result.stdout.strip()
 
         subprocess.run(
             ["git", "push", "origin", f"{commit_hash}:nuc/cycle-snapshots"],
-            cwd=str(REPO), check=True,
+            cwd=str(REPO),
+            check=True,
         )
 
         # Reset the index so staged files no longer show as "to be committed".
@@ -2151,20 +2387,21 @@ def _push_state_to_branch(state: dict, phase_num: int) -> None:
         status_file = OUTPUTS / "cycle_status.md"
         subprocess.run(
             ["git", "add", str(status_file)],
-            cwd=str(REPO), check=True,
+            cwd=str(REPO),
+            check=True,
         )
-        diff = subprocess.run(
-            ["git", "diff", "--cached", "--quiet"], cwd=str(REPO)
-        )
+        diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(REPO))
         if diff.returncode == 0:
             return  # nothing new
         subprocess.run(
             ["git", "commit", "-m", f"nuc: phase {phase_num} status [{cycle_id}]"],
-            cwd=str(REPO), check=True,
+            cwd=str(REPO),
+            check=True,
         )
         subprocess.run(
             ["git", "push", "origin", "HEAD:nuc/sweep-results"],
-            cwd=str(REPO), check=True,
+            cwd=str(REPO),
+            check=True,
         )
         log(f"_push_state_to_branch: pushed phase {phase_num} to nuc/sweep-results")
     except Exception as exc:
@@ -2244,7 +2481,8 @@ def git_push_results(state: dict) -> None:
         subprocess.run(["git", "commit", "-m", msg], cwd=str(REPO), check=True)
         subprocess.run(
             ["git", "pull", "--rebase", "origin", "main"],
-            cwd=str(REPO), check=True,
+            cwd=str(REPO),
+            check=True,
         )
         subprocess.run(["git", "push"], cwd=str(REPO), check=True)
         log(f"git_push: pushed results for {cycle_id}")
@@ -2289,10 +2527,13 @@ def carry_forward_params(state: dict) -> None:
         log("  carry-forward: no defenses demoted (all had non-negative Phase 4 recovery)")
 
     # Persist so the next process invocation picks up from here too
-    warm = {"attack_params": best_atk, "defense_params": best_def,
-            "demoted_defenses": demoted,
-            "saved_at": datetime.now().isoformat(),
-            "cycle_id": state.get("cycle_id")}
+    warm = {
+        "attack_params": best_atk,
+        "defense_params": best_def,
+        "demoted_defenses": demoted,
+        "saved_at": datetime.now().isoformat(),
+        "cycle_id": state.get("cycle_id"),
+    }
     OUTPUTS.mkdir(parents=True, exist_ok=True)
     warm_tmp = WARM_START_FILE.with_suffix(".tmp")
     warm_tmp.write_text(json.dumps(warm, indent=2))
@@ -2338,11 +2579,11 @@ def load_warm_start() -> None:
                 PHASE4_DEMOTED_DEFENSES.add(d)
         log(f"  warm-start: Phase 2 demotions restored: {sorted(PHASE4_DEMOTED_DEFENSES)}")
 
-    log(f"Warm-start loaded from {WARM_START_FILE} "
-        f"(cycle: {warm.get('cycle_id', 'unknown')})")
+    log(f"Warm-start loaded from {WARM_START_FILE} (cycle: {warm.get('cycle_id', 'unknown')})")
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
+
 
 def cmd_status() -> None:
     if not STATE_FILE.exists():
@@ -2362,9 +2603,11 @@ def cmd_reset() -> None:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     config_group = parser.add_mutually_exclusive_group()
     config_group.add_argument(
         "--config",
@@ -2375,16 +2618,23 @@ def main() -> None:
         "--profile",
         help="Named pipeline profile used as the canonical attack/defense catalog and run surface.",
     )
-    parser.add_argument("--status", action="store_true",
-                        help="Print current cycle state and exit")
-    parser.add_argument("--reset", action="store_true",
-                        help="Delete cycle state and exit (next run starts fresh)")
-    parser.add_argument("--loop", action="store_true",
-                        help="Run continuously: after each cycle completes, carry "
-                             "forward best params and start the next cycle immediately")
-    parser.add_argument("--workers", type=int, default=1,
-                        help="Parallel workers for sweep phases (default: 1). "
-                             "Use >1 only if you have multiple GPUs or CPU-only runs.")
+    parser.add_argument("--status", action="store_true", help="Print current cycle state and exit")
+    parser.add_argument(
+        "--reset", action="store_true", help="Delete cycle state and exit (next run starts fresh)"
+    )
+    parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="Run continuously: after each cycle completes, carry "
+        "forward best params and start the next cycle immediately",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallel workers for sweep phases (default: 1). "
+        "Use >1 only if you have multiple GPUs or CPU-only runs.",
+    )
     args = parser.parse_args()
 
     if args.status:
@@ -2420,15 +2670,20 @@ def main() -> None:
             state = load_state()
             state.setdefault("pipeline_profile", ACTIVE_PIPELINE_PROFILE)
             state.setdefault("authoritative_metric", ACTIVE_AUTHORITATIVE_METRIC)
-            if not state.get("complete") and state.get("pipeline_profile") != ACTIVE_PIPELINE_PROFILE:
+            if (
+                not state.get("complete")
+                and state.get("pipeline_profile") != ACTIVE_PIPELINE_PROFILE
+            ):
                 raise ValueError(
                     "Existing auto-cycle state was created for a different pipeline profile. "
                     "Reset the cycle state or resume with the matching profile."
                 )
             save_state(state)
 
-            log(f"Cycle #{cycle_num}: {state['cycle_id']}  phase={state['current_phase']}"
-                + ("  [loop mode]" if args.loop else ""))
+            log(
+                f"Cycle #{cycle_num}: {state['cycle_id']}  phase={state['current_phase']}"
+                + ("  [loop mode]" if args.loop else "")
+            )
 
             if state.get("complete"):
                 if not args.loop:

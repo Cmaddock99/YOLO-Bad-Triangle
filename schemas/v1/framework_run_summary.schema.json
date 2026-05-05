@@ -102,6 +102,20 @@
       },
       "additionalProperties": false
     },
+    "pipeline": {
+      "type": "object",
+      "description": "Per-run pipeline semantics and implementation constraints.",
+      "properties": {
+        "transform_order": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "semantic_order": {"type": "string"},
+        "attack_applied": {"type": "boolean"},
+        "legacy_transform_order_supported": {"type": "boolean"},
+        "runner_semantic_order": {"type": "string"}
+      }
+    },
     "runtime": {
       "type": "object",
       "description": "Optional per-phase wall-clock timing, timestamps, and runtime environment.",

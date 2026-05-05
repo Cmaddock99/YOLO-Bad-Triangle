@@ -48,6 +48,14 @@ def _build_lane_commands(python_bin: str, lane: str) -> list[list[str]]:
             ],
             [
                 python_bin,
+                "scripts/generate_framework_report.py",
+                "--runs-root",
+                "outputs/framework_runs/ci",
+                "--output-dir",
+                "outputs/framework_reports/ci",
+            ],
+            [
+                python_bin,
                 "scripts/ci/validate_outputs.py",
                 "--output-root",
                 "outputs/framework_runs/ci/ci_demo",
@@ -58,16 +66,11 @@ def _build_lane_commands(python_bin: str, lane: str) -> list[list[str]]:
                 "--legacy-compat-csv",
                 "tests/fixtures/schema/valid/legacy_compat.csv",
                 "--require-schema",
-            ],
-            [
-                python_bin,
-                "scripts/generate_framework_report.py",
-                "--runs-root",
-                "outputs/framework_runs/ci",
-                "--output-dir",
+                "--framework-report-dir",
                 "outputs/framework_reports/ci",
             ],
             [python_bin, "scripts/ci/check_tracked_outputs.py"],
+            [python_bin, "scripts/ci/verify_presentation_freeze.py"],
         ]
     )
     if lane == "ci":
@@ -88,7 +91,19 @@ def _build_lane_commands(python_bin: str, lane: str) -> list[list[str]]:
                 python_bin, "-m", "radon", "mi",
                 "scripts/automation/auto_cycle.py",
             ],
-            [python_bin, "-m", "pip_audit"],
+            # torch.load was addressed by the torch upgrade. Keep only these two
+            # temporary PyTorch waivers because the repo does not use the affected
+            # APIs, the advisories are disputed/local-scope, and this audit was
+            # verified on Darwin arm64 with no CUDA.
+            [
+                python_bin,
+                "-m",
+                "pip_audit",
+                "--ignore-vuln",
+                "CVE-2025-2953",
+                "--ignore-vuln",
+                "CVE-2025-3730",
+            ],
         ]
     )
     return commands

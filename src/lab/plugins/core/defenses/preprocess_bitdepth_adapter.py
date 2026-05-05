@@ -28,9 +28,7 @@ class PreprocessBitDepthDefenseAdapter(BaseDefense):
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:
         del kwargs
         shift = 8 - self.bits
-        quantized = (
-            (image.astype(np.uint16) >> shift) << shift
-        ).clip(0, 255).astype(np.uint8)
+        quantized = ((image.astype(np.uint16) >> shift) << shift).clip(0, 255).astype(np.uint8)
         return quantized, adapter_stage_metadata(
             "preprocess_bit_depth",
             "preprocess",

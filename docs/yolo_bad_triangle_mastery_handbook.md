@@ -78,6 +78,20 @@ Study it in this order:
 
 That order works because it moves from "how you start the system" to "how one run works" to "how many runs get compared" to "how the repo tries to improve itself."
 
+### Presenter vocabulary: triad, fortify, and pipeline order
+
+When you say **attack / defend / model** out loud, map them to the single-run pipeline in `UnifiedExperimentRunner` ([`src/lab/runners/run_experiment.py`](src/lab/runners/run_experiment.py)):
+
+1. **Attack** — `attack.apply` (optional; `none` means identity).
+2. **Defend** — `defense.preprocess` then, after inference, `defense.postprocess`.
+3. **Model** — `model.predict` on the prepared images.
+
+The fixed transform order is defined as `CURRENT_PIPELINE_TRANSFORM_ORDER` in [`src/lab/config/contracts.py`](src/lab/config/contracts.py): `attack.apply` → `defense.preprocess` → `model.predict` → `defense.postprocess`.
+
+**Fortify** is *not* a fourth transform inside that same loop. In this repo it means **longer-horizon strengthening**: ranking attacks and defenses, tuning parameters, validating with mAP, and optionally training a learned defense. The main automation for that story is [`scripts/automation/auto_cycle.py`](scripts/automation/auto_cycle.py); training entrypoints live under [`scripts/training/`](scripts/training/). The profile fields `fortify_mode` and `learned_defense` in [`configs/pipeline_profiles.yaml`](configs/pipeline_profiles.yaml) are **governance metadata** (what the lab intends to do with cycles and learned defenses). They are merged into resolved config by [`src/lab/config/profiles.py`](src/lab/config/profiles.py) but **do not** switch per-image transform order in the runner.
+
+**Legacy `defense_then_attack`:** `LEGACY_PIPELINE_TRANSFORM_ORDER` and the semantic label `defense_then_attack` exist for **cycle history and reporting** (for example [`src/lab/reporting/framework_comparison.py`](src/lab/reporting/framework_comparison.py), [`scripts/reporting/generate_cycle_report.py`](scripts/reporting/generate_cycle_report.py)). The runner **does not** implement preprocess-before-attack today. Each `run_summary.json` records this honestly via `pipeline.legacy_transform_order_supported` and `pipeline.runner_semantic_order` (see repo root [README.md](README.md)).
+
 ### What this really means
 
 You do not need to memorize every function.
@@ -770,12 +784,17 @@ PYTHONPATH=src ./.venv/bin/python scripts/check_environment.py
 
 **How they differ:**
 
-- `run_repo_quality_gate.py`: lint, type check, tests, CI demo run, output validation, report generation, tracked output policy
+- `run_repo_quality_gate.py`: three lanes
+  - `fast`: Ruff, mypy, pytest, and shim-integrity checks
+  - `ci`: `fast` plus the CI demo run, output validation, report generation, and tracked-output policy
+  - `full`: `ci` plus coverage, Vulture, Radon, and `pip-audit`
 - `run_repo_standards_audit.py`: compatibility-focused tests and optional fast quality gate
-- `validate_outputs.py`: enforce artifact contracts and schemas
+- `validate_outputs.py`: enforce artifact contracts and schemas (metrics, run summary, legacy CSV, and each line of `predictions.jsonl` when `--require-schema` is used)
 - `check_tracked_outputs.py`: enforce policy about what output files are allowed in the repo
 
 **Important detail:** the CI lane of `run_repo_quality_gate.py` even creates a tiny synthetic image so the demo path can run.
+
+**Local hook support:** `.pre-commit-config.yaml` keeps Ruff and mypy on the same versions used by the gate and CI so local and CI results stay aligned.
 
 **Inputs:**
 
@@ -1822,14 +1841,17 @@ Why this matters:
 - setup instructions become ambiguous
 - debugging becomes harder because different "correct" states exist
 
-### 10.3 The repo quality gate is currently red because of mypy
+### 10.3 The repo quality gate currently carries two explicit PyTorch waivers
 
-The quality gate runs mypy, and the current dashboard formatting helpers trigger type-check errors.
+The maintained Python 3.11 audit path upgrades `torch` to `2.6.0`, which fixes the critical `torch.load` advisory, but `pip-audit` still runs with two temporary ignores: `CVE-2025-2953` and `CVE-2025-3730`.
 
-Impact:
+Why they are still waived:
 
-- tests may pass while the official quality gate still fails
-- CI parity claims are weaker until the typing issue is fixed
+- this repo does not call `mkldnn_max_pool2d` or `ctc_loss`
+- both advisories are disputed or local-scope rather than broad remote-code-execution paths
+- the verified runtime for this audit was Darwin arm64 with no CUDA
+
+Revisit immediately if the runtime target changes, or if the repo starts using `mkldnn_max_pool2d` or `ctc_loss`. Otherwise remove the waivers as soon as upstream PyTorch clears them.
 
 ### 10.4 Environment check and demo preflight disagree on DPC-UNet readiness
 
@@ -1839,9 +1861,9 @@ Impact:
 
 - a machine can look "ready" to one script and still fail the demo
 
-### 10.5 Mypy coverage is intentionally narrow
+### 10.5 Mypy coverage is selective, not universal
 
-The repo only type-checks selected subtrees, not the entire codebase.
+The quality gate type-checks `src/lab/eval`, `src/lab/reporting`, `src/lab/runners`, `src/lab/plugins`, and `src/lab/config`.
 
 Impact:
 
