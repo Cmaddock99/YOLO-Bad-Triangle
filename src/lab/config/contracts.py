@@ -12,11 +12,13 @@ SCHEMA_ID_HEADLINE_METRICS_CSV = "headline_metrics_csv/v1"
 SCHEMA_ID_PER_CLASS_VULNERABILITY_CSV = "per_class_vulnerability_csv/v1"
 SCHEMA_ID_SYSTEM_HEALTH_SUMMARY = "system_health_summary/v1"
 SCHEMA_ID_DEMO_MANIFEST = "demo_manifest/v1"
+SCHEMA_ID_FRAMEWORK_RUN_SUMMARY_CSV = "framework_run_summary_csv/v1"
 
 SCHEMA_IDS = MappingProxyType(
     {
         "framework_metrics": SCHEMA_ID_FRAMEWORK_METRICS,
         "framework_run_summary": SCHEMA_ID_FRAMEWORK_RUN_SUMMARY,
+        "framework_run_summary_csv": SCHEMA_ID_FRAMEWORK_RUN_SUMMARY_CSV,
         "legacy_compat_csv": SCHEMA_ID_LEGACY_COMPAT_CSV,
         "cycle_summary": SCHEMA_ID_CYCLE_SUMMARY,
         "warnings": SCHEMA_ID_WARNINGS,

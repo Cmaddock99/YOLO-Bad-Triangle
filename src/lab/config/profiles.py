@@ -1,3 +1,14 @@
+"""Pipeline profile loading and merge into runner-facing YAML config.
+
+Each profile in ``configs/pipeline_profiles.yaml`` must define ``fortify_mode`` and
+``learned_defense``. Those blocks are **governance metadata** carried in
+``config.pipeline_profile``: they document how ranking, tuning, or learned
+defenses are *intended* to be used (for example with ``scripts/automation/auto_cycle.py``).
+
+They are **not** interpreted by ``UnifiedExperimentRunner`` to change per-image
+transform order. Runtime order is fixed in ``lab.config.contracts`` as
+``attack.apply`` → ``defense.preprocess`` → ``model.predict`` → ``defense.postprocess``.
+"""
 from __future__ import annotations
 
 from copy import deepcopy

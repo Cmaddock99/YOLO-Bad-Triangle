@@ -1,3 +1,6 @@
+# fortify_mode / learned_defense are required on every profile. They are merged into
+# resolved config under pipeline_profile for automation and reporting; they do not
+# switch transforms inside UnifiedExperimentRunner (see README and lab.config.profiles).
 profiles:
   yolo11n_lab_v1:
     description: Canonical YOLO11n lab profile for the one real pipeline v1.

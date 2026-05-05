@@ -303,6 +303,8 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
             self.assertEqual(run_summary["pipeline"]["semantic_order"], "attack_then_defense")
+            self.assertIs(run_summary["pipeline"]["legacy_transform_order_supported"], False)
+            self.assertEqual(run_summary["pipeline"]["runner_semantic_order"], "attack_then_defense")
             self.assertIn("signature", run_summary["attack"])
             self.assertIn("signature", run_summary["defense"])
             self.assertIn("provenance", metrics)
@@ -314,6 +316,8 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
             self.assertEqual(metrics["provenance"]["semantic_order"], "attack_then_defense")
+            self.assertIs(metrics["provenance"]["legacy_transform_order_supported"], False)
+            self.assertEqual(metrics["provenance"]["runner_semantic_order"], "attack_then_defense")
             self.assertIn(run_summary["runtime"]["device_hint"], {"cpu", "mps", "cuda"})
             self.assertIn("python_version", run_summary["runtime"])
             self.assertIn("platform", run_summary["runtime"])
@@ -508,11 +512,15 @@ class FrameworkOutputContractTests(unittest.TestCase):
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
             self.assertEqual(metrics["provenance"]["semantic_order"], "attack_then_defense")
+            self.assertIs(metrics["provenance"]["legacy_transform_order_supported"], False)
+            self.assertEqual(metrics["provenance"]["runner_semantic_order"], "attack_then_defense")
             self.assertEqual(
                 run_summary["pipeline"]["transform_order"],
                 ["attack.apply", "defense.preprocess", "model.predict", "defense.postprocess"],
             )
             self.assertEqual(run_summary["pipeline"]["semantic_order"], "attack_then_defense")
+            self.assertIs(run_summary["pipeline"]["legacy_transform_order_supported"], False)
+            self.assertEqual(run_summary["pipeline"]["runner_semantic_order"], "attack_then_defense")
 
     def test_pretrained_patch_metadata_is_split_between_run_and_prediction_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
