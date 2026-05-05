@@ -9,6 +9,8 @@ markers = [
 line-length = 100
 
 [tool.ruff.lint]
+# Keep the lint scope aligned with the repo's established baseline. Broader
+# rule families trigger repo-wide normalization churn outside this audit pass.
 select = ["E", "F"]
 ignore = ["E501"]
 
@@ -17,9 +19,6 @@ ignore = ["E501"]
 "tests/*" = ["E402"]
 
 [tool.mypy]
-# Current enforced scope is limited to the paths below. Planned expansion order:
-# keep src/lab/runners stable, then extend to src/lab/plugins, src/lab/config,
-# src/lab/attacks, src/lab/defenses, and finally scripts/automation/auto_cycle.py.
 python_version = "3.11"
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
@@ -29,4 +28,43 @@ files = [
     "src/lab/eval",
     "src/lab/reporting",
     "src/lab/runners",
+    "src/lab/plugins",
+    "src/lab/config",
 ]
+
+# Plugin adapter decorators use Generic[T] registry — mypy struggles with the
+# decorator inference pattern. Suppress misc errors on adapters only.
+# Plugin adapter decorators use Generic[T] registry — suppress misc on adapters.
+[[tool.mypy.overrides]]
+module = [
+    "lab.plugins.core.attacks.*",
+    "lab.plugins.core.defenses.*",
+    "lab.plugins.core.models.*",
+    "lab.plugins.extra.attacks.*",
+    "lab.plugins.extra.defenses.*",
+    "lab.plugins.extra.models.*",
+]
+disable_error_code = ["misc"]
+
+# Shim files in src/lab/attacks/ use sys.modules[__name__] = import_module(...)
+# which mypy cannot see through. These are scheduled for retirement (replaced by
+# src/lab/plugins/). Exclude them from type enforcement until migration completes.
+[[tool.mypy.overrides]]
+module = [
+    "lab.attacks.fgsm_edge_mask",
+    "lab.attacks.fgsm_center_mask",
+    "lab.attacks.eot_pgd",
+]
+ignore_errors = true
+
+[tool.coverage.run]
+source = ["src/lab"]
+omit = [
+    "tests/*",
+    "outputs/*",
+    "_deprecated/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

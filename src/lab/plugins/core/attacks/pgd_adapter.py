@@ -16,7 +16,6 @@ from lab.attacks.objective import AttackObjective
 from lab.config.contracts import ATTACK_OBJECTIVE_UNTARGETED, PIXEL_MAX
 from lab.plugins.core.attacks.fgsm_adapter import FGSMAttack
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -29,7 +28,7 @@ def _validate_finite_range(name: str, value: float, *, min_value: float, max_val
     return normalized
 
 
-def _validate_positive_int(name: str, value: int) -> int:
+def _validate_positive_int(name: str, value: int | float) -> int:
     if isinstance(value, bool):
         raise ValueError(f"{name} must be an integer >= 1.")
     try:
@@ -174,11 +173,10 @@ class PGDAttack(FGSMAttack):
             for step_idx in range(self.steps):
                 x_adv = x_adv.detach().requires_grad_(True)
                 torch_model.zero_grad(set_to_none=True)
-                with torch.inference_mode(False):
-                    with torch.enable_grad():
-                        outputs = torch_model(x_adv)
-                        loss = self._compute_loss(outputs, image=x_adv, target=target)
-                        loss.backward()
+                with torch.inference_mode(False), torch.enable_grad():
+                    outputs = torch_model(x_adv)
+                    loss = self._compute_loss(outputs, image=x_adv, target=target)
+                    loss.backward()
                 if x_adv.grad is None:
                     raise RuntimeError("PGD failed: gradients are unavailable.")
                 grad = x_adv.grad
@@ -201,15 +199,14 @@ class PGDAttack(FGSMAttack):
                 )
                 x_adv = torch.clamp(x0 + delta, 0.0, 1.0).detach()
 
-            with torch.inference_mode(False):
-                with torch.enable_grad():
-                    final = x_adv.detach().requires_grad_(True)
-                    outputs = torch_model(final)
-                    final_loss = self._compute_loss(
-                        outputs,
-                        image=final,
-                        target=target,
-                    ).detach()
+            with torch.inference_mode(False), torch.enable_grad():
+                final = x_adv.detach().requires_grad_(True)
+                outputs = torch_model(final)
+                final_loss = self._compute_loss(
+                    outputs,
+                    image=final,
+                    target=target,
+                ).detach()
             if best_loss is None or final_loss.item() > best_loss.item():
                 best_loss = final_loss
                 best_adv = x_adv

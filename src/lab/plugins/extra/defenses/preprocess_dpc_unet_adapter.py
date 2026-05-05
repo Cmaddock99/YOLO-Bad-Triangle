@@ -56,6 +56,7 @@ class _BaseCDogAdapter(BaseDefense):
     normalize: bool = False
     device: str = "cpu"
     name: str = ""
+    _stage_name: str = field(default="", init=False, repr=False)
     _model: DPCUNet = field(init=False, repr=False)
     _cfg: WrapperInputConfig = field(init=False, repr=False)
     _loaded: bool = field(default=False, init=False, repr=False)

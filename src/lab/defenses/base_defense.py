@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
@@ -22,9 +21,9 @@ class BaseDefense(ABC):
     @abstractmethod
     def postprocess(
         self,
-        predictions: Sequence[PredictionRecord],
+        predictions: list[PredictionRecord],
         **kwargs: Any,
-    ) -> tuple[Sequence[PredictionRecord], dict[str, Any]]:
+    ) -> tuple[list[PredictionRecord], dict[str, Any]]:
         """Return `(processed_predictions, metadata)` after model inference."""
 
     def checkpoint_provenance(self) -> list[dict[str, str]]:

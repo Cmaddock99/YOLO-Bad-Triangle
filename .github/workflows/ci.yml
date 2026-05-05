@@ -26,10 +26,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-          pip install "ruff==0.15.8"
+          pip install "ruff==0.15.12"
 
       - name: Run repo quality gate
-        run: python scripts/ci/run_repo_quality_gate.py --lane ci
+        env:
+          QUALITY_GATE_LANE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'full' || 'ci' }}
+        run: python scripts/ci/run_repo_quality_gate.py --lane $QUALITY_GATE_LANE
 
       - name: Enforce required metrics_summary.csv and print metrics
         run: |

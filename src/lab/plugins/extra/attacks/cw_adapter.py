@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 
 from lab.attacks.base_attack import BaseAttack
-from lab.attacks.fgsm_adapter import FGSMAttack
+from lab.plugins.core.attacks.fgsm_adapter import FGSMAttack
 from lab.attacks.framework_registry import register_attack_plugin
 from lab.config.contracts import PIXEL_MAX
 
@@ -68,14 +68,13 @@ class CWAttack(FGSMAttack):
                 count += int((conf > _DETECTION_CONF_THRESHOLD).sum().item())
         return count
 
-    def _apply_to_tensor(
+    def _apply_to_tensor(  # type: ignore[override]
         self,
         x_orig: torch.Tensor,
         torch_model: torch.nn.Module,
     ) -> tuple[torch.Tensor, dict[str, Any]]:
-        with torch.no_grad():
-            with torch.inference_mode(False):
-                baseline_out = torch_model(x_orig)
+        with torch.no_grad(), torch.inference_mode(False):
+            baseline_out = torch_model(x_orig)
         baseline_det = self._count_detections(baseline_out)
         if baseline_det == 0:
             LOGGER.debug("CW skipping: no baseline detections.")
@@ -105,9 +104,8 @@ class CWAttack(FGSMAttack):
                 x_adv = (torch.tanh(w_var) * 0.5 + 0.5).contiguous()
 
                 torch_model.zero_grad(set_to_none=True)
-                with torch.inference_mode(False):
-                    with torch.enable_grad():
-                        outputs = torch_model(x_adv)
+                with torch.inference_mode(False), torch.enable_grad():
+                    outputs = torch_model(x_adv)
 
                 l2_sq = ((x_adv - x_orig) ** 2).sum()
                 attack_loss = self._compute_loss(outputs, image=x_adv)
