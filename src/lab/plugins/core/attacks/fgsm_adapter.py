@@ -19,6 +19,7 @@ from lab.config.contracts import (
     PIXEL_MAX,
 )
 
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -185,10 +186,11 @@ class FGSMAttack:
         image = base_image.clone().detach().requires_grad_(True)
 
         torch_model.zero_grad(set_to_none=True)
-        with torch.inference_mode(False), torch.enable_grad():
-            outputs = torch_model(image)
-            loss = self._compute_loss(outputs, image=image, target=target)
-            loss.backward()
+        with torch.inference_mode(False):
+            with torch.enable_grad():
+                outputs = torch_model(image)
+                loss = self._compute_loss(outputs, image=image, target=target)
+                loss.backward()
 
         if image.grad is None:
             raise RuntimeError("FGSM failed: image gradients are unavailable.")

@@ -10,7 +10,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 # watch_cycle.py depends on `rich` for its TUI output. Stub it out so tests
 # can exercise the pure-logic helpers without requiring the package.
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock  # noqa: E402
 
 for _mod in (
     "rich", "rich.box", "rich.columns", "rich.console", "rich.live",
@@ -26,7 +26,7 @@ for _mod in (
                        "Theme", "Columns", "box", "SIMPLE", "ROUNDED"):
             setattr(_m, _name, MagicMock)
 
-from scripts import watch_cycle
+from scripts import watch_cycle  # noqa: E402
 
 
 class WatchCycleTest(unittest.TestCase):

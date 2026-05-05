@@ -119,7 +119,9 @@ class BlindPatchRecoverDefenseAdapter(BaseDefense):
         total_pixels = int(image.shape[0] * image.shape[1])
         min_area_px = max(1, round(total_pixels * self.min_area_frac))
         max_area_px = max(min_area_px, round(total_pixels * self.max_area_frac))
-        component_count, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned_mask, connectivity=8)
+        component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
+            cleaned_mask, connectivity=8
+        )
 
         best_label = 0
         best_score = -1.0

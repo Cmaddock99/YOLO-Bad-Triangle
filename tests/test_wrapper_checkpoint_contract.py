@@ -6,11 +6,7 @@ from pathlib import Path
 
 import torch
 
-from lab.defenses.dpc_unet_wrapper import (
-    DPCUNet,
-    load_checkpoint_state_dict,
-    strict_load_with_report,
-)
+from lab.defenses.dpc_unet_wrapper import DPCUNet, load_checkpoint_state_dict, strict_load_with_report
 
 
 class WrapperCheckpointContractTests(unittest.TestCase):

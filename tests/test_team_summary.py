@@ -12,6 +12,7 @@ from lab.reporting.team_summary import (
     write_team_summary,
 )
 
+
 CSV_HEADER = [
     "run_name",
     "run_dir",

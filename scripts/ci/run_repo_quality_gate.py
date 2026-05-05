@@ -88,7 +88,19 @@ def _build_lane_commands(python_bin: str, lane: str) -> list[list[str]]:
                 python_bin, "-m", "radon", "mi",
                 "scripts/automation/auto_cycle.py",
             ],
-            [python_bin, "-m", "pip_audit"],
+            # torch.load was addressed by the torch upgrade. Keep only these two
+            # temporary PyTorch waivers because the repo does not use the affected
+            # APIs, the advisories are disputed/local-scope, and this audit was
+            # verified on Darwin arm64 with no CUDA.
+            [
+                python_bin,
+                "-m",
+                "pip_audit",
+                "--ignore-vuln",
+                "CVE-2025-2953",
+                "--ignore-vuln",
+                "CVE-2025-3730",
+            ],
         ]
     )
     return commands

@@ -6,12 +6,6 @@ supported for existing imports.
 """
 
 from . import framework_comparison
-from .aggregate import (
-    build_auto_summary_payload,
-    evaluate_warnings,
-    render_auto_summary_markdown,
-    write_auto_summary,
-)
 from .framework import (
     FrameworkRunRecord,
     build_comparison_rows,
@@ -27,22 +21,23 @@ from .local import (
     render_team_summary_markdown,
     write_team_summary,
 )
+from .aggregate import build_auto_summary_payload, evaluate_warnings, render_auto_summary_markdown, write_auto_summary
 
 __all__ = [
     "FrameworkRunRecord",
-    "build_auto_summary_payload",
-    "build_comparison_rows",
-    "build_team_summary_payload",
     "discover_framework_runs",
+    "write_summary_csv",
+    "build_comparison_rows",
+    "render_markdown_report",
+    "generate_summary",
+    "build_team_summary_payload",
+    "render_team_summary_markdown",
+    "write_team_summary",
+    "normalize_name",
+    "is_none_like",
+    "build_auto_summary_payload",
+    "render_auto_summary_markdown",
+    "write_auto_summary",
     "evaluate_warnings",
     "framework_comparison",
-    "generate_summary",
-    "is_none_like",
-    "normalize_name",
-    "render_auto_summary_markdown",
-    "render_markdown_report",
-    "render_team_summary_markdown",
-    "write_auto_summary",
-    "write_summary_csv",
-    "write_team_summary",
 ]

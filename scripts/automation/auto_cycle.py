@@ -47,13 +47,12 @@ Loop mode:
 from __future__ import annotations
 
 import argparse
-import contextlib
 import fcntl
 import json
 import os
 import re
-import shutil
 import signal
+import shutil
 import subprocess
 import sys
 import time
@@ -62,8 +61,6 @@ from pathlib import Path
 
 from lab.config.profiles import (
     authoritative_metric as resolved_authoritative_metric,
-)
-from lab.config.profiles import (
     build_profile_config,
     learned_defense_compatibility,
     profile_canonical_attacks,
@@ -974,7 +971,7 @@ def _three_point_scan(
         lo, hi = spec["min"], spec["max"]
         mid = (lo + hi) / 2.0
         if spec["scale"] in ("int", "odd_int"):
-            mid = round(mid)
+            mid = int(round(mid))
             if spec["scale"] == "odd_int" and mid % 2 == 0:
                 mid += 1
 
@@ -1095,7 +1092,7 @@ def _run_and_score_defense_multi(
 ) -> float:
     """Score a defense against multiple attacks, returning the average recovery."""
     scores = []
-    for attack, atk_comp in zip(attacks, attack_composites, strict=False):
+    for attack, atk_comp in zip(attacks, attack_composites):
         name = f"{run_name_prefix}_vs_{attack}"
         s = _run_and_score_defense(attack, defense, params, name,
                                    runs_root, baseline_conf, baseline_det, atk_comp)
@@ -1137,7 +1134,7 @@ def _coordinate_descent(label, param_space, score_fn, run_prefix,
     current_steps: dict[str, float] = {
         k: _initial_step(spec) for k, spec in param_space.items()
     }
-    momentum: dict[str, int] = dict.fromkeys(param_space, 0)
+    momentum: dict[str, int] = {k: 0 for k in param_space}
     pass_gains: list[float] = []
 
     for iteration in range(1, _max_iters + 1):
@@ -1431,8 +1428,8 @@ def phase3(state: dict) -> bool:
 
         existing = tune_history.get(f"defense_{defense}", [])
 
-        def _def_score(params, name, _anchors=list(anchor_attacks), _d=defense,  # noqa: B006
-                       _bc=baseline_conf, _bd=baseline_det, _acs=list(attack_composites)):  # noqa: B006
+        def _def_score(params, name, _anchors=list(anchor_attacks), _d=defense,
+                       _bc=baseline_conf, _bd=baseline_det, _acs=list(attack_composites)):
             return _run_and_score_defense_multi(
                 _anchors, _d, params, name, runs_root, _bc, _bd, _acs)
 
@@ -1712,7 +1709,7 @@ def _update_cycle_report() -> None:
         if spec and spec.loader:
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)  # type: ignore[union-attr]
-            _csv_path, md_path = mod.generate_reports()
+            csv_path, md_path = mod.generate_reports()
             log(f"Cycle report updated: {md_path}")
     except Exception as exc:
         log(f"[warn] _update_cycle_report failed (non-fatal): {exc}")
@@ -1737,9 +1734,8 @@ def _write_training_signal(state: dict, validation_results: dict) -> None:
             """Return subset of full where the defense plugin has is_trainable=True.
             Falls back to full dict if registry unavailable or no trainable entries found."""
             try:
-                from lab.defenses.framework_registry import (
-                    get_defense_plugin,
-                    list_available_defense_plugins,
+                from lab.defenses.framework_registry import (  # noqa: PLC0415
+                    list_available_defense_plugins, get_defense_plugin,
                 )
                 list_available_defense_plugins()  # trigger lazy adapter discovery
                 trainable = {d: v for d, v in full.items()
@@ -2008,7 +2004,7 @@ def git_pull() -> None:
             # its own lock cleanly via a separate file description.
             if "Already up to date" not in result.stdout:
                 log("git_pull: new code merged — restarting process to load changes")
-                _os.execv(sys.executable, [sys.executable, *sys.argv])
+                _os.execv(sys.executable, [sys.executable] + sys.argv)
         else:
             log(f"git_pull: failed — {result.stderr.strip()}")
     except Exception as exc:
@@ -2066,7 +2062,7 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
         paths_to_add.append(str(report_dir))
 
     try:
-        subprocess.run(["git", "add", *paths_to_add], cwd=str(REPO), check=True)
+        subprocess.run(["git", "add"] + paths_to_add, cwd=str(REPO), check=True)
         diff = subprocess.run(
             ["git", "diff", "--cached", "--quiet"], cwd=str(REPO)
         )
@@ -2121,7 +2117,7 @@ def git_commit_phase(state: dict, phase_num: int) -> None:
         )
 
         commit_result = subprocess.run(
-            ["git", "commit-tree", tree_hash, *parent_args, "-m", "\n".join(msg_lines)],
+            ["git", "commit-tree", tree_hash] + parent_args + ["-m", "\n".join(msg_lines)],
             cwd=str(REPO), check=True, capture_output=True, text=True,
         )
         commit_hash = commit_result.stdout.strip()
@@ -2191,7 +2187,7 @@ def git_push_results(state: dict) -> None:
 
     try:
         # Stage only cycle history + reports (not raw run data)
-        subprocess.run(["git", "add", *paths_to_add], cwd=str(REPO), check=True)
+        subprocess.run(["git", "add"] + paths_to_add, cwd=str(REPO), check=True)
 
         # Check if there's anything staged
         result = subprocess.run(
@@ -2405,7 +2401,7 @@ def main() -> None:
     load_warm_start()
 
     # Exclusive lock — prevents concurrent execution (cron restart safety)
-    lock_fd = open(LOCK_FILE, "w")  # noqa: SIM115 — must stay open to hold fcntl lock
+    lock_fd = open(LOCK_FILE, "w")
     try:
         fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
@@ -2498,8 +2494,10 @@ def main() -> None:
     finally:
         fcntl.flock(lock_fd, fcntl.LOCK_UN)
         lock_fd.close()
-        with contextlib.suppress(FileNotFoundError):
+        try:
             LOCK_FILE.unlink()
+        except FileNotFoundError:
+            pass
 
 
 if __name__ == "__main__":

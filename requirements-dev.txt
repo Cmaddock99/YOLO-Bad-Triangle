@@ -2,13 +2,13 @@
 # Install after requirements.txt: pip install -r requirements-dev.txt
 
 # Test runner
-pytest>=7.4.0,<9.0.0
+pytest==9.0.3
 
 # Type checking
 mypy>=1.8.0,<2.0.0
 
 # Linting and formatting
-ruff>=0.3.0,<1.0.0
+ruff==0.15.12
 
 # Test coverage
 pytest-cov>=5.0.0,<6.0.0
@@ -16,6 +16,10 @@ coverage>=7.0.0,<8.0.0
 
 # Pre-commit hooks
 pre-commit>=3.7.0,<4.0.0
+
+# Upgrade the venv bootstrap installer during clean rebuilds so pip-audit
+# evaluates the pinned toolchain instead of the stdlib-seeded pip 24.0.
+pip==26.1.1
 
 # Dead code scanning (informational — plugin adapters are dynamically loaded, whitelist required)
 vulture>=2.11.0,<3.0.0

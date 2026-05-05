@@ -18,11 +18,9 @@ from typing import Any, cast
 import cv2
 import numpy as np
 import torch
-import yaml
 from tqdm import tqdm
+import yaml
 
-from lab.attacks.framework_registry import list_available_attack_plugins
-from lab.attacks.utils import iter_images
 from lab.config.contracts import (
     CURRENT_PIPELINE_TRANSFORM_ORDER,
     FRAMEWORK_METRICS_SCHEMA_VERSION,
@@ -30,6 +28,8 @@ from lab.config.contracts import (
     PIPELINE_SEMANTIC_ATTACK_THEN_DEFENSE,
 )
 from lab.config.profiles import resolve_framework_config, should_include_extra_plugins
+from lab.attacks.framework_registry import list_available_attack_plugins
+from lab.attacks.utils import iter_images
 from lab.defenses.framework_registry import list_available_defense_plugins
 from lab.eval.framework_metrics import (
     VALIDATION_STATUS_VALUES,
@@ -37,30 +37,22 @@ from lab.eval.framework_metrics import (
     summarize_prediction_metrics,
     validation_status,
 )
-from lab.eval.prediction_schema import PredictionRecord, validate_prediction_records
 from lab.eval.prediction_utils import write_predictions_jsonl
+from lab.eval.prediction_schema import PredictionRecord, validate_prediction_records
 from lab.models.framework_registry import build_model, list_available_models
 from lab.plugins import build_plugin_inventory
-from lab.runners.cli_utils import apply_override, as_mapping, load_yaml_mapping, sanitize_segment
 from lab.runners.run_intent import (
     build_attack_signature as _build_attack_signature,
-)
-from lab.runners.run_intent import (
-    build_defense_signature as _build_defense_signature,
-)
-from lab.runners.run_intent import (
     build_run_intent,
+    build_defense_signature as _build_defense_signature,
     config_fingerprint_sha256,
+    normalized_config_for_output as _normalized_config_for_output,  # noqa: F401 — re-exported for tests
     resolve_attack_instance,
     resolve_defense_instance,
     resolved_config_yaml_text,
-)
-from lab.runners.run_intent import (
-    normalized_config_for_output as _normalized_config_for_output,  # noqa: F401 — re-exported for tests
-)
-from lab.runners.run_intent import (
     resolved_reporting_context as _resolved_reporting_context,
 )
+from lab.runners.cli_utils import apply_override, as_mapping, load_yaml_mapping, sanitize_segment
 
 
 def _collect_images(source_dir: Path, max_images: int) -> list[Path]:
@@ -293,7 +285,7 @@ class UnifiedExperimentRunner:
     config_path: Path | None = None
 
     @classmethod
-    def from_yaml(cls, config_path: Path) -> UnifiedExperimentRunner:
+    def from_yaml(cls, config_path: Path) -> "UnifiedExperimentRunner":
         return cls(config=load_yaml_mapping(config_path), config_path=config_path)
 
     def _resolve_run_dir(self) -> Path:

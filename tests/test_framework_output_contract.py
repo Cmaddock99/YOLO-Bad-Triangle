@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import dataclass
 import hashlib
 import io
 import json
@@ -9,15 +10,14 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
 import cv2
 import numpy as np
-import yaml
 from PIL import Image
+import yaml
 
 from lab.runners import run_experiment
 from lab.runners.run_experiment import UnifiedExperimentRunner, _assert_metrics_payload_contract
@@ -221,8 +221,9 @@ class FrameworkOutputContractTests(unittest.TestCase):
         buffer = io.StringIO()
         argv = ["run_experiment.py", "--list-plugins"]
 
-        with patch.object(sys, "argv", argv), redirect_stdout(buffer):
-            run_experiment.main()
+        with patch.object(sys, "argv", argv):
+            with redirect_stdout(buffer):
+                run_experiment.main()
 
         payload = json.loads(buffer.getvalue())
         self.assertIn("models", payload)

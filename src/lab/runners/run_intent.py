@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import dataclasses
 import hashlib
 import json
-from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
@@ -14,8 +14,6 @@ from lab.attacks.framework_registry import build_attack_plugin
 from lab.config.contracts import REPORTING_CONTEXT_KEYS
 from lab.config.profiles import (
     authoritative_metric as resolved_authoritative_metric,
-)
-from lab.config.profiles import (
     pipeline_profile_name,
     resolve_profile_compatibility,
     should_include_extra_plugins,

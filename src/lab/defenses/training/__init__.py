@@ -2,10 +2,10 @@ from .feature_loss import FeatureLossConfig, YOLOFeatureExtractor, yolo_feature_
 from .losses import CompositeLossWeights, composite_denoising_loss, sobel_edges
 
 __all__ = [
-    "CompositeLossWeights",
     "FeatureLossConfig",
     "YOLOFeatureExtractor",
+    "yolo_feature_matching_loss",
+    "CompositeLossWeights",
     "composite_denoising_loss",
     "sobel_edges",
-    "yolo_feature_matching_loss",
 ]

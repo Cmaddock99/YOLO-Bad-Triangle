@@ -109,9 +109,7 @@ class RepoStructureCompatTest(unittest.TestCase):
 
     def test_reporting_umbrella_still_exports_render_markdown_report(self) -> None:
         from lab.reporting import render_markdown_report
-        from lab.reporting.framework import (
-            render_markdown_report as framework_render_markdown_report,
-        )
+        from lab.reporting.framework import render_markdown_report as framework_render_markdown_report
 
         self.assertIs(render_markdown_report, framework_render_markdown_report)
 

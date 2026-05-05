@@ -7,8 +7,8 @@ from pathlib import Path
 from unittest import mock
 
 import numpy as np
-import torch
 from PIL import Image
+import torch
 
 from lab.attacks.framework_registry import build_attack_plugin, list_available_attack_plugins
 
@@ -529,15 +529,14 @@ class WS4AttackCorrectnessTest(unittest.TestCase):
 
     def test_detection_conf_threshold_constant_visible(self) -> None:
         """_DETECTION_CONF_THRESHOLD must be a named constant in both square and cw modules."""
-        from lab.attacks import cw_adapter, square_adapter
+        from lab.attacks import square_adapter, cw_adapter
         self.assertEqual(square_adapter._DETECTION_CONF_THRESHOLD, 0.1)
         self.assertEqual(cw_adapter._DETECTION_CONF_THRESHOLD, 0.1)
 
     def test_fgsm_uses_contract_objective_constants(self) -> None:
         """FGSM loss function must branch on contract constants, not raw string literals."""
-        import inspect
-
         import lab.attacks.fgsm_adapter as fgsm_mod
+        import inspect
         source = inspect.getsource(fgsm_mod.FGSMAttack._compute_loss)
         # Must reference the contract constant, not the bare string
         self.assertIn("ATTACK_OBJECTIVE_TARGET_CLASS", source)
@@ -547,9 +546,8 @@ class WS4AttackCorrectnessTest(unittest.TestCase):
 
     def test_deepfool_uses_contract_objective_constants(self) -> None:
         """DeepFool _detection_confidence must use contract constants, not raw strings."""
-        import inspect
-
         import lab.attacks.deepfool_adapter as df_mod
+        import inspect
         source = inspect.getsource(df_mod.DeepFoolAttack._detection_confidence)
         self.assertIn("ATTACK_OBJECTIVE_TARGET_CLASS", source)
         self.assertIn("ATTACK_OBJECTIVE_CLASS_HIDE", source)

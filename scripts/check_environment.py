@@ -268,7 +268,10 @@ def check_model_weights(model_path: str | None) -> CheckResult:
     if resolved is not None:
         return CheckResult("YOLO model found", True, detail=str(resolved))
 
-    missing_target = model_path or ", ".join(DEFAULT_MODEL_CANDIDATES)
+    if model_path:
+        missing_target = model_path
+    else:
+        missing_target = ", ".join(DEFAULT_MODEL_CANDIDATES)
 
     return CheckResult(
         "YOLO model missing",

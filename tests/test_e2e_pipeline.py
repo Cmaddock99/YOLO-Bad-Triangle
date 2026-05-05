@@ -20,8 +20,8 @@ Skip conditions:
 from __future__ import annotations
 
 import json
-import shutil
 import sys
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -33,8 +33,8 @@ sys.path.insert(0, str(ROOT / "src"))
 import cv2
 import numpy as np
 
-from lab.eval.derived_metrics import compute_defense_recovery, compute_detection_drop
 from lab.runners.run_experiment import UnifiedExperimentRunner
+from lab.eval.derived_metrics import compute_detection_drop, compute_defense_recovery
 
 _YOLO_MODEL = "yolo26n.pt"
 _COCO_DATASET = str(ROOT / "configs/coco_subset500.yaml")
@@ -176,7 +176,7 @@ class EndToEndPipelineTests(unittest.TestCase):
 
     def test_fgsm_attack_modifies_image_pixels(self) -> None:
         """Adversarial images must differ pixel-by-pixel from the clean originals."""
-        orig_path = next(iter(self._source.glob("*.jpg")))
+        orig_path = list(self._source.glob("*.jpg"))[0]
         orig = cv2.imread(str(orig_path))
 
         attacked_imgs = list((self._fgsm_dir / "images").glob("*.jpg"))

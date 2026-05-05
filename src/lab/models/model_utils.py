@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+
 DEFAULT_YOLO_MODEL = "yolo26n.pt"
 
 

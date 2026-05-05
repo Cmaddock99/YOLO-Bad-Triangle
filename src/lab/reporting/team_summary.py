@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import csv
+from datetime import datetime, timezone
 import json
 import os
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
+import sys
 from typing import Any
 
 from lab.eval.framework_metrics import is_validation_success
-
 from .framework_comparison import is_none_like, normalize_name
+
 
 _AUTHORITY_AUTHORITATIVE = "authoritative"
 _AUTHORITY_DIAGNOSTIC = "diagnostic"

@@ -3,12 +3,11 @@ from __future__ import annotations
 import io
 import json
 import os
+from pathlib import Path
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout, suppress
-from pathlib import Path
-from typing import ClassVar
+from contextlib import redirect_stdout
 from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -19,7 +18,7 @@ from scripts import sweep_and_report
 
 
 class _FakeTqdm:
-    instances: ClassVar[list[_FakeTqdm]] = []
+    instances: list["_FakeTqdm"] = []
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         self.args = args
@@ -31,7 +30,7 @@ class _FakeTqdm:
         self.writes: list[str] = []
         _FakeTqdm.instances.append(self)
 
-    def __enter__(self) -> _FakeTqdm:
+    def __enter__(self) -> "_FakeTqdm":
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
@@ -410,8 +409,9 @@ class SweepAndReportScriptTest(unittest.TestCase):
                 "2",
                 "--dry-run",
             ]
-            with patch.object(sys, "argv", argv), redirect_stdout(buffer):
-                sweep_and_report.main()
+            with patch.object(sys, "argv", argv):
+                with redirect_stdout(buffer):
+                    sweep_and_report.main()
             manifest = json.loads((report_root / "sweep_manifest.json").read_text(encoding="utf-8"))
 
         output = buffer.getvalue()
@@ -516,8 +516,9 @@ class SweepAndReportScriptTest(unittest.TestCase):
                 "attack.params.clean_detect_conf=0.6",
                 "--dry-run",
             ]
-            with patch.object(sys, "argv", argv), redirect_stdout(buffer):
-                sweep_and_report.main()
+            with patch.object(sys, "argv", argv):
+                with redirect_stdout(buffer):
+                    sweep_and_report.main()
 
         output = buffer.getvalue()
         self.assertIn("--set attack.params.artifact_path=/tmp/patch.png", output)
@@ -527,7 +528,7 @@ class SweepAndReportScriptTest(unittest.TestCase):
 class WS7SweepNoPagesTest(unittest.TestCase):
     """Item 6: --no-pages passed to dashboard by default; --update-pages suppresses it."""
 
-    _BASE_ARGV: ClassVar[list[str]] = [
+    _BASE_ARGV = [
         "sweep_and_report.py",
         "--config",
         str(REPO_ROOT / "configs/default.yaml"),
@@ -554,11 +555,16 @@ class WS7SweepNoPagesTest(unittest.TestCase):
             return original_run_command(cmd, **kwargs)
 
         with tempfile.TemporaryDirectory() as tmp:
-            argv = [*self._BASE_ARGV, "--runs-root", str(Path(tmp) / "runs"), "--report-root", str(Path(tmp) / "report"), *extra_argv]
+            argv = self._BASE_ARGV + [
+                "--runs-root", str(Path(tmp) / "runs"),
+                "--report-root", str(Path(tmp) / "report"),
+            ] + extra_argv
             with patch.object(sys, "argv", argv):
                 with patch.object(sweep_and_report, "_run_command", side_effect=capturing_run_command):
-                    with suppress(SystemExit):
+                    try:
                         sweep_and_report.main()
+                    except SystemExit:
+                        pass
 
         self.assertTrue(captured, "generate_dashboard.py was never invoked")
         return captured[0]
@@ -593,7 +599,7 @@ class WS7SweepNoPagesTest(unittest.TestCase):
 
 
 class SweepAndReportOptionalExtrasTest(unittest.TestCase):
-    _BASE_ARGV: ClassVar[list[str]] = [
+    _BASE_ARGV = [
         "sweep_and_report.py",
         "--config",
         str(REPO_ROOT / "configs/default.yaml"),
@@ -617,7 +623,12 @@ class SweepAndReportOptionalExtrasTest(unittest.TestCase):
             return original_run_command(cmd, **kwargs)
 
         with tempfile.TemporaryDirectory() as tmp:
-            argv = [*self._BASE_ARGV, "--runs-root", str(Path(tmp) / "runs"), "--report-root", str(Path(tmp) / "report"), *extra_argv]
+            argv = self._BASE_ARGV + [
+                "--runs-root",
+                str(Path(tmp) / "runs"),
+                "--report-root",
+                str(Path(tmp) / "report"),
+            ] + extra_argv
             with patch.object(sys, "argv", argv):
                 with patch.object(sweep_and_report, "_run_command", side_effect=capturing_run_command):
                     sweep_and_report.main()
@@ -626,9 +637,15 @@ class SweepAndReportOptionalExtrasTest(unittest.TestCase):
     def _phase4_stdout(self, extra_argv: list[str]) -> str:
         buffer = io.StringIO()
         with tempfile.TemporaryDirectory() as tmp:
-            argv = [*self._BASE_ARGV, "--runs-root", str(Path(tmp) / "runs"), "--report-root", str(Path(tmp) / "report"), *extra_argv]
-            with patch.object(sys, "argv", argv), redirect_stdout(buffer):
-                sweep_and_report.main()
+            argv = self._BASE_ARGV + [
+                "--runs-root",
+                str(Path(tmp) / "runs"),
+                "--report-root",
+                str(Path(tmp) / "report"),
+            ] + extra_argv
+            with patch.object(sys, "argv", argv):
+                with redirect_stdout(buffer):
+                    sweep_and_report.main()
         return buffer.getvalue()
 
     def test_no_failure_gallery_skips_failure_gallery_command(self) -> None:
@@ -655,7 +672,7 @@ class SweepAndReportOptionalExtrasTest(unittest.TestCase):
 
 
 class SweepAndReportPhase4InProcessTest(unittest.TestCase):
-    _BASE_ARGV: ClassVar[list[str]] = [
+    _BASE_ARGV = [
         "sweep_and_report.py",
         "--config",
         str(REPO_ROOT / "configs/default.yaml"),
@@ -676,7 +693,12 @@ class SweepAndReportPhase4InProcessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             runs_root = Path(tmp) / "runs"
             report_root = Path(tmp) / "report"
-            argv = [*self._BASE_ARGV, "--runs-root", str(runs_root), "--report-root", str(report_root), *extra_argv]
+            argv = self._BASE_ARGV + [
+                "--runs-root",
+                str(runs_root),
+                "--report-root",
+                str(report_root),
+            ] + extra_argv
             with patch.object(sys, "argv", argv):
                 sweep_and_report.main()
             return runs_root.resolve(), report_root.resolve()
@@ -795,7 +817,7 @@ class SweepAndReportPhase4InProcessTest(unittest.TestCase):
 
 
 class SweepAndReportPhase4ProgressTest(unittest.TestCase):
-    _BASE_ARGV: ClassVar[list[str]] = [
+    _BASE_ARGV = [
         "sweep_and_report.py",
         "--config",
         str(REPO_ROOT / "configs/default.yaml"),
@@ -813,7 +835,12 @@ class SweepAndReportPhase4ProgressTest(unittest.TestCase):
     def _phase4_bar_for(self, extra_argv: list[str]) -> _FakeTqdm:
         _FakeTqdm.instances = []
         with tempfile.TemporaryDirectory() as tmp:
-            argv = [*self._BASE_ARGV, "--runs-root", str(Path(tmp) / "runs"), "--report-root", str(Path(tmp) / "report"), *extra_argv]
+            argv = self._BASE_ARGV + [
+                "--runs-root",
+                str(Path(tmp) / "runs"),
+                "--report-root",
+                str(Path(tmp) / "report"),
+            ] + extra_argv
             with patch.object(sys, "argv", argv):
                 with patch.object(sweep_and_report, "tqdm", _FakeTqdm):
                     sweep_and_report.main()

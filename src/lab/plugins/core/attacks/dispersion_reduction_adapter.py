@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -31,6 +32,7 @@ class _DispersionReductionCore:
     ) -> torch.Tensor:
         device = x0.device
         torch_model = torch_model.to(device)
+        model_layers = DispersionReductionAdapter._resolve_model_layers(torch_model)
         torch_model.eval()
         for p in torch_model.parameters():
             p.requires_grad_(False)
@@ -52,14 +54,14 @@ class _DispersionReductionCore:
         handles = []
         try:
             for idx in self.layer_indices:
-                if idx < len(torch_model.model):
-                    handles.append(torch_model.model[idx].register_forward_hook(hook_fn))
+                if idx < len(model_layers):
+                    handles.append(model_layers[idx].register_forward_hook(hook_fn))
 
             if not handles:
                 raise ValueError(
                     f"DispersionReduction: no hooks registered — all layer_indices "
-                    f"{self.layer_indices} exceed model depth {len(torch_model.model)}. "
-                    f"Valid range: 0–{len(torch_model.model) - 1}."
+                    f"{self.layer_indices} exceed model depth {len(model_layers)}. "
+                    f"Valid range: 0–{len(model_layers) - 1}."
                 )
 
             generator: torch.Generator | None = None
@@ -130,11 +132,27 @@ class DispersionReductionAdapter(BaseAttack):
             raise TypeError("DR attack requires a torch.nn.Module-compatible model.")
         return torch_model
 
+    @staticmethod
+    def _resolve_model_layers(torch_model: torch.nn.Module) -> Sequence[torch.nn.Module]:
+        model_layers = getattr(torch_model, "model", None)
+        if isinstance(model_layers, (torch.nn.ModuleList, torch.nn.Sequential)):
+            return list(model_layers)
+        if isinstance(model_layers, list) and all(
+            isinstance(layer, torch.nn.Module) for layer in model_layers
+        ):
+            return model_layers
+        if isinstance(model_layers, tuple) and all(
+            isinstance(layer, torch.nn.Module) for layer in model_layers
+        ):
+            return model_layers
+        raise TypeError("DR attack requires a model with an indexable .model module sequence.")
+
     def _resolve_layer_indices(self, torch_model: torch.nn.Module) -> list[int]:
+        model_layers = self._resolve_model_layers(torch_model)
         if self.layers == "auto":
             indices = [
                 i
-                for i, m in enumerate(torch_model.model)
+                for i, m in enumerate(model_layers)
                 if type(m).__name__ in ("C2f", "C2fAttn", "C2fPSA", "C2fCIB")
             ]
             return indices if indices else [2, 4, 6]
@@ -155,8 +173,11 @@ class DispersionReductionAdapter(BaseAttack):
     @staticmethod
     def _to_image(tensor: torch.Tensor) -> np.ndarray:
         rgb = (
-            tensor.squeeze(0).permute(1, 2, 0).cpu().numpy() * PIXEL_MAX
-        ).clip(0, 255).round().astype(np.uint8)
+            (tensor.squeeze(0).permute(1, 2, 0).cpu().numpy() * PIXEL_MAX)
+            .clip(0, 255)
+            .round()
+            .astype(np.uint8)
+        )
         return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
     def apply(

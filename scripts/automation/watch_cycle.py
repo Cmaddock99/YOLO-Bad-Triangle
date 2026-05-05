@@ -303,7 +303,7 @@ def _format_table(headers: list[str], rows: list[list[str]]) -> str:
     total = sum(widths) + (3 * (len(headers) - 1))
     max_width = max(60, _terminal_width())
     if total > max_width:
-        shrinkable = list(range(len(widths) - 1))
+        shrinkable = [idx for idx in range(len(widths) - 1)]
         while total > max_width and shrinkable:
             idx = max(shrinkable, key=lambda item: widths[item])
             if widths[idx] <= max(len(headers[idx]), 12):
@@ -406,7 +406,9 @@ def _validate_table(run_names: list[str], runs_root: pathlib.Path, progress: dic
                 baseline_map50 = map50
             elif baseline_map50 and isinstance(map50, float):
                 drop = baseline_map50 - map50
-                if drop > 0.25 or drop > 0.1:
+                if drop > 0.25:
+                    map_str = f"{map_str} (-{drop:.3f})"
+                elif drop > 0.1:
                     map_str = f"{map_str} (-{drop:.3f})"
             rows.append([run_name, "done", map_str, str(n)])
             continue

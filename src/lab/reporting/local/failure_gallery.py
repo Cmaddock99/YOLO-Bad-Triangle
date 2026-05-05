@@ -173,8 +173,8 @@ def _select_records(
     for _, defended in sorted(
         ((key, _select_best(group)) for key, group in defended_groups.items()),
         key=lambda item: (
-            normalize_name(item[1].attack if item[1] is not None else ""),
-            normalize_name(item[1].defense if item[1] is not None else ""),
+            normalize_name((item[1].attack if item[1] is not None else "")),
+            normalize_name((item[1].defense if item[1] is not None else "")),
             (item[1].run_name if item[1] is not None else ""),
         ),
     ):

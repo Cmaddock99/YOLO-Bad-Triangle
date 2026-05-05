@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import io
 import json
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
-from pathlib import Path
 from unittest import mock
 
 from scripts import train_from_signal

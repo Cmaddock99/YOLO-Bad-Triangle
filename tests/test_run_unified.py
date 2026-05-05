@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import sys
-import tempfile
 import unittest
 from pathlib import Path
+import sys
+import tempfile
 from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from lab.runners import cli_utils
 from scripts import run_unified
+from lab.runners import cli_utils
 
 
 class RunUnifiedTest(unittest.TestCase):
@@ -293,8 +293,9 @@ class RunUnifiedTest(unittest.TestCase):
             "--profile",
             "yolo11n_lab_v1",
         ]
-        with patch("sys.argv", argv), self.assertRaises(SystemExit) as exit_ctx:
-            run_unified.main()
+        with patch("sys.argv", argv):
+            with self.assertRaises(SystemExit) as exit_ctx:
+                run_unified.main()
         self.assertEqual(int(exit_ctx.exception.code), 2)
 
     def test_sweep_rejects_profile_and_config_together(self) -> None:
@@ -306,8 +307,9 @@ class RunUnifiedTest(unittest.TestCase):
             "--profile",
             "yolo11n_lab_v1",
         ]
-        with patch("sys.argv", argv), self.assertRaises(SystemExit) as exit_ctx:
-            run_unified.main()
+        with patch("sys.argv", argv):
+            with self.assertRaises(SystemExit) as exit_ctx:
+                run_unified.main()
         self.assertEqual(int(exit_ctx.exception.code), 2)
 
     def test_sweep_forwards_no_failure_gallery(self) -> None:

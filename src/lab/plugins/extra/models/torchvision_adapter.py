@@ -82,7 +82,7 @@ class FasterRCNNAdapter(BaseModel):
                 boxes: list[list[float]] = []
                 scores: list[float] = []
                 class_ids: list[int] = []
-                for box, score, label in zip(boxes_raw, scores_raw, labels_raw, strict=False):
+                for box, score, label in zip(boxes_raw, scores_raw, labels_raw):
                     if score >= self.score_threshold:
                         boxes.append([float(v) for v in box])
                         scores.append(float(score))

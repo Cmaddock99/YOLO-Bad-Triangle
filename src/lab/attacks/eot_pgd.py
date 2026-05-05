@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from .objective import AttackObjective
 from .pgd_adapter import PGDAttack, _validate_finite_range, _validate_positive_int
 
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -93,8 +94,8 @@ class EOTPGDAttack(PGDAttack):
     def _random_transform(self, x: torch.Tensor, *, generator: torch.Generator) -> torch.Tensor:
         _, _, h, w = x.shape
         scale = 1.0 + ((2.0 * self._rand_unit(generator) - 1.0) * self.scale_jitter)
-        nh = max(4, round(h * scale))
-        nw = max(4, round(w * scale))
+        nh = max(4, int(round(h * scale)))
+        nw = max(4, int(round(w * scale)))
         y = F.interpolate(x, size=(nh, nw), mode="bilinear", align_corners=False)
         if nh > h:
             top = (nh - h) // 2
@@ -111,10 +112,10 @@ class EOTPGDAttack(PGDAttack):
             pad_right = w - nw - pad_left
             y = F.pad(y, (pad_left, pad_right, 0, 0), mode="replicate")
 
-        max_tx = round(self.translate_frac * w)
-        max_ty = round(self.translate_frac * h)
-        tx = round((2.0 * self._rand_unit(generator) - 1.0) * max_tx)
-        ty = round((2.0 * self._rand_unit(generator) - 1.0) * max_ty)
+        max_tx = int(round(self.translate_frac * w))
+        max_ty = int(round(self.translate_frac * h))
+        tx = int(round((2.0 * self._rand_unit(generator) - 1.0) * max_tx))
+        ty = int(round((2.0 * self._rand_unit(generator) - 1.0) * max_ty))
         if tx or ty:
             y = torch.roll(y, shifts=(ty, tx), dims=(2, 3))
 
@@ -170,19 +171,20 @@ class EOTPGDAttack(PGDAttack):
                 x_adv = x_adv.detach().requires_grad_(True)
                 torch_model.zero_grad(set_to_none=True)
                 loss_sum: torch.Tensor | None = None
-                with torch.inference_mode(False), torch.enable_grad():
-                    for _sample_idx in range(self.eot_samples):
-                        view = self._random_transform(x_adv, generator=generator)
-                        outputs = torch_model(view)
-                        loss = self._compute_loss(outputs, image=view, target=target)
-                        loss_sum = loss if loss_sum is None else (loss_sum + loss)
-                    if loss_sum is None:
-                        raise RuntimeError(
-                            "EOT-PGD: loss_sum is None after EOT loop — "
-                            "check that eot_samples > 0 and the model returns valid outputs"
-                        )
-                    avg_loss = loss_sum / float(self.eot_samples)
-                    avg_loss.backward()
+                with torch.inference_mode(False):
+                    with torch.enable_grad():
+                        for _sample_idx in range(self.eot_samples):
+                            view = self._random_transform(x_adv, generator=generator)
+                            outputs = torch_model(view)
+                            loss = self._compute_loss(outputs, image=view, target=target)
+                            loss_sum = loss if loss_sum is None else (loss_sum + loss)
+                        if loss_sum is None:
+                            raise RuntimeError(
+                                "EOT-PGD: loss_sum is None after EOT loop — "
+                                "check that eot_samples > 0 and the model returns valid outputs"
+                            )
+                        avg_loss = loss_sum / float(self.eot_samples)
+                        avg_loss.backward()
                 if x_adv.grad is None:
                     raise RuntimeError("EOT-PGD failed: gradients are unavailable.")
                 grad = x_adv.grad
@@ -202,10 +204,11 @@ class EOTPGDAttack(PGDAttack):
                 )
                 x_adv = torch.clamp(x0 + delta, 0.0, 1.0).detach()
 
-            with torch.inference_mode(False), torch.enable_grad():
-                final = x_adv.detach().requires_grad_(True)
-                outputs = torch_model(final)
-                final_loss = self._compute_loss(outputs, image=final, target=target).detach()
+            with torch.inference_mode(False):
+                with torch.enable_grad():
+                    final = x_adv.detach().requires_grad_(True)
+                    outputs = torch_model(final)
+                    final_loss = self._compute_loss(outputs, image=final, target=target).detach()
             if best_loss is None or final_loss.item() > best_loss.item():
                 best_loss = final_loss
                 best_adv = x_adv

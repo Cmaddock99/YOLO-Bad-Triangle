@@ -51,15 +51,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 # Feature-loss imports — only resolved when feature_weight > 0, but imported
 # unconditionally so missing dependencies surface at startup, not mid-training.
-from lab.defenses.training.feature_loss import (
+from lab.defenses.training.feature_loss import (  # noqa: E402
     FeatureLossConfig,
     YOLOFeatureExtractor,
     yolo_feature_matching_loss,
 )
-from lab.defenses.training.losses import (
-    CompositeLossWeights,
-    composite_denoising_loss,
-)
+from lab.defenses.training.losses import CompositeLossWeights, composite_denoising_loss  # noqa: E402
 
 DEFAULT_TRAINING_ZIP = "outputs/training_exports/training_data.zip"
 DEFAULT_OUTPUT = "dpc_unet_adversarial_finetuned.pt"
@@ -548,7 +545,6 @@ def train(args: argparse.Namespace) -> None:
             print("WARNING: labels dir not found — detector loss disabled")
         else:
             from types import SimpleNamespace
-
             from ultralytics import YOLO as _YOLO
             yolo_inner = _YOLO(str(yolo_ckpt)).model
             # Build args SimpleNamespace with required loss weights.

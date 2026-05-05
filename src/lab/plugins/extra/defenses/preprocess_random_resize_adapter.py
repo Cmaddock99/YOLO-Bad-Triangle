@@ -32,8 +32,10 @@ class PreprocessRandomResizeDefenseAdapter(BaseDefense):
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:
         del kwargs
         h, w = image.shape[:2]
-        rng = random.Random(self.seed) if self.seed >= 0 else random
-        scale = rng.uniform(self.scale_factor_low, self.scale_factor_high)
+        if self.seed >= 0:
+            scale = random.Random(self.seed).uniform(self.scale_factor_low, self.scale_factor_high)
+        else:
+            scale = random.uniform(self.scale_factor_low, self.scale_factor_high)
         new_h, new_w = max(1, int(h * scale)), max(1, int(w * scale))
         resized = cv2.resize(image, (new_w, new_h))
         padded = cv2.copyMakeBorder(

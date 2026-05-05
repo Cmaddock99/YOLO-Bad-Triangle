@@ -202,10 +202,10 @@ def stage_preflight(
         return _fail(f"config not found: {config_path}")
 
     try:
-        import yaml
+        import yaml  # noqa: PLC0415
         with config_path.open() as fh:
             config_dict = yaml.safe_load(fh)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         return _fail(f"config parse error: {exc}")
 
     if not isinstance(config_dict, dict):
@@ -277,7 +277,7 @@ def stage_validate_runs(
     validation_errors maps run_name → list of error strings (empty = passed).
     """
     from lab.health_checks.artifacts import assert_required_artifacts
-    from lab.health_checks.schema import schema_root_for_repo, validate_framework_json_file
+    from lab.health_checks.schema import validate_framework_json_file, schema_root_for_repo
 
     schema_root = schema_root_for_repo(REPO_ROOT)
     metrics_schema = schema_root / "framework_metrics.schema.json"
@@ -574,7 +574,7 @@ def write_manifest(
             checksums[str(rel)] = _sha256_file(fpath)
 
     try:
-        import torch
+        import torch  # noqa: PLC0415
         torch_version = torch.__version__
     except ImportError:
         torch_version = "unavailable"
@@ -721,7 +721,7 @@ def _build_stage3b_report_regen_command(
 # Main
 # ---------------------------------------------------------------------------
 
-def main() -> int:
+def main() -> int:  # noqa: C901 (acceptable complexity for a pipeline orchestrator)
     args = _parse_args()
     attacks = [a.strip() for a in args.attacks.split(",") if a.strip()]
     defenses = [d.strip() for d in args.defenses.split(",") if d.strip()]
@@ -757,10 +757,10 @@ def main() -> int:
         print("[PREFLIGHT] BYPASSED — skip-preflight set; unsafe for production use", file=sys.stderr)
         config_path = Path(args.config).expanduser().resolve()
         try:
-            import yaml
+            import yaml  # noqa: PLC0415
             with config_path.open() as fh:
                 config_dict = yaml.safe_load(fh) or {}
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print(f"[ERROR] Cannot load config even with --skip-preflight: {exc}", file=sys.stderr)
             return EXIT_PREFLIGHT
         source_dir_raw = (config_dict.get("data") or {}).get("source_dir", "")

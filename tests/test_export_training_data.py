@@ -193,8 +193,9 @@ class ExportTrainingDataTest(unittest.TestCase):
                 "--output-zip",
                 "outputs/training_exports/empty.zip",
             ],
-        ), self.assertRaises(SystemExit) as exit_ctx:
-            export_training_data.main()
+        ):
+            with self.assertRaises(SystemExit) as exit_ctx:
+                export_training_data.main()
 
         self.assertEqual(exit_ctx.exception.code, 2)
         self.assertFalse(output_zip.exists())

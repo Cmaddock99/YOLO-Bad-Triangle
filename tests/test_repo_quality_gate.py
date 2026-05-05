@@ -249,6 +249,87 @@ class RepoQualityGateTest(unittest.TestCase):
         for command in expected_commands:
             self.assertNotIn("scripts/check_environment.py", " ".join(command))
 
+    def test_full_lane_runs_ci_lane_plus_extended_audit_commands(self) -> None:
+        expected_commands = [
+            ["python-custom", "-m", "ruff", "check", "src", "tests", "scripts"],
+            ["python-custom", "-m", "mypy"],
+            ["python-custom", "-m", "pytest", "-q"],
+            ["python-custom", "scripts/ci/check_shim_integrity.py"],
+            [
+                "python-custom",
+                "scripts/run_unified.py",
+                "run-one",
+                "--config",
+                "configs/ci_demo.yaml",
+                "--set",
+                "runner.output_root=outputs/framework_runs/ci",
+                "--set",
+                "runner.run_name=ci_demo",
+            ],
+            [
+                "python-custom",
+                "scripts/ci/validate_outputs.py",
+                "--output-root",
+                "outputs/framework_runs/ci/ci_demo",
+                "--contract-name",
+                "framework_run",
+                "--framework-run-dir",
+                "outputs/framework_runs/ci/ci_demo",
+                "--legacy-compat-csv",
+                "tests/fixtures/schema/valid/legacy_compat.csv",
+                "--require-schema",
+            ],
+            [
+                "python-custom",
+                "scripts/generate_framework_report.py",
+                "--runs-root",
+                "outputs/framework_runs/ci",
+                "--output-dir",
+                "outputs/framework_reports/ci",
+            ],
+            ["python-custom", "scripts/ci/check_tracked_outputs.py"],
+            ["python-custom", "-m", "coverage", "run", "-m", "pytest", "-q"],
+            ["python-custom", "-m", "coverage", "report", "-m"],
+            ["python-custom", "scripts/ci/run_vulture.py"],
+            ["python-custom", "-m", "radon", "cc", "scripts/automation/auto_cycle.py", "-s", "-a"],
+            ["python-custom", "-m", "radon", "mi", "scripts/automation/auto_cycle.py"],
+            [
+                "python-custom",
+                "-m",
+                "pip_audit",
+                "--ignore-vuln",
+                "CVE-2025-2953",
+                "--ignore-vuln",
+                "CVE-2025-3730",
+            ],
+        ]
+
+        with patch.dict(os.environ, {}, clear=True):
+            with (
+                patch("scripts.ci.run_repo_quality_gate._ensure_ci_demo_input") as ensure_demo_mock,
+                patch("scripts.ci.run_repo_quality_gate.subprocess.run") as run_mock,
+            ):
+                run_mock.side_effect = [self._completed(command) for command in expected_commands]
+
+                result = run_repo_quality_gate.main(
+                    ["--lane", "full", "--python-bin", "python-custom"]
+                )
+
+        self.assertEqual(result, 0)
+        ensure_demo_mock.assert_called_once_with(run_repo_quality_gate.REPO_ROOT)
+        self.assertEqual(
+            run_mock.call_args_list,
+            [
+                call(
+                    command,
+                    cwd=run_repo_quality_gate.REPO_ROOT,
+                    env={"PYTHONPATH": "src"},
+                    check=False,
+                )
+                for command in expected_commands
+            ],
+        )
+
     def test_stops_on_first_failure_and_returns_that_exit_code(self) -> None:
         command_one = ["python-fast", "-m", "ruff", "check", "src", "tests", "scripts"]
         command_two = ["python-fast", "-m", "mypy"]

@@ -51,7 +51,12 @@ class OraclePatchRecoverDefenseAdapter(BaseDefense):
         top = attack_metadata.get("top")
         left = attack_metadata.get("left")
         applied_patch_size = attack_metadata.get("applied_patch_size")
-        if top is None or left is None or not isinstance(applied_patch_size, list) or len(applied_patch_size) != 2:
+        if (
+            top is None
+            or left is None
+            or not isinstance(applied_patch_size, list)
+            or len(applied_patch_size) != 2
+        ):
             return None
         patch_h = int(applied_patch_size[0])
         patch_w = int(applied_patch_size[1])
@@ -75,7 +80,9 @@ class OraclePatchRecoverDefenseAdapter(BaseDefense):
 
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:
         attack_metadata = kwargs.get("attack_metadata")
-        mask = self._mask_from_attack_metadata(image, attack_metadata if isinstance(attack_metadata, dict) else None)
+        mask = self._mask_from_attack_metadata(
+            image, attack_metadata if isinstance(attack_metadata, dict) else None
+        )
         if mask is None:
             return image.copy(), adapter_stage_metadata(
                 self._stage_name,

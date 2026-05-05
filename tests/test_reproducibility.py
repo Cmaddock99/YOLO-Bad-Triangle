@@ -37,7 +37,6 @@ class ReproducibilityTest(unittest.TestCase):
     def test_torch_seeding_runs_without_error(self) -> None:
         """Verify torch.manual_seed is called during runner setup without error."""
         import random as _random
-
         import lab.runners.run_experiment  # noqa: F401 — triggers module load
 
         seed = 42

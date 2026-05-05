@@ -948,6 +948,6 @@ generate = generate_dashboard
 
 
 __all__ = [
-    "generate",
     "generate_dashboard",
+    "generate",
 ]
