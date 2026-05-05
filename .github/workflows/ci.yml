@@ -64,3 +64,45 @@ jobs:
           name: plots
           path: outputs/plots/
           if-no-files-found: ignore
+
+  compatibility-python-313:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Prepare environment check fixtures
+        run: |
+          mkdir -p coco/val2017_subset500/images coco/val2017_subset500/labels
+          printf '\x89PNG\r\n\x1a\n' > coco/val2017_subset500/images/smoke.png
+          printf '0 0.5 0.5 0.1 0.1\n' > coco/val2017_subset500/labels/smoke.txt
+          : > yolo26n.pt
+          : > dpc_unet_adversarial_finetuned.pt
+
+      - name: Run environment checker
+        run: python scripts/check_environment.py --require-cdog
+
+      - name: Run dry-run compatibility smoke
+        run: |
+          python scripts/run_unified.py run-one \
+            --profile yolo11n_lab_v1 \
+            --dry-run \
+            --set attack.name=fgsm \
+            --set defense.name=median_preprocess \
+            --set runner.run_name=env_smoke

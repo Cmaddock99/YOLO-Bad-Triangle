@@ -4,10 +4,10 @@ Framework-first lab for **attack → defend → evaluate** runs on Ultralytics Y
 
 ## Quick start
 
-Requires **Python 3.11** (see [`requirements.txt`](requirements.txt)).
+Requires **Python 3.11** by default; **Python 3.13** is also supported (see [`requirements.txt`](requirements.txt)).
 
 ```bash
-python3.11 -m venv .venv
+python3.11 -m venv .venv  # preferred; python3.13 also supported
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 export PYTHONPATH=src       # Windows: set PYTHONPATH=src
