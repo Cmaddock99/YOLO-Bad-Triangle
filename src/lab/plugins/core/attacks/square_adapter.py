@@ -82,8 +82,8 @@ class SquareAttack:
             queries_used = 0
             for step in range(self.n_queries):
                 p = self.p_init * (0.5 ** (step / max(self.n_queries, 1)))
-                sq_h = max(1, int(math.ceil(p * h)))
-                sq_w = max(1, int(math.ceil(p * w)))
+                sq_h = max(1, math.ceil(p * h))
+                sq_w = max(1, math.ceil(p * w))
 
                 top = int(
                     torch.randint(

@@ -9,3 +9,19 @@ mypy>=1.8.0,<2.0.0
 
 # Linting and formatting
 ruff>=0.3.0,<1.0.0
+
+# Test coverage
+pytest-cov>=5.0.0,<6.0.0
+coverage>=7.0.0,<8.0.0
+
+# Pre-commit hooks
+pre-commit>=3.7.0,<4.0.0
+
+# Dead code scanning (informational — plugin adapters are dynamically loaded, whitelist required)
+vulture>=2.11.0,<3.0.0
+
+# Dependency vulnerability scanning
+pip-audit>=2.7.0,<3.0.0
+
+# Complexity metrics (informational — not a hard gate)
+radon>=6.0.0,<7.0.0

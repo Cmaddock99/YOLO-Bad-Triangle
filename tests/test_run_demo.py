@@ -356,7 +356,7 @@ class TestStageNoopCheck(unittest.TestCase):
                 {"run_name": "baseline_none", "attack": "none", "defense": "none"},
                 {"run_name": "attack_fgsm", "attack": "fgsm", "defense": "none"},
             ]
-            code, warnings = run_demo.stage_noop_check(expected, runs_root)
+            code, _warnings = run_demo.stage_noop_check(expected, runs_root)
             self.assertEqual(code, run_demo.EXIT_NOOP)
 
 

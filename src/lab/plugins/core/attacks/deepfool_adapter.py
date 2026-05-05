@@ -20,7 +20,6 @@ from lab.config.contracts import (
 )
 from lab.plugins.core.attacks.fgsm_adapter import FGSMAttack
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -115,13 +114,12 @@ class DeepFoolAttack(FGSMAttack):
         for step in range(self.steps):
             x_hat = torch.clamp(x0 + r_total, 0.0, 1.0).detach().requires_grad_(True)
             torch_model.zero_grad(set_to_none=True)
-            with torch.inference_mode(False):
-                with torch.enable_grad():
-                    outputs = torch_model(x_hat)
-                    f_val = self._detection_confidence(outputs)
-                    if f_val is None:
-                        break
-                    f_val.backward()
+            with torch.inference_mode(False), torch.enable_grad():
+                outputs = torch_model(x_hat)
+                f_val = self._detection_confidence(outputs)
+                if f_val is None:
+                    break
+                f_val.backward()
 
             if x_hat.grad is None:
                 break

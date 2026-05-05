@@ -41,6 +41,7 @@ class RepoQualityGateTest(unittest.TestCase):
                 [str(repo_python), "-m", "ruff", "check", "src", "tests", "scripts"],
                 [str(repo_python), "-m", "mypy"],
                 [str(repo_python), "-m", "pytest", "-q"],
+                [str(repo_python), "scripts/ci/check_shim_integrity.py"],
             ]
 
             with patch.object(run_repo_quality_gate, "REPO_ROOT", repo_root):
@@ -76,6 +77,7 @@ class RepoQualityGateTest(unittest.TestCase):
                 ["python-sys", "-m", "ruff", "check", "src", "tests", "scripts"],
                 ["python-sys", "-m", "mypy"],
                 ["python-sys", "-m", "pytest", "-q"],
+                ["python-sys", "scripts/ci/check_shim_integrity.py"],
             ]
 
             with patch.object(run_repo_quality_gate, "REPO_ROOT", repo_root):
@@ -114,6 +116,7 @@ class RepoQualityGateTest(unittest.TestCase):
                 ["python-custom", "-m", "ruff", "check", "src", "tests", "scripts"],
                 ["python-custom", "-m", "mypy"],
                 ["python-custom", "-m", "pytest", "-q"],
+                ["python-custom", "scripts/ci/check_shim_integrity.py"],
             ]
 
             with patch.object(run_repo_quality_gate, "REPO_ROOT", repo_root):
@@ -150,6 +153,7 @@ class RepoQualityGateTest(unittest.TestCase):
             ["python-fast", "-m", "ruff", "check", "src", "tests", "scripts"],
             ["python-fast", "-m", "mypy"],
             ["python-fast", "-m", "pytest", "-q"],
+            ["python-fast", "scripts/ci/check_shim_integrity.py"],
         ]
 
         with patch.dict(os.environ, {}, clear=True):
@@ -183,6 +187,7 @@ class RepoQualityGateTest(unittest.TestCase):
             ["python-custom", "-m", "ruff", "check", "src", "tests", "scripts"],
             ["python-custom", "-m", "mypy"],
             ["python-custom", "-m", "pytest", "-q"],
+            ["python-custom", "scripts/ci/check_shim_integrity.py"],
             [
                 "python-custom",
                 "scripts/run_unified.py",

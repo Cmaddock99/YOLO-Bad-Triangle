@@ -17,8 +17,6 @@ Use --list-plugins to see all registered attacks and defenses.
 from __future__ import annotations
 
 import argparse
-from contextlib import redirect_stderr, redirect_stdout
-from copy import deepcopy
 import io
 import json
 import os
@@ -27,8 +25,10 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Callable
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import redirect_stderr, redirect_stdout
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -36,6 +36,8 @@ from tqdm import tqdm
 
 from lab.config.profiles import (
     authoritative_metric as resolved_authoritative_metric,
+)
+from lab.config.profiles import (
     pipeline_profile_name,
     profile_canonical_attacks,
     profile_canonical_defenses,
@@ -50,7 +52,6 @@ from lab.runners.cli_utils import (
     with_src_pythonpath,
 )
 from lab.runners.run_intent import build_run_intent, check_run_resume
-
 
 CANONICAL_ATTACK_ALIASES = {
     "gaussian_blur": "blur",
@@ -104,7 +105,7 @@ def _parse_phases(raw: str) -> set[int]:
         try:
             n = int(part)
         except ValueError:
-            raise ValueError(f"Invalid phase {part!r}: phases must be integers (1-4).")
+            raise ValueError(f"Invalid phase {part!r}: phases must be integers (1-4).") from None
         if n not in {1, 2, 3, 4}:
             raise ValueError(f"Invalid phase {n}: must be 1, 2, 3, or 4.")
         phases.add(n)

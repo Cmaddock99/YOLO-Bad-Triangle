@@ -80,14 +80,13 @@ class _DispersionReductionCore:
                 x_req = x_adv.requires_grad_(True)
                 captured.clear()
 
-                with torch.inference_mode(False):
-                    with torch.enable_grad():
-                        torch_model(x_req)
-                        valid = [f for f in captured if f.numel() > 1]
-                        if not valid:
-                            break
-                        var_loss = torch.stack([f.var() for f in valid]).sum()
-                        var_loss.backward()
+                with torch.inference_mode(False), torch.enable_grad():
+                    torch_model(x_req)
+                    valid = [f for f in captured if f.numel() > 1]
+                    if not valid:
+                        break
+                    var_loss = torch.stack([f.var() for f in valid]).sum()
+                    var_loss.backward()
 
                 if x_req.grad is None:
                     break

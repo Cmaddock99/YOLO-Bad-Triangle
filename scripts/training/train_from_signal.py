@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
 import os
 import shlex
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from lab.config.profiles import (
     authoritative_metric as resolved_authoritative_metric,
+)
+from lab.config.profiles import (
     build_profile_config,
     learned_defense_compatibility,
     resolve_profile_compatibility,
@@ -105,7 +107,7 @@ def _read_result_json(path: Path) -> dict[str, Any]:
 _GATE_THRESHOLD = -0.005
 
 
-def _gate_passed(result: "subprocess.CompletedProcess[bytes] | None", payload: dict[str, Any]) -> bool:
+def _gate_passed(result: subprocess.CompletedProcess[bytes] | None, payload: dict[str, Any]) -> bool:
     """Return True only when the subprocess exited 0 AND delta_mAP50 >= _GATE_THRESHOLD.
 
     evaluate_checkpoint.py exits 0 when B >= A (delta >= 0) and exits 1 when

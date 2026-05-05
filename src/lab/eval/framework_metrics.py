@@ -70,7 +70,7 @@ def summarize_prediction_metrics(records: list[PredictionRecord]) -> dict[str, A
 
     per_class_raw: dict[int, dict] = {}
     for record in records:
-        for class_id, raw_score in zip(record.get("class_ids", []), record.get("scores", [])):
+        for class_id, raw_score in zip(record.get("class_ids", []), record.get("scores", []), strict=False):
             cid = int(class_id)
             entry = per_class_raw.setdefault(cid, {"count": 0, "scores": []})
             entry["count"] += 1

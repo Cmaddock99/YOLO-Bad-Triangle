@@ -165,8 +165,7 @@ def evaluate_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
     if not defense_rows_are_diagnostic_only:
         for row in defense_rows:
             key = (str(row.get("attack") or ""), str(row.get("defense") or ""))
-            if key not in recovery_undef_seen:
-                if row.get("mAP50_recovery_normalized") is None and row.get("avg_conf_recovery_normalized") is None:
+            if key not in recovery_undef_seen and row.get("mAP50_recovery_normalized") is None and row.get("avg_conf_recovery_normalized") is None:
                     recovery_undef_seen.add(key)
                     warnings.append(
                         _warn(

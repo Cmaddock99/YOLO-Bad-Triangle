@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from lab.attacks.framework_registry import list_available_attack_plugins
 from lab.config.profiles import (
     profile_canonical_attacks,
@@ -24,7 +26,7 @@ def _intersect_preferred(preferred: list[str], available: list[str]) -> list[str
     return [name for name in preferred if name in available_names]
 
 
-def build_plugin_inventory(profile_name: str = _DEFAULT_PROFILE) -> dict[str, object]:
+def build_plugin_inventory(profile_name: str = _DEFAULT_PROFILE) -> dict[str, Any]:
     attack_aliases = list_available_attack_plugins()
     defense_aliases = list_available_defense_plugins()
     model_aliases = list_available_models()

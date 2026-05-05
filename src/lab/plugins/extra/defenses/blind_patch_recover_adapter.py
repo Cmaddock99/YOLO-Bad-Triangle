@@ -117,8 +117,8 @@ class BlindPatchRecoverDefenseAdapter(BaseDefense):
             )
 
         total_pixels = int(image.shape[0] * image.shape[1])
-        min_area_px = max(1, int(round(total_pixels * self.min_area_frac)))
-        max_area_px = max(min_area_px, int(round(total_pixels * self.max_area_frac)))
+        min_area_px = max(1, round(total_pixels * self.min_area_frac))
+        max_area_px = max(min_area_px, round(total_pixels * self.max_area_frac))
         component_count, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned_mask, connectivity=8)
 
         best_label = 0
@@ -162,7 +162,7 @@ class BlindPatchRecoverDefenseAdapter(BaseDefense):
         if self.dilate_px > 0:
             kernel_size = self.dilate_px * 2 + 1
             dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
-            selected_mask = cv2.dilate(selected_mask, dilate_kernel, iterations=1)
+            selected_mask = cv2.dilate(selected_mask, dilate_kernel, iterations=1)  # type: ignore[assignment]
 
         output = cv2.inpaint(
             image,

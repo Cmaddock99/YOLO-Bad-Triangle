@@ -10,7 +10,6 @@ from unittest import mock
 
 from scripts import run_training_ritual
 
-
 REPO = Path(__file__).resolve().parents[1]
 
 

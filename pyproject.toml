@@ -9,17 +9,35 @@ markers = [
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F"]
-ignore = ["E501"]
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes (undefined names, unused imports)
+  "I",    # isort (import ordering)
+  "B",    # bugbear (mutable defaults, assert False, loop-variable capture, etc.)
+  "UP",   # pyupgrade (modernise Python syntax)
+  "SIM",  # simplify (redundant conditions, unnecessary else)
+  "C4",   # comprehension style
+  "RUF",  # ruff-specific rules
+]
+# ARG (unused arguments) is intentionally excluded: plugin adapters must implement full
+# interface signatures even when a parameter is unused, so ARG produces noise across
+# every adapter in src/lab/plugins/.
+#
+# SIM117 (merge nested with statements) is excluded: 46 cosmetic-only instances with
+# zero bug value — not worth the churn on a codebase that often uses nested `with` for
+# intentional readability grouping.
+#
+# RUF001/002/003 (ambiguous unicode characters) are excluded: this repo uses em dashes
+# (—) intentionally in report strings, presentation labels, and inline comments. The
+# rule would require replacing all of them with ASCII alternatives, which would degrade
+# readability in documentation-facing output code.
+ignore = ["E501", "SIM117", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/*" = ["E402"]
 "tests/*" = ["E402"]
 
 [tool.mypy]
-# Current enforced scope is limited to the paths below. Planned expansion order:
-# keep src/lab/runners stable, then extend to src/lab/plugins, src/lab/config,
-# src/lab/attacks, src/lab/defenses, and finally scripts/automation/auto_cycle.py.
 python_version = "3.11"
 ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
@@ -29,4 +47,43 @@ files = [
     "src/lab/eval",
     "src/lab/reporting",
     "src/lab/runners",
+    "src/lab/plugins",
+    "src/lab/config",
 ]
+
+# Plugin adapter decorators use Generic[T] registry — mypy struggles with the
+# decorator inference pattern. Suppress misc errors on adapters only.
+# Plugin adapter decorators use Generic[T] registry — suppress misc on adapters.
+[[tool.mypy.overrides]]
+module = [
+    "lab.plugins.core.attacks.*",
+    "lab.plugins.core.defenses.*",
+    "lab.plugins.core.models.*",
+    "lab.plugins.extra.attacks.*",
+    "lab.plugins.extra.defenses.*",
+    "lab.plugins.extra.models.*",
+]
+disable_error_code = ["misc"]
+
+# Shim files in src/lab/attacks/ use sys.modules[__name__] = import_module(...)
+# which mypy cannot see through. These are scheduled for retirement (replaced by
+# src/lab/plugins/). Exclude them from type enforcement until migration completes.
+[[tool.mypy.overrides]]
+module = [
+    "lab.attacks.fgsm_edge_mask",
+    "lab.attacks.fgsm_center_mask",
+    "lab.attacks.eot_pgd",
+]
+ignore_errors = true
+
+[tool.coverage.run]
+source = ["src/lab"]
+omit = [
+    "tests/*",
+    "outputs/*",
+    "_deprecated/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

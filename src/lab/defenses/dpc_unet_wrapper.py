@@ -6,8 +6,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
-from torch import Tensor, nn
 import torch.nn.functional as F
+from torch import Tensor, nn
 
 
 def sinusoidal_timestep_embedding(timesteps: Tensor, dim: int = 64) -> Tensor:
@@ -208,7 +208,7 @@ def run_wrapper_on_bgr_image(
     timestep: int | float | Tensor = 100,
     cfg: WrapperInputConfig,
     device: str = "cpu",
-) -> tuple[np.ndarray, dict[str, float | bool | str]]:
+) -> tuple[np.ndarray, dict[str, float | bool]]:
     tensor = image_bgr_to_model_tensor(image_bgr, cfg=cfg).to(device=device)
     model = model.to(device=device)
     model.eval()
@@ -233,7 +233,7 @@ def run_wrapper_multipass_on_bgr_image(
     timestep_schedule: list[float],
     cfg: WrapperInputConfig,
     device: str = "cpu",
-) -> tuple[np.ndarray, dict[str, float | bool | str]]:
+) -> tuple[np.ndarray, dict[str, float | bool]]:
     """Run DPC-UNet multiple times at decreasing timesteps.
 
     Each pass feeds its output into the next, progressively cleaning

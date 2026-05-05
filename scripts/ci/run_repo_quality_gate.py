@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Run the repository quality gate with local and CI-parity lanes.
 
+Lanes
+-----
+fast   ruff + mypy + pytest + shim-integrity check (local dev feedback)
+ci     fast + demo run + output validation + tracked-outputs check (PR gate)
+full   ci + coverage report + vulture + radon + pip-audit (main branch)
+
 When ``--python-bin`` is omitted, subprocesses prefer the repository virtualenv
 interpreter and fall back to the current interpreter only when no repo venv
 exists.
@@ -22,6 +28,7 @@ def _build_lane_commands(python_bin: str, lane: str) -> list[list[str]]:
         [python_bin, "-m", "ruff", "check", "src", "tests", "scripts"],
         [python_bin, "-m", "mypy"],
         [python_bin, "-m", "pytest", "-q"],
+        [python_bin, "scripts/ci/check_shim_integrity.py"],
     ]
     if lane == "fast":
         return commands
@@ -63,6 +70,27 @@ def _build_lane_commands(python_bin: str, lane: str) -> list[list[str]]:
             [python_bin, "scripts/ci/check_tracked_outputs.py"],
         ]
     )
+    if lane == "ci":
+        return commands
+
+    # full lane: everything in ci + coverage + dead-code + complexity + dependency audit
+    commands.extend(
+        [
+            [python_bin, "-m", "coverage", "run", "-m", "pytest", "-q"],
+            [python_bin, "-m", "coverage", "report", "-m"],
+            [python_bin, "scripts/ci/run_vulture.py"],
+            [
+                python_bin, "-m", "radon", "cc",
+                "scripts/automation/auto_cycle.py",
+                "-s", "-a",
+            ],
+            [
+                python_bin, "-m", "radon", "mi",
+                "scripts/automation/auto_cycle.py",
+            ],
+            [python_bin, "-m", "pip_audit"],
+        ]
+    )
     return commands
 
 
@@ -97,11 +125,11 @@ def _resolve_python_bin(explicit_python_bin: str | None) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Run the repository quality gate with a fast lane or CI-parity lane."
+        description="Run the repository quality gate with a fast, ci, or full lane."
     )
     parser.add_argument(
         "--lane",
-        choices=("fast", "ci"),
+        choices=("fast", "ci", "full"),
         default="ci",
         help="Select the quality gate lane to run (default: ci).",
     )
@@ -116,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     python_bin = _resolve_python_bin(args.python_bin)
 
-    if args.lane == "ci":
+    if args.lane in {"ci", "full"}:
         _ensure_ci_demo_input(REPO_ROOT)
 
     env = _build_env()

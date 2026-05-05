@@ -22,6 +22,8 @@ from lab.reporting.aggregate import (
     WARN_NO_VALIDATION,
     build_auto_summary_payload,
     evaluate_warnings,
+)
+from lab.reporting.aggregate import (
     generate_dashboard as generate_dashboard_namespace,
 )
 from lab.reporting.framework import (
@@ -29,24 +31,38 @@ from lab.reporting.framework import (
     build_defense_recovery_rows,
     build_imported_patch_recovery_rows,
     discover_framework_runs,
-    discover_framework_runs as _discover,
-    generate_framework_report as generate_framework_report_namespace,
     render_markdown_report,
     write_summary_csv,
+)
+from lab.reporting.framework import (
+    discover_framework_runs as _discover,
+)
+from lab.reporting.framework import (
+    generate_framework_report as generate_framework_report_namespace,
 )
 from lab.reporting.framework import report_bundle as generate_framework_report
 from lab.reporting.local import (
     build_team_summary_payload,
-    generate_failure_gallery as generate_failure_gallery_namespace,
     generate_summary,
     write_team_summary,
 )
 from lab.reporting.local import failure_gallery as generate_failure_gallery
+from lab.reporting.local import (
+    generate_failure_gallery as generate_failure_gallery_namespace,
+)
 from scripts import (
     generate_dashboard as generate_dashboard_cli,
+)
+from scripts import (
     generate_failure_gallery as generate_failure_gallery_cli,
+)
+from scripts import (
     generate_framework_report as generate_framework_report_cli,
+)
+from scripts import (
     generate_team_summary as generate_team_summary_cli,
+)
+from scripts import (
     print_summary as print_summary_cli,
 )
 
@@ -1628,7 +1644,10 @@ class WS3WarningCorrectnessTest(unittest.TestCase):
         The bug: has_validation was computed AFTER _prefer_authoritative_rows stripped Phase 4
         rows, causing a false NO_VALIDATION warning. The fix computes has_validation first.
         """
-        from lab.config.contracts import REPORTING_AUTHORITY_DIAGNOSTIC, REPORTING_AUTHORITY_AUTHORITATIVE
+        from lab.config.contracts import (
+            REPORTING_AUTHORITY_AUTHORITATIVE,
+            REPORTING_AUTHORITY_DIAGNOSTIC,
+        )
         # One authoritative diagnostic-only smoke row (no validation success)
         authoritative_smoke = {
             "authority": REPORTING_AUTHORITY_AUTHORITATIVE,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -32,7 +33,7 @@ class YOLOModelAdapter(BaseModel):
         if not hasattr(self, "_model"):
             self.load()
 
-    def predict(self, images: list[Path], **kwargs: Any) -> list[PredictionRecord]:
+    def predict(self, images: Iterable[Path], **kwargs: Any) -> list[PredictionRecord]:
         self._ensure_loaded()
         sources = [str(path) for path in images]
         results = self._model.predict(source=sources, save=False, **kwargs)
@@ -49,7 +50,9 @@ class YOLOModelAdapter(BaseModel):
             return {"precision": None, "recall": None, "mAP50": None, "mAP50-95": None}
 
         def _to_float_or_none(val: object) -> float | None:
-            return float(val) if val is not None else None
+            if val is None:
+                return None
+            return float(val)  # type: ignore[arg-type]
 
         return {
             "precision": _to_float_or_none(getattr(box, "mp", None)),

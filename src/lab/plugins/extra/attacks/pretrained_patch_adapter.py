@@ -224,12 +224,12 @@ class PretrainedPatchAttackAdapter(BaseAttack):
     ) -> tuple[np.ndarray, dict[str, Any]]:
         del kwargs
         self._ensure_hwc_uint8(image)
-        patch_bgr = self._fit_patch_to_image(self._base_patch_bgr, image.shape)
+        patch_bgr = self._fit_patch_to_image(self._base_patch_bgr, image.shape)  # type: ignore[arg-type]
         patch_h, patch_w = patch_bgr.shape[:2]
         boxes = self._detect_person_boxes(image, model)
         person_found = bool(boxes)
         if self.placement_mode == PLACEMENT_OFF_OBJECT_FIXED:
-            top, left = self._off_object_position(image.shape, (patch_h, patch_w))
+            top, left = self._off_object_position(image.shape, (patch_h, patch_w))  # type: ignore[arg-type]
             fallback_used = False
         elif person_found:
             x1, y1, x2, y2 = max(

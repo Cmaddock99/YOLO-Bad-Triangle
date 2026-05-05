@@ -3,7 +3,7 @@
 New code should prefer the moved plugin path. The public flat module path
 remains supported.
 """
-from importlib import import_module
 import sys
+from importlib import import_module
 
 sys.modules[__name__] = import_module("lab.plugins.extra.defenses.preprocess_random_resize_adapter")

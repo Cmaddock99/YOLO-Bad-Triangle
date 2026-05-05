@@ -39,11 +39,12 @@ class TorchvisionAdapterTest(unittest.TestCase):
         self.assertIsNotNone(adapter._model)
 
     def test_predict_returns_prediction_records(self) -> None:
-        import torch
         import tempfile
-        import numpy as np
-        import cv2
         from pathlib import Path
+
+        import cv2
+        import numpy as np
+        import torch
 
         adapter = self._make_adapter(pretrained=False, score_threshold=0.0)
         adapter.load()
@@ -75,11 +76,12 @@ class TorchvisionAdapterTest(unittest.TestCase):
 
     def test_class_ids_are_zero_indexed(self) -> None:
         """torchvision uses 1-indexed COCO IDs; adapter must remap to 0-indexed."""
-        import torch
         import tempfile
-        import numpy as np
-        import cv2
         from pathlib import Path
+
+        import cv2
+        import numpy as np
+        import torch
 
         adapter = self._make_adapter(pretrained=False, score_threshold=0.0)
 

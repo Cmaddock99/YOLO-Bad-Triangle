@@ -70,7 +70,7 @@ class OraclePatchRecoverDefenseAdapter(BaseDefense):
         if self.dilate_px > 0:
             kernel_size = self.dilate_px * 2 + 1
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
-            mask = cv2.dilate(mask, kernel, iterations=1)
+            mask = cv2.dilate(mask, kernel, iterations=1)  # type: ignore[assignment]
         return mask
 
     def preprocess(self, image: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, dict[str, Any]]:

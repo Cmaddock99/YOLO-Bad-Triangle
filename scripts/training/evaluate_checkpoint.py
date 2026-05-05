@@ -43,6 +43,8 @@ from pathlib import Path
 
 from lab.config.profiles import (
     authoritative_metric as resolved_authoritative_metric,
+)
+from lab.config.profiles import (
     build_profile_config,
     resolve_profile_compatibility,
 )

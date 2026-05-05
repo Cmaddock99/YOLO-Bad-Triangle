@@ -53,7 +53,7 @@ class AttackObjective:
     roi: tuple[float, float, float, float] | None = None
 
     @classmethod
-    def from_params(cls, params: dict[str, Any]) -> "AttackObjective":
+    def from_params(cls, params: dict[str, Any]) -> AttackObjective:
         mode = str(params.get("objective_mode", ATTACK_OBJECTIVE_UNTARGETED)).strip().lower()
         if mode not in ATTACK_OBJECTIVE_MODES:
             raise ValueError(
@@ -77,7 +77,7 @@ class AttackObjective:
         target_class: int | None = None,
         preserve_weight: float = 0.25,
         attack_roi: tuple[float, float, float, float] | list[float] | str | None = None,
-    ) -> "AttackObjective":
+    ) -> AttackObjective:
         return cls.from_params(
             {
                 "objective_mode": mode,
@@ -100,10 +100,10 @@ class AttackObjective:
         if self.roi is None:
             return None
         x, y, w, h = self.roi
-        left = max(0, min(width, int(round(x * width))))
-        top = max(0, min(height, int(round(y * height))))
-        right = max(left + 1, min(width, int(round((x + w) * width))))
-        bottom = max(top + 1, min(height, int(round((y + h) * height))))
+        left = max(0, min(width, round(x * width)))
+        top = max(0, min(height, round(y * height)))
+        right = max(left + 1, min(width, round((x + w) * width)))
+        bottom = max(top + 1, min(height, round((y + h) * height)))
         mask = torch.zeros((1, 1, height, width), device=device, dtype=torch.float32)
         mask[:, :, top:bottom, left:right] = 1.0
         return mask

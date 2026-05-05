@@ -8,7 +8,6 @@ from typing import Any
 
 import yaml
 
-
 METRIC_KEYS = ("precision", "recall", "mAP50", "mAP50-95")
 PROFILE_DEFAULT_ATTACK = {
     "strict": "fgsm",

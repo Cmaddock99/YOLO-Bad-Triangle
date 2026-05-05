@@ -29,8 +29,8 @@ REPO = Path(__file__).resolve().parents[2]
 OUTPUTS = REPO / "outputs"
 SIGNAL_PATH = OUTPUTS / "cycle_training_signal.json"
 
-from lab.runners.cli_utils import build_repo_python_command, resolve_python_bin  # noqa: E402
-from lab.config.profiles import learned_defense_compatibility  # noqa: E402
+from lab.config.profiles import learned_defense_compatibility
+from lab.runners.cli_utils import build_repo_python_command, resolve_python_bin
 
 
 def _now() -> datetime:

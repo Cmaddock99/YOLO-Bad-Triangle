@@ -6,9 +6,9 @@ public ``scripts/generate_failure_gallery.py`` entrypoint remains supported.
 """
 from __future__ import annotations
 
+import sys
 from importlib import import_module
 from pathlib import Path
-import sys
 
 
 def _load_module():

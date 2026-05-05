@@ -8,9 +8,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from lab.reporting.aggregate import generate_dashboard as generate_dashboard_namespace
 from lab.reporting.aggregate import dashboard as generate_dashboard
-from scripts import auto_cycle, generate_dashboard as generate_dashboard_cli
+from lab.reporting.aggregate import generate_dashboard as generate_dashboard_namespace
+from scripts import auto_cycle
+from scripts import generate_dashboard as generate_dashboard_cli
 
 
 class AutoCycleTrainingSignalTest(unittest.TestCase):
@@ -1268,7 +1269,7 @@ class TuningEngineTest(unittest.TestCase):
             return next(scores, 0.45)
 
         space = {"p": {"init": 10, "min": 1, "max": 100, "scale": "int", "step": 10}}
-        best_params, _, history = auto_cycle._coordinate_descent("test", space, mock_score, "pfx", max_iters=3)
+        _best_params, _, history = auto_cycle._coordinate_descent("test", space, mock_score, "pfx", max_iters=3)
         committed_values = [h["value"] for h in history if h.get("improved") and h["value"] is not None]
         if len(committed_values) >= 2:
             step1 = abs(committed_values[1] - committed_values[0])

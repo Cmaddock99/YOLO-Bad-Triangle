@@ -122,9 +122,9 @@ def bootstrap_paired_ci(
 
     baseline_conf_raw = [_avg_confidence(baseline_records[i]) for i in common_ids]
     attack_conf_raw = [_avg_confidence(attack_records[i]) for i in common_ids]
-    conf_valid_mask = [b is not None and a is not None for b, a in zip(baseline_conf_raw, attack_conf_raw)]
-    baseline_conf = np.array([v for v, ok in zip(baseline_conf_raw, conf_valid_mask) if ok], dtype=float)
-    attack_conf = np.array([v for v, ok in zip(attack_conf_raw, conf_valid_mask) if ok], dtype=float)
+    conf_valid_mask = [b is not None and a is not None for b, a in zip(baseline_conf_raw, attack_conf_raw, strict=False)]
+    baseline_conf = np.array([v for v, ok in zip(baseline_conf_raw, conf_valid_mask, strict=False) if ok], dtype=float)
+    attack_conf = np.array([v for v, ok in zip(attack_conf_raw, conf_valid_mask, strict=False) if ok], dtype=float)
 
     rng = np.random.default_rng(seed)
     n = len(common_ids)

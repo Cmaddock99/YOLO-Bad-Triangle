@@ -6,9 +6,9 @@ New code should prefer ``scripts.demo.run_demo``. The public
 """
 from __future__ import annotations
 
+import sys
 from importlib import import_module
 from pathlib import Path
-import sys
 
 
 def _load_module():

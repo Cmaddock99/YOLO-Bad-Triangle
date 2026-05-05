@@ -67,6 +67,7 @@ class WS6SchemaContractsTest(unittest.TestCase):
     def test_zero_row_csv_fails_validation(self) -> None:
         """validate_legacy_csv_file must raise ValueError on an empty CSV."""
         import tempfile
+
         from lab.health_checks.schema import validate_legacy_csv_file
         with tempfile.TemporaryDirectory() as tmp:
             csv_path = Path(tmp) / "empty.csv"
