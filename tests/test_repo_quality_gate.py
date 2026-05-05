@@ -201,6 +201,14 @@ class RepoQualityGateTest(unittest.TestCase):
             ],
             [
                 "python-custom",
+                "scripts/generate_framework_report.py",
+                "--runs-root",
+                "outputs/framework_runs/ci",
+                "--output-dir",
+                "outputs/framework_reports/ci",
+            ],
+            [
+                "python-custom",
                 "scripts/ci/validate_outputs.py",
                 "--output-root",
                 "outputs/framework_runs/ci/ci_demo",
@@ -211,16 +219,11 @@ class RepoQualityGateTest(unittest.TestCase):
                 "--legacy-compat-csv",
                 "tests/fixtures/schema/valid/legacy_compat.csv",
                 "--require-schema",
-            ],
-            [
-                "python-custom",
-                "scripts/generate_framework_report.py",
-                "--runs-root",
-                "outputs/framework_runs/ci",
-                "--output-dir",
+                "--framework-report-dir",
                 "outputs/framework_reports/ci",
             ],
             ["python-custom", "scripts/ci/check_tracked_outputs.py"],
+            ["python-custom", "scripts/ci/verify_presentation_freeze.py"],
         ]
 
         with patch.dict(os.environ, {}, clear=True):
@@ -268,6 +271,14 @@ class RepoQualityGateTest(unittest.TestCase):
             ],
             [
                 "python-custom",
+                "scripts/generate_framework_report.py",
+                "--runs-root",
+                "outputs/framework_runs/ci",
+                "--output-dir",
+                "outputs/framework_reports/ci",
+            ],
+            [
+                "python-custom",
                 "scripts/ci/validate_outputs.py",
                 "--output-root",
                 "outputs/framework_runs/ci/ci_demo",
@@ -278,16 +289,11 @@ class RepoQualityGateTest(unittest.TestCase):
                 "--legacy-compat-csv",
                 "tests/fixtures/schema/valid/legacy_compat.csv",
                 "--require-schema",
-            ],
-            [
-                "python-custom",
-                "scripts/generate_framework_report.py",
-                "--runs-root",
-                "outputs/framework_runs/ci",
-                "--output-dir",
+                "--framework-report-dir",
                 "outputs/framework_reports/ci",
             ],
             ["python-custom", "scripts/ci/check_tracked_outputs.py"],
+            ["python-custom", "scripts/ci/verify_presentation_freeze.py"],
             ["python-custom", "-m", "coverage", "run", "-m", "pytest", "-q"],
             ["python-custom", "-m", "coverage", "report", "-m"],
             ["python-custom", "scripts/ci/run_vulture.py"],
