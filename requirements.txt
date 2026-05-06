@@ -1,6 +1,7 @@
 # Core YOLO framework and experiment utilities
-# Supported local runtime: Python 3.11.x.
+# Supported local runtimes: Python 3.11.x (default) and 3.13.x.
 # To install: python3.11 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+# Alternate supported install: python3.13 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 # For a reproducible install, use: pip freeze > requirements-lock.txt after installing.
 
 # Ultralytics YOLO implementation and training/inference tooling

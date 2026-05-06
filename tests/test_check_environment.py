@@ -10,14 +10,41 @@ from scripts import check_environment
 
 
 class CheckEnvironmentTest(unittest.TestCase):
-    def test_supported_python_version_passes(self) -> None:
+    def test_python_311_version_passes(self) -> None:
         result = check_environment.check_python_version((3, 11, 9))
+        self.assertTrue(result.ok)
+
+    def test_python_313_version_passes(self) -> None:
+        result = check_environment.check_python_version((3, 13, 2))
         self.assertTrue(result.ok)
 
     def test_unsupported_python_version_fails(self) -> None:
         result = check_environment.check_python_version((3, 12, 1))
         self.assertFalse(result.ok)
-        self.assertIn("Python 3.11.x", result.instruction or "")
+        self.assertIn("Python 3.11.x or 3.13.x", result.instruction or "")
+
+    def test_expected_versions_match_requirements_pins(self) -> None:
+        requirements_path = Path(__file__).resolve().parents[1] / "requirements.txt"
+        pinned_versions: dict[str, str] = {}
+        for raw_line in requirements_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "==" not in line:
+                continue
+            package, version = line.split("==", maxsplit=1)
+            pinned_versions[package] = version
+
+        self.assertEqual(
+            pinned_versions["ultralytics"],
+            check_environment.EXPECTED_ULTRALYTICS_VERSION,
+        )
+        self.assertEqual(
+            pinned_versions["torch"],
+            check_environment.EXPECTED_TORCH_VERSION,
+        )
+        self.assertEqual(
+            pinned_versions["torchvision"],
+            check_environment.EXPECTED_TORCHVISION_VERSION,
+        )
 
     def test_torch_runtime_health_passes_when_probe_succeeds(self) -> None:
         def runner(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -25,7 +52,7 @@ class CheckEnvironmentTest(unittest.TestCase):
             return subprocess.CompletedProcess(
                 args=["python", "-c", "probe"],
                 returncode=0,
-                stdout="2.5.1\n0.20.1\n",
+                stdout="2.6.0\n0.21.0\n",
                 stderr="",
             )
 
@@ -34,7 +61,7 @@ class CheckEnvironmentTest(unittest.TestCase):
             runner=runner,
         )
         self.assertTrue(result.ok)
-        self.assertIn("torch=2.5.1", result.detail or "")
+        self.assertIn("torch=2.6.0", result.detail or "")
 
     def test_torch_runtime_health_fails_when_probe_exits_nonzero(self) -> None:
         def runner(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:

@@ -20,10 +20,11 @@ from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import Any
 
-SUPPORTED_LOCAL_PYTHON = (3, 11)
+SUPPORTED_LOCAL_PYTHONS = ((3, 11), (3, 13))
+DEFAULT_LOCAL_PYTHON = (3, 11)
 EXPECTED_ULTRALYTICS_VERSION = "8.4.23"
-EXPECTED_TORCH_VERSION = "2.5.1"
-EXPECTED_TORCHVISION_VERSION = "0.20.1"
+EXPECTED_TORCH_VERSION = "2.6.0"
+EXPECTED_TORCHVISION_VERSION = "0.21.0"
 TORCH_RUNTIME_TIMEOUT_SECONDS = 30
 DEFAULT_DATASET_PATH = "coco/val2017_subset500/images"
 DEFAULT_MODEL_CANDIDATES = ("yolo26n.pt", "yolo11n.pt", "yolo11s.pt", "yolov8n.pt")
@@ -74,9 +75,10 @@ def parse_args() -> argparse.Namespace:
 
 def _supported_runtime_instruction() -> str:
     return (
-        "Use Python 3.11.x with ultralytics==8.4.23, torch==2.5.1, and "
-        "torchvision==0.20.1. Rebuild `.venv` with `python3.11 -m venv .venv`, "
-        "then reinstall requirements."
+        "Use Python 3.11.x or 3.13.x with ultralytics==8.4.23, torch==2.6.0, "
+        "and torchvision==0.21.0. Prefer Python 3.11.x as the default local "
+        "runtime: rebuild `.venv` with `python3.11 -m venv .venv` (or "
+        "`python3.13 -m venv .venv` when needed), then reinstall requirements."
     )
 
 
@@ -86,13 +88,15 @@ def _coerce_version_info(version_info: Any) -> tuple[int, int, int]:
 
 def check_python_version(version_info: Any | None = None) -> CheckResult:
     current = _coerce_version_info(version_info or sys.version_info)
-    ok = current[:2] == SUPPORTED_LOCAL_PYTHON
+    ok = current[:2] in SUPPORTED_LOCAL_PYTHONS
     detail = (
-        f"found {current[0]}.{current[1]}.{current[2]}; supported local runtime is "
-        f"{SUPPORTED_LOCAL_PYTHON[0]}.{SUPPORTED_LOCAL_PYTHON[1]}.x"
+        f"found {current[0]}.{current[1]}.{current[2]}; supported local runtimes are "
+        f"{SUPPORTED_LOCAL_PYTHONS[0][0]}.{SUPPORTED_LOCAL_PYTHONS[0][1]}.x and "
+        f"{SUPPORTED_LOCAL_PYTHONS[1][0]}.{SUPPORTED_LOCAL_PYTHONS[1][1]}.x "
+        f"(default: {DEFAULT_LOCAL_PYTHON[0]}.{DEFAULT_LOCAL_PYTHON[1]}.x)"
     )
     return CheckResult(
-        "Python 3.11.x supported",
+        "Python 3.11.x or 3.13.x supported",
         ok,
         instruction=None if ok else _supported_runtime_instruction(),
         detail=detail,
@@ -175,7 +179,7 @@ def check_torch_runtime_health(
             instruction=_supported_runtime_instruction(),
             detail=(
                 "probe timed out while importing torch/torchvision; rebuild `.venv` on "
-                "Python 3.11 and reinstall the pinned ML stack."
+                "Python 3.11 or 3.13 and reinstall the pinned ML stack."
             ),
         )
     except OSError as exc:

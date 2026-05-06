@@ -42,13 +42,14 @@ PYTHONPATH=src ./.venv/bin/python scripts/training/run_training_ritual.py --dry-
 
 **Goal**
 
-Make `requirements.txt`, `scripts/check_environment.py`, and `tests/test_check_environment.py` agree on one supported dependency stack.
+Make `requirements.txt`, `scripts/check_environment.py`, and `tests/test_check_environment.py` agree on one supported dependency stack and local runtime contract.
 
 **Source of truth**
 
 - `ultralytics==8.4.23`
-- `torch==2.5.1`
-- `torchvision==0.20.1`
+- `torch==2.6.0`
+- `torchvision==0.21.0`
+- Python `3.11.x` by default, with Python `3.13.x` also supported
 
 **Files to touch**
 
@@ -58,7 +59,6 @@ Make `requirements.txt`, `scripts/check_environment.py`, and `tests/test_check_e
 
 **Do not do**
 
-- no package upgrades
 - no version-range loosening
 - no unrelated environment-check refactor
 

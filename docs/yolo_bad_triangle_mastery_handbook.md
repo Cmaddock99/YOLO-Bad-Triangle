@@ -1843,7 +1843,7 @@ Why this matters:
 
 ### 10.3 The repo quality gate currently carries two explicit PyTorch waivers
 
-The maintained Python 3.11 audit path upgrades `torch` to `2.6.0`, which fixes the critical `torch.load` advisory, but `pip-audit` still runs with two temporary ignores: `CVE-2025-2953` and `CVE-2025-3730`.
+The maintained Python 3.11 default path, plus the supported Python 3.13 compatibility path, both use `torch==2.6.0`, which fixes the critical `torch.load` advisory, but `pip-audit` still runs with two temporary ignores: `CVE-2025-2953` and `CVE-2025-3730`.
 
 Why they are still waived:
 
