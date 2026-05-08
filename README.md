@@ -2,6 +2,8 @@
 
 Framework-first lab for **attack → defend → evaluate** runs on Ultralytics YOLO models: perturb images (attacks), optionally harden inputs or outputs (defenses), run detection, and emit contract-shaped artifacts under `outputs/framework_runs/`.
 
+This public repository contains the code used for a capstone on adversarial robustness for YOLO-based object detection. Historical experiment outputs, notebooks, presentation materials, and private paper-support artifacts are intentionally kept out of the public repo.
+
 ## Quick start
 
 Requires **Python 3.11** by default; **Python 3.13** is also supported (see [`requirements.txt`](requirements.txt)).
@@ -44,16 +46,14 @@ Canonical single-run engine: [`src/lab/runners/run_experiment.py`](src/lab/runne
 
 Canonical implementations live under [`src/lab/plugins/`](src/lab/plugins/) (`core` vs `extra`). Many modules under [`src/lab/attacks/`](src/lab/attacks/) are **thin re-exports** (e.g. `fgsm_adapter.py` → `lab.plugins.core.attacks.fgsm_adapter`) so older import paths keep working. Prefer `lab.plugins…` for new code.
 
-## Docs and quality gates
+## Quality gates
 
-- Narrative and runbooks: [`docs/yolo_bad_triangle_mastery_handbook.md`](docs/yolo_bad_triangle_mastery_handbook.md) and other files in [`docs/`](docs/).
-- **Presenter vocabulary** (triad, fortify, `defense_then_attack` vs runner): [handbook section “Presenter vocabulary: triad, fortify, and pipeline order”](docs/yolo_bad_triangle_mastery_handbook.md#presenter-vocabulary-triad-fortify-and-pipeline-order).
 - Tests: `pytest -q` from repo root with `PYTHONPATH=src`.
 - Artifact + schema gate: [`scripts/ci/validate_outputs.py`](scripts/ci/validate_outputs.py) (metrics, run summary, legacy CSV, **predictions.jsonl** line records, and optional **`framework_run_summary.csv`** under `--framework-report-dir` when passed with `--require-schema`).
 
 ## `outputs/` and version control
 
-Runs write under [`outputs/framework_runs/`](outputs/framework_runs/), sweeps under [`outputs/framework_reports/`](outputs/framework_reports/), and automation under paths like `outputs/cycle_*`. Treat these as **generated artifacts** unless you intentionally freeze a subset for presentations or regression baselines. [`scripts/ci/check_tracked_outputs.py`](scripts/ci/check_tracked_outputs.py) enforces which output paths may be committed.
+Runs write under `outputs/framework_runs/`, sweeps under `outputs/framework_reports/`, and automation under paths like `outputs/cycle_*`. In the public repo these are treated as **generated local artifacts**, not committed deliverables. [`scripts/ci/check_tracked_outputs.py`](scripts/ci/check_tracked_outputs.py) enforces that policy.
 
 ## Dev dependencies
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Local DPC-UNet fine-tuning on adversarial examples (MPS/CPU).
 
-Adapted from notebooks/finetune_dpc_unet.ipynb for local execution on Apple Silicon.
-Trains the DPC-UNet denoising defense on (adversarial, clean) image pairs.
+Trains the DPC-UNet denoising defense on (adversarial, clean) image pairs for
+local execution on Apple Silicon. The original exploratory notebook is kept out
+of the public repository.
 
 Usage:
     export PYTHONPATH=src

@@ -223,7 +223,6 @@ class RepoQualityGateTest(unittest.TestCase):
                 "outputs/framework_reports/ci",
             ],
             ["python-custom", "scripts/ci/check_tracked_outputs.py"],
-            ["python-custom", "scripts/ci/verify_presentation_freeze.py"],
         ]
 
         with patch.dict(os.environ, {}, clear=True):
@@ -293,7 +292,6 @@ class RepoQualityGateTest(unittest.TestCase):
                 "outputs/framework_reports/ci",
             ],
             ["python-custom", "scripts/ci/check_tracked_outputs.py"],
-            ["python-custom", "scripts/ci/verify_presentation_freeze.py"],
             ["python-custom", "-m", "coverage", "run", "-m", "pytest", "-q"],
             ["python-custom", "-m", "coverage", "report", "-m"],
             ["python-custom", "scripts/ci/run_vulture.py"],

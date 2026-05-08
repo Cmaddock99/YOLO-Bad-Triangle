@@ -155,7 +155,7 @@ def main() -> int:
             print(f"  {failure}")
         print(
             f"\n{len(all_failures)} failure(s). "
-            "See docs/yolo_bad_triangle_mastery_handbook.md — plugin migration section."
+            "Use lab.*.framework_registry or lab.plugins.* imports instead of shim paths."
         )
         return 1
 

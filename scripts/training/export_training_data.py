@@ -14,7 +14,8 @@ Output:
     outputs/training_exports/<cycle_id>_training_data.zip  (when --from-signal or called by auto_cycle)
     outputs/training_exports/training_data.zip             (manual fallback)
 
-Upload the zip to your Google Drive root, then open notebooks/finetune_dpc_unet.ipynb in Colab.
+Upload the zip to your training environment of choice. The original Colab
+notebook used during the capstone is kept out of the public repository.
 """
 
 from __future__ import annotations
@@ -246,7 +247,7 @@ def main() -> None:
     print(f"\nDone. {output_zip} ({size_mb:.1f} MB)")
     print("\nNext steps:")
     print(f"  python scripts/train_dpc_unet_local.py --training-zip {output_zip}")
-    print("  (or upload to Google Drive and use notebooks/finetune_dpc_unet.ipynb on Colab)")
+    print("  (or upload to your preferred remote training environment)")
 
 
 if __name__ == "__main__":

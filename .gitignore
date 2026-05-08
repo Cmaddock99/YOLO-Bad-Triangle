@@ -55,6 +55,13 @@ Thumbs.db
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+.private_archive/
+
+# Public repo trim: keep docs/artifacts locally, not in Git
+docs/
+outputs/
+notebooks/
+presentations/
 
 # Local scratch files (do not commit)
 outputs/audi_tracker.md
