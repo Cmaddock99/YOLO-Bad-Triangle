@@ -1,2 +1,0 @@
-run_name,run_dir,model,attack,defense,seed,semantic_order,run_role,dataset_scope,authority,source_phase,pipeline_profile,authoritative_metric,profile_compatibility_status,objective_mode,target_class,attack_roi,attack_artifact,placement_mode,prediction_count,images_with_detections,total_detections,avg_confidence,validation_status,precision,recall,mAP50,mAP50-95
-ci_demo,/Users/lurch/ml-labs/YOLO-Bad-Triangle/outputs/framework_runs/ci/ci_demo,yolo,none,none,42,attack_then_defense,,,,,,,,,,,,,1,0,0,,missing,,,,

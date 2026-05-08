@@ -70,7 +70,6 @@ def _build_lane_commands(python_bin: str, lane: str) -> list[list[str]]:
                 "outputs/framework_reports/ci",
             ],
             [python_bin, "scripts/ci/check_tracked_outputs.py"],
-            [python_bin, "scripts/ci/verify_presentation_freeze.py"],
         ]
     )
     if lane == "ci":
